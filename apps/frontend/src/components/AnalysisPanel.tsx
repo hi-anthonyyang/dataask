@@ -1,0 +1,235 @@
+import { useState } from 'react'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { TrendingUp, Download, Eye, BarChart3 } from 'lucide-react'
+
+interface AnalysisPanelProps {
+  queryResults: any
+  currentQuery: string
+}
+
+export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPanelProps) {
+  const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'chart'>('insights')
+
+  if (!queryResults) {
+    return (
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-border bg-card">
+          <h2 className="font-semibold text-foreground">Analysis & Results</h2>
+          <p className="text-sm text-muted-foreground">Run a query to see results and insights</p>
+        </div>
+
+        {/* Empty State */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
+            <div>
+              <h3 className="text-lg font-medium text-foreground mb-2">Ready for Analysis</h3>
+              <p className="text-muted-foreground max-w-md">
+                Ask a question in the chat panel or write SQL to generate insights, 
+                visualizations, and detailed analysis of your data.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <TrendingUp className="h-4 w-4" />
+                <span>AI Insights</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <BarChart3 className="h-4 w-4" />
+                <span>Auto Charts</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Download className="h-4 w-4" />
+                <span>Export Data</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Generate sample chart data from query results
+  const generateChartData = () => {
+    if (!queryResults?.data || queryResults.data.length === 0) return null
+    
+    // Simple heuristic: if we have numeric data, create a bar chart
+    const firstRow = queryResults.data[0]
+    const numericColumns = Object.keys(firstRow).filter(key => 
+      typeof firstRow[key] === 'number' && key !== 'id'
+    )
+    
+    if (numericColumns.length > 0) {
+      return queryResults.data.slice(0, 10).map((row: any, index: number) => ({
+        name: row.name || row.category || row.city || `Item ${index + 1}`,
+        value: row[numericColumns[0]]
+      }))
+    }
+    return null
+  }
+
+  const chartData = generateChartData()
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header with Tabs */}
+      <div className="border-b border-border bg-card">
+        <div className="p-4 pb-0">
+          <h2 className="font-semibold text-foreground mb-2">Analysis Results</h2>
+          {currentQuery && (
+            <p className="text-sm text-muted-foreground mb-3 truncate">
+              {currentQuery}
+            </p>
+          )}
+        </div>
+        
+        <div className="flex border-b border-border">
+          <button
+            onClick={() => setActiveTab('insights')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'insights'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            AI Insights
+          </button>
+          <button
+            onClick={() => setActiveTab('data')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'data'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Data ({queryResults.rowCount} rows)
+          </button>
+          {chartData && (
+            <button
+              onClick={() => setActiveTab('chart')}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'chart'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Chart
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto scrollbar-thin">
+        {/* AI Insights Tab */}
+        {activeTab === 'insights' && (
+          <div className="p-4 space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-medium text-foreground mb-2 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Key Insights
+              </h3>
+              <p className="text-muted-foreground text-sm">
+                Found {queryResults.rowCount} records. The data shows various patterns 
+                that could be analyzed for business insights. Consider exploring trends 
+                over time or comparing different categories.
+              </p>
+            </div>
+            
+            <div className="bg-card border border-border p-4 rounded-lg">
+              <h4 className="font-medium text-foreground mb-2">Summary Statistics</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Total Records:</span>
+                  <span className="font-medium ml-2">{queryResults.rowCount}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Columns:</span>
+                  <span className="font-medium ml-2">{queryResults.fields.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Data Table Tab */}
+        {activeTab === 'data' && (
+          <div className="p-4">
+            <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      {queryResults.fields.map((field: any) => (
+                        <th key={field.name} className="px-4 py-2 text-left font-medium">
+                          {field.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {queryResults.data.slice(0, 100).map((row: any, index: number) => (
+                      <tr key={index} className="border-t border-border hover:bg-muted/50">
+                        {queryResults.fields.map((field: any) => (
+                          <td key={field.name} className="px-4 py-2">
+                            {row[field.name]?.toString() || ''}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            {queryResults.rowCount > 100 && (
+              <p className="text-muted-foreground text-sm mt-2 text-center">
+                Showing first 100 rows of {queryResults.rowCount} total
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Chart Tab */}
+        {activeTab === 'chart' && chartData && (
+          <div className="p-4">
+            <div className="bg-card border border-border rounded-lg p-4">
+              <h3 className="font-medium text-foreground mb-4">Data Visualization</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Actions */}
+      <div className="border-t border-border p-4 bg-card">
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Query executed in {queryResults.executionTime}ms
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="px-3 py-1 text-sm border border-border rounded hover:bg-muted flex items-center gap-1">
+              <Eye className="h-3 w-3" />
+              View SQL
+            </button>
+            <button className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 flex items-center gap-1">
+              <Download className="h-3 w-3" />
+              Export
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+} 

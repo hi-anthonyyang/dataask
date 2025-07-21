@@ -1,0 +1,5 @@
+---
+description: Only add new abstractions (e.g., protocols, design patterns, generic helpers) if they solve a present problem or eliminate duplication. Do not introduce patterns like factories, coordinators, or singletons unless already used in the codebase or clearly needed.
+globs: []
+alwaysApply: true
+---

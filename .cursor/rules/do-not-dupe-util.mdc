@@ -1,0 +1,5 @@
+---
+description: Before creating any utility function, constant, or extension, search the project for existing equivalents. Do not duplicate or create conflicting helpers.
+globs: []
+alwaysApply: true
+---

@@ -1,0 +1,22 @@
+{
+  "name": "@dataask/electron-shell",
+  "version": "1.0.0",
+  "description": "DataAsk Electron desktop application",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "electron dist/main.js",
+    "clean": "rm -rf dist/",
+    "package": "electron-builder"
+  },
+  "dependencies": {
+    "electron": "^26.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^3.14.0",
+    "typescript": "^5.0.0",
+    "electron-builder": "^24.0.0"
+  }
+} 

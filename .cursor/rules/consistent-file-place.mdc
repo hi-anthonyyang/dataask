@@ -1,0 +1,5 @@
+---
+description: Always place new files inside the most relevant existing module or feature folder after checking the current project structure. Never create new folders unless no existing one fits.
+globs: []
+alwaysApply: false
+---

@@ -1,0 +1,30 @@
+{
+  "name": "dataask",
+  "version": "1.0.0",
+  "description": "AI-native, minimal SQL data analysis tool",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "dev:backend": "npm run dev --workspace=apps/backend",
+    "dev:frontend": "npm run dev --workspace=apps/frontend", 
+    "dev:electron": "npm run dev --workspace=apps/electron-shell",
+    "build": "npm run build --workspaces",
+    "clean": "npm run clean --workspaces",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "setup": "npm install && npm run docker:up"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+} 

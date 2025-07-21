@@ -1,0 +1,5 @@
+---
+description: Never create a new top-level directory (repo root) unless the task explicitly asks for it and the current structure has been inspected for an existing home.
+globs: []
+alwaysApply: true
+---

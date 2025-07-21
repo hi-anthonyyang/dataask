@@ -1,0 +1,5 @@
+---
+description: Fix the target issue with the smallest possible diff; avoid sweeping refactors, pattern switches, or framework migrations unless requested.
+globs: []
+alwaysApply: true
+---
