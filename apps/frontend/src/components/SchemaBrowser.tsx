@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, Database, Table, Columns, Plus, Settings } from 'lucide-react'
-import ConnectionModal from './ConnectionModal'
 
 interface Connection {
   id: string
@@ -25,11 +24,10 @@ interface SchemaBrowserProps {
   onTableSelect: (tableName: string | null) => void
   showConnectionModal: boolean
   setShowConnectionModal: (show: boolean) => void
-  onConnectionAdded?: () => void
   connections?: Connection[]
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, showConnectionModal, setShowConnectionModal, onConnectionAdded, connections: propConnections }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, showConnectionModal, setShowConnectionModal, connections: propConnections }: SchemaBrowserProps) {
   const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
@@ -94,15 +92,6 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
   const handleDragStart = (e: React.DragEvent, item: string, type: 'table' | 'column') => {
     e.dataTransfer.setData('text/plain', item)
     e.dataTransfer.setData('application/json', JSON.stringify({ item, type }))
-  }
-
-  const handleConnectionAdded = (connectionId: string) => {
-    if (onConnectionAdded) {
-      onConnectionAdded() // Notify parent to refresh connections
-    } else {
-      loadConnections() // Fallback to internal loading
-    }
-    onConnectionSelect(connectionId) // Auto-select the new connection
   }
 
   return (
@@ -225,13 +214,6 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
           <span>Connection Settings</span>
         </button>
       </div>
-
-      {/* Connection Modal */}
-      <ConnectionModal
-        isOpen={showConnectionModal}
-        onClose={() => setShowConnectionModal(false)}
-        onConnectionAdded={handleConnectionAdded}
-      />
     </div>
   )
 } 

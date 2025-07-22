@@ -3,6 +3,7 @@ import SchemaBrowser from './components/SchemaBrowser'
 import AnalysisPanel from './components/AnalysisPanel'
 import ChatPanel from './components/ChatPanel'
 import TableDetails from './components/TableDetails'
+import ConnectionModal from './components/ConnectionModal'
 import { Database, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react'
 
 interface Connection {
@@ -106,8 +107,10 @@ function App() {
     setSelectedConnection(connectionId === selectedConnection ? null : connectionId)
   }
 
-  const handleConnectionAdded = () => {
+  const handleConnectionAdded = (connectionId: string) => {
     loadConnections() // Refresh connections when a new one is added
+    setSelectedConnection(connectionId) // Auto-select the new connection
+    setShowConnectionModal(false) // Close the modal
   }
 
   return (
@@ -161,7 +164,6 @@ function App() {
               onTableSelect={setSelectedTable}
               showConnectionModal={showConnectionModal}
               setShowConnectionModal={setShowConnectionModal}
-              onConnectionAdded={handleConnectionAdded}
               connections={connections}
             />
           ) : (
@@ -256,6 +258,13 @@ function App() {
           />
         </div>
       </div>
+
+      {/* Connection Modal */}
+      <ConnectionModal
+        isOpen={showConnectionModal}
+        onClose={() => setShowConnectionModal(false)}
+        onConnectionAdded={handleConnectionAdded}
+      />
     </div>
   )
 }
