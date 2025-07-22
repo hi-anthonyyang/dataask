@@ -294,15 +294,14 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               onDragOver={(e) => e.preventDefault()}
             >
               <div className="flex-1 relative">
+                {/* Hidden styled overlay for visual display */}
                 <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(e) => setInput(e.currentTarget.textContent || '')}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs min-h-[36px] max-h-[100px] overflow-y-auto"
-                  style={{ 
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word'
+                  className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap"
+                  style={{
+                    color: 'transparent',
+                    background: 'transparent',
+                    border: '1px solid transparent',
+                    borderRadius: '6px'
                   }}
                   dangerouslySetInnerHTML={{
                     __html: input 
@@ -310,13 +309,24 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                       : ''
                   }}
                 />
-                {!input && (
-                  <div className="absolute inset-0 px-3 py-2 text-muted-foreground pointer-events-none text-xs flex items-center">
-                    {selectedConnection
+                
+                {/* Actual input field */}
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  placeholder={
+                    selectedConnection
                       ? "Ask a question about your data..."
-                      : "Select a database connection first"}
-                  </div>
-                )}
+                      : "Select a database connection first"
+                  }
+                  disabled={!selectedConnection || isLoading}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0"
+                  style={{
+                    color: input && /\[\[(?:table|column):[^\]]+\]\]/.test(input) ? 'transparent' : 'inherit'
+                  }}
+                />
               </div>
               <button
                 onClick={handleSendMessage}
