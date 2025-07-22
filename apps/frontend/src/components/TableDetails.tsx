@@ -319,8 +319,8 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
                               <td className="p-2">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                   col.nullable 
-                                    ? 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
-                                    : 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                                    ? 'bg-[#FFE7C2] text-[#F7B74A]'
+                                    : 'bg-[#D5EEFF] text-[#5AB4F7]'
                                 }`}>
                                   {col.nullable ? 'Nullable' : 'Required'}
                                 </span>

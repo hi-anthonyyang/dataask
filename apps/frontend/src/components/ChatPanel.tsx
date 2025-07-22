@@ -148,11 +148,11 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (jsonData) {
         const parsed = JSON.parse(jsonData)
         if (parsed.type === 'table') {
-          // Format table names with special styling markers
-          formattedText = `📊${parsed.item}`
+          // Format table names with inline code styling
+          formattedText = `\`${parsed.item}\``
         } else if (parsed.type === 'column') {
-          // Format column references  
-          formattedText = `📋${parsed.item}`
+          // Format column references with inline code styling
+          formattedText = `\`${parsed.item}\``
         }
       }
     } catch (error) {
@@ -278,7 +278,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                     : "Select a database connection first"
                 }
                 disabled={!selectedConnection || isLoading}
-                className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+                className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-gray-800"
               />
               <button
                 onClick={handleSendMessage}
