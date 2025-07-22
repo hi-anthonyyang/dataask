@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Play, Bot, User, Code, MessageCircle } from 'lucide-react'
+import { Send, Play, Bot, User, Code, MessageCircle, History, Copy, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 
 interface Message {
   id: string
@@ -9,10 +9,79 @@ interface Message {
   timestamp: Date
 }
 
+interface QueryHistoryItem {
+  id: string
+  naturalLanguage: string
+  summarizedTitle?: string
+  sql: string
+  connectionId: string
+  timestamp: Date
+  wasSuccessful: boolean
+}
+
 interface ChatPanelProps {
   selectedConnection: string | null
   onQueryUpdate: (query: string) => void
   onQueryExecute: (results: any) => void
+}
+
+// History management functions
+const getHistoryKey = (connectionId: string) => `dataask_history_${connectionId}`
+
+const getQueryHistory = (connectionId: string): QueryHistoryItem[] => {
+  if (!connectionId) return []
+  try {
+    const stored = localStorage.getItem(getHistoryKey(connectionId))
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    return parsed.map((item: any) => ({
+      ...item,
+      timestamp: new Date(item.timestamp)
+    }))
+  } catch (error) {
+    console.error('Failed to load query history:', error)
+    return []
+  }
+}
+
+const saveQueryToHistory = async (item: Omit<QueryHistoryItem, 'id' | 'summarizedTitle' | 'timestamp'>) => {
+  try {
+    const historyKey = getHistoryKey(item.connectionId)
+    const existingHistory = getQueryHistory(item.connectionId)
+    
+    // Generate summarized title using simple truncation for now (will integrate OpenAI later)
+    const summarizedTitle = item.naturalLanguage.length > 50 
+      ? item.naturalLanguage.substring(0, 50).trim() + '...'
+      : item.naturalLanguage
+    
+    const newItem: QueryHistoryItem = {
+      ...item,
+      id: Date.now().toString(),
+      summarizedTitle,
+      timestamp: new Date()
+    }
+    
+    // Add to beginning of array (most recent first)
+    const updatedHistory = [newItem, ...existingHistory]
+    
+    // Keep only 25 most recent queries
+    const limitedHistory = updatedHistory.slice(0, 25)
+    
+    localStorage.setItem(historyKey, JSON.stringify(limitedHistory))
+  } catch (error) {
+    console.error('Failed to save query to history:', error)
+  }
+}
+
+const deleteFromHistory = (connectionId: string, queryId: string) => {
+  try {
+    const historyKey = getHistoryKey(connectionId)
+    const existingHistory = getQueryHistory(connectionId)
+    const updatedHistory = existingHistory.filter(item => item.id !== queryId)
+    localStorage.setItem(historyKey, JSON.stringify(updatedHistory))
+  } catch (error) {
+    console.error('Failed to delete from history:', error)
+  }
 }
 
 export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryExecute }: ChatPanelProps) {
@@ -26,9 +95,21 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
   ])
   const [currentSql, setCurrentSql] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'chat' | 'sql'>('chat')
+  const [activeTab, setActiveTab] = useState<'chat' | 'sql' | 'history'>('chat')
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
+  const [expandedHistoryItems, setExpandedHistoryItems] = useState<Set<string>>(new Set())
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLDivElement>(null)
+
+  // Load history when selectedConnection changes
+  useEffect(() => {
+    if (selectedConnection) {
+      const history = getQueryHistory(selectedConnection)
+      setQueryHistory(history)
+    } else {
+      setQueryHistory([])
+    }
+  }, [selectedConnection])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -80,6 +161,9 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     clearInput()
     setIsLoading(true)
 
+    let wasSuccessful = false
+    let generatedSql = ''
+
     try {
       // Get current database schema first
       const schemaResponse = await fetch(`/api/db/connections/${selectedConnection}/schema`)
@@ -103,6 +187,9 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
 
       if (response.ok) {
         const data = await response.json()
+        generatedSql = data.sql
+        wasSuccessful = true
+        
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           type: 'assistant',
@@ -125,6 +212,20 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       setMessages(prev => [...prev, errorMessage])
     }
 
+    // Save to history regardless of success/failure
+    if (selectedConnection) {
+      await saveQueryToHistory({
+        naturalLanguage: inputText,
+        sql: generatedSql,
+        connectionId: selectedConnection,
+        wasSuccessful
+      })
+      
+      // Refresh history display
+      const updatedHistory = getQueryHistory(selectedConnection)
+      setQueryHistory(updatedHistory)
+    }
+
     setIsLoading(false)
   }
 
@@ -132,6 +233,8 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     if (!currentSql || !selectedConnection) return
 
     setIsLoading(true)
+    let wasSuccessful = false
+    
     try {
       const response = await fetch('/api/db/query', {
         method: 'POST',
@@ -145,6 +248,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (response.ok) {
         const results = await response.json()
         onQueryExecute(results)
+        wasSuccessful = true
         
         const successMessage: Message = {
           id: Date.now().toString(),
@@ -162,6 +266,20 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
+    }
+
+    // Save SQL queries to history too (with generic natural language description)
+    if (selectedConnection && currentSql.trim()) {
+      await saveQueryToHistory({
+        naturalLanguage: `SQL Query: ${currentSql.substring(0, 100)}${currentSql.length > 100 ? '...' : ''}`,
+        sql: currentSql,
+        connectionId: selectedConnection,
+        wasSuccessful
+      })
+      
+      // Refresh history display
+      const updatedHistory = getQueryHistory(selectedConnection)
+      setQueryHistory(updatedHistory)
     }
 
     setIsLoading(false)
@@ -244,6 +362,94 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     }
   }
 
+  // History helper functions
+  const toggleHistoryItem = (itemId: string) => {
+    const newExpanded = new Set(expandedHistoryItems)
+    if (newExpanded.has(itemId)) {
+      newExpanded.delete(itemId)
+    } else {
+      newExpanded.add(itemId)
+    }
+    setExpandedHistoryItems(newExpanded)
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+  }
+
+  const runQueryFromHistory = async (sql: string) => {
+    if (!selectedConnection) return
+    
+    // Set the SQL in the SQL tab
+    setCurrentSql(sql)
+    onQueryUpdate(sql)
+    
+    // Execute the query
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/db/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectionId: selectedConnection,
+          sql: sql
+        })
+      })
+
+      if (response.ok) {
+        const results = await response.json()
+        onQueryExecute(results)
+        
+        const successMessage: Message = {
+          id: Date.now().toString(),
+          type: 'assistant',
+          content: `✅ Query executed successfully! Found ${results.rowCount} records. Check the analysis panel for detailed results and insights.`,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, successMessage])
+      }
+    } catch (error) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        type: 'assistant',
+        content: '❌ Failed to execute query. Please check your SQL syntax and try again.',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    }
+    setIsLoading(false)
+  }
+
+  // Group history by date
+  const groupHistoryByDate = (history: QueryHistoryItem[]) => {
+    const groups: { [key: string]: QueryHistoryItem[] } = {}
+    
+    history.forEach(item => {
+      const dateKey = item.timestamp.toDateString()
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+      groups[dateKey].push(item)
+    })
+    
+    return Object.entries(groups).sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+  }
+
+  const formatDateGroup = (dateString: string) => {
+    const date = new Date(dateString)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today'
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday'
+    } else {
+      return date.toLocaleDateString()
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header with Tabs */}
@@ -274,6 +480,17 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
           >
             <Code className="h-4 w-4" />
             SQL
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'history'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <History className="h-4 w-4" />
+            History
           </button>
         </div>
       </div>
@@ -413,6 +630,106 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               ⌘+Enter or Ctrl+Enter
             </p>
           </div>
+        </div>
+      )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (
+        <div className="flex-1 overflow-auto scrollbar-thin p-4">
+          <h3 className="font-semibold text-foreground mb-2">Query History</h3>
+          {queryHistory.length === 0 ? (
+            <p className="text-muted-foreground">No query history yet for this connection.</p>
+          ) : (
+            <div className="space-y-2">
+              {groupHistoryByDate(queryHistory).map(([dateKey, items]) => (
+                <div key={dateKey} className="space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground px-2">
+                    {formatDateGroup(dateKey)}
+                  </div>
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-muted p-3 rounded-lg flex flex-col"
+                      onClick={() => toggleHistoryItem(item.id)}
+                    >
+                      <div className="flex justify-between items-center cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          {expandedHistoryItems.has(item.id) ? (
+                            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {item.summarizedTitle || item.naturalLanguage}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {item.timestamp.toLocaleTimeString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs ${item.wasSuccessful ? 'text-green-500' : 'text-red-500'}`}>
+                            {item.wasSuccessful ? '✅' : '❌'}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              copyToClipboard(item.naturalLanguage)
+                            }}
+                            className="text-muted-foreground hover:text-foreground p-1 rounded"
+                            title="Copy natural language query"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteFromHistory(selectedConnection || '', item.id)
+                              const updatedHistory = getQueryHistory(selectedConnection || '')
+                              setQueryHistory(updatedHistory)
+                            }}
+                            className="text-muted-foreground hover:text-foreground p-1 rounded"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                      {expandedHistoryItems.has(item.id) && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          <pre className="whitespace-pre-wrap break-words bg-background p-2 rounded-md">
+                            <code>{item.sql}</code>
+                          </pre>
+                          <div className="flex justify-end gap-2 mt-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                copyToClipboard(item.sql)
+                              }}
+                              className="px-2 py-1 bg-muted/10 text-muted-foreground rounded text-xs flex items-center gap-1 hover:bg-muted/20"
+                              title="Copy SQL"
+                            >
+                              <Copy className="h-3 w-3" />
+                              Copy SQL
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                runQueryFromHistory(item.sql)
+                              }}
+                              className="px-2 py-1 bg-primary/10 text-primary rounded text-xs flex items-center gap-1 hover:bg-primary/20"
+                            >
+                              <Play className="h-3 w-3" />
+                              Run Query
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
