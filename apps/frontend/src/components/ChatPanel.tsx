@@ -294,21 +294,41 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               onDragOver={(e) => e.preventDefault()}
             >
               <div className="flex-1 relative">
-                {/* Hidden styled overlay for visual display */}
+                {/* Styled overlay for table/column references */}
                 <div
-                  className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap"
+                  className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap flex items-center"
                   style={{
-                    color: 'transparent',
                     background: 'transparent',
                     border: '1px solid transparent',
                     borderRadius: '6px'
                   }}
-                  dangerouslySetInnerHTML={{
-                    __html: input 
-                      ? input.replace(/\[\[(?:table|column):([^\]]+)\]\]/g, '<span class="cursor-inline-code">$1</span>')
-                      : ''
-                  }}
-                />
+                >
+                  {input.split(/(\[\[(?:table|column):[^\]]+\]\])/g).map((part, index) => {
+                    const tableMatch = part.match(/^\[\[table:([^\]]+)\]\]$/)
+                    const columnMatch = part.match(/^\[\[column:([^\]]+)\]\]$/)
+                    
+                    if (tableMatch) {
+                      return (
+                        <span key={index} className="cursor-inline-code">
+                          {tableMatch[1]}
+                        </span>
+                      )
+                    } else if (columnMatch) {
+                      return (
+                        <span key={index} className="cursor-inline-code">
+                          {columnMatch[1]}
+                        </span>
+                      )
+                    }
+                    
+                    // Render regular text as transparent to maintain spacing
+                    return (
+                      <span key={index} style={{ color: 'transparent' }}>
+                        {part}
+                      </span>
+                    )
+                  })}
+                </div>
                 
                 {/* Actual input field */}
                 <input
@@ -322,9 +342,12 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                       : "Select a database connection first"
                   }
                   disabled={!selectedConnection || isLoading}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0"
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0"
                   style={{
-                    color: input && /\[\[(?:table|column):[^\]]+\]\]/.test(input) ? 'transparent' : 'inherit'
+                    color: /\[\[(?:table|column):[^\]]+\]\]/.test(input) 
+                      ? 'rgba(107, 114, 128, 0.5)' // Semi-transparent gray that works in light/dark
+                      : 'inherit',
+                    caretColor: 'rgb(59 130 246)' // Always show blue cursor
                   }}
                 />
               </div>
