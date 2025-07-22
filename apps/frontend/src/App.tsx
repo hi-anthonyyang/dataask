@@ -13,35 +13,66 @@ function App() {
   const [showConnectionModal, setShowConnectionModal] = useState(false)
   const [leftPanelWidth, setLeftPanelWidth] = useState(320) // 25% of ~1280px
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const dragRef = useRef<HTMLDivElement>(null)
+  const [rightPanelWidth, setRightPanelWidth] = useState(400) // ~30% of ~1280px
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false)
+  const [isDraggingRight, setIsDraggingRight] = useState(false)
+  const leftDragRef = useRef<HTMLDivElement>(null)
+  const rightDragRef = useRef<HTMLDivElement>(null)
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true)
+  const handleLeftMouseDown = (e: React.MouseEvent) => {
+    setIsDraggingLeft(true)
     e.preventDefault()
   }
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return
+  const handleRightMouseDown = (e: React.MouseEvent) => {
+    setIsDraggingRight(true)
+    e.preventDefault()
+  }
+
+  const handleLeftMouseMove = (e: MouseEvent) => {
+    if (!isDraggingLeft) return
     const newWidth = Math.max(200, Math.min(600, e.clientX))
     setLeftPanelWidth(newWidth)
   }
 
-  const handleMouseUp = () => {
-    setIsDragging(false)
+  const handleRightMouseMove = (e: MouseEvent) => {
+    if (!isDraggingRight) return
+    const windowWidth = window.innerWidth
+    const newWidth = Math.max(300, Math.min(700, windowWidth - e.clientX))
+    setRightPanelWidth(newWidth)
   }
 
-  // Add global mouse event listeners
+  const handleLeftMouseUp = () => {
+    setIsDraggingLeft(false)
+  }
+
+  const handleRightMouseUp = () => {
+    setIsDraggingRight(false)
+  }
+
+  // Add global mouse event listeners for left panel
   useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
+    if (isDraggingLeft) {
+      document.addEventListener('mousemove', handleLeftMouseMove)
+      document.addEventListener('mouseup', handleLeftMouseUp)
       return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
+        document.removeEventListener('mousemove', handleLeftMouseMove)
+        document.removeEventListener('mouseup', handleLeftMouseUp)
       }
     }
-  }, [isDragging])
+  }, [isDraggingLeft])
+
+  // Add global mouse event listeners for right panel
+  useEffect(() => {
+    if (isDraggingRight) {
+      document.addEventListener('mousemove', handleRightMouseMove)
+      document.addEventListener('mouseup', handleRightMouseUp)
+      return () => {
+        document.removeEventListener('mousemove', handleRightMouseMove)
+        document.removeEventListener('mouseup', handleRightMouseUp)
+      }
+    }
+  }, [isDraggingRight])
 
   const toggleLeftPanel = () => {
     setIsLeftPanelMinimized(!isLeftPanelMinimized)
@@ -125,8 +156,8 @@ function App() {
           {/* Drag Handle */}
           {!isLeftPanelMinimized && (
             <div
-              ref={dragRef}
-              onMouseDown={handleMouseDown}
+              ref={leftDragRef}
+              onMouseDown={handleLeftMouseDown}
               className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors group"
               title="Drag to resize panel"
             >
@@ -151,8 +182,21 @@ function App() {
           )}
         </div>
 
-        {/* Right Panel - Chat & SQL (Fixed) */}
-        <div className="w-80 border-l border-border bg-card">
+        {/* Right Panel - Chat & SQL (Resizable) */}
+        <div 
+          className="border-l border-border bg-card relative"
+          style={{ width: `${rightPanelWidth}px` }}
+        >
+          {/* Left Drag Handle for Right Panel */}
+          <div
+            ref={rightDragRef}
+            onMouseDown={handleRightMouseDown}
+            className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors group"
+            title="Drag to resize panel"
+          >
+            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-border group-hover:bg-primary transition-colors" />
+          </div>
+          
           <ChatPanel 
             selectedConnection={selectedConnection}
             onQueryUpdate={setCurrentQuery}

@@ -15,6 +15,32 @@ interface ChatPanelProps {
   onQueryExecute: (results: any) => void
 }
 
+// Helper function to render text with styled inline code
+const renderTextWithInlineCode = (text: string) => {
+  const parts = text.split(/(\[\[(?:table|column):[^\]]+\]\])/g)
+  
+  return parts.map((part, index) => {
+    const tableMatch = part.match(/^\[\[table:([^\]]+)\]\]$/)
+    const columnMatch = part.match(/^\[\[column:([^\]]+)\]\]$/)
+    
+    if (tableMatch) {
+      return (
+        <span key={index} className="cursor-inline-code">
+          {tableMatch[1]}
+        </span>
+      )
+    } else if (columnMatch) {
+      return (
+        <span key={index} className="cursor-inline-code">
+          {columnMatch[1]}
+        </span>
+      )
+    }
+    
+    return part
+  })
+}
+
 export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryExecute }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -148,11 +174,11 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (jsonData) {
         const parsed = JSON.parse(jsonData)
         if (parsed.type === 'table') {
-          // Format table names with inline code styling
-          formattedText = `\`${parsed.item}\``
+          // Format table names with special marker for custom styling
+          formattedText = `[[table:${parsed.item}]]`
         } else if (parsed.type === 'column') {
-          // Format column references with inline code styling
-          formattedText = `\`${parsed.item}\``
+          // Format column references with special marker for custom styling
+          formattedText = `[[column:${parsed.item}]]`
         }
       }
     } catch (error) {
@@ -174,7 +200,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
         <div className="flex border-b border-border">
           <button
             onClick={() => setActiveTab('chat')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'chat'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -185,7 +211,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
           </button>
           <button
             onClick={() => setActiveTab('sql')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'sql'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -215,7 +241,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                 
                 <div className={`max-w-[70%] ${message.type === 'user' ? 'order-first' : ''}`}>
                   <div
-                    className={`rounded-lg p-3 text-sm ${
+                    className={`rounded-lg p-2 text-xs ${
                       message.type === 'user'
                         ? 'bg-primary text-primary-foreground ml-auto'
                         : 'bg-muted text-muted-foreground'
@@ -250,7 +276,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                   <Bot className="h-4 w-4 text-primary-foreground" />
                 </div>
-                <div className="bg-muted text-muted-foreground rounded-lg p-3 text-sm">
+                <div className="bg-muted text-muted-foreground rounded-lg p-2 text-xs">
                   <div className="flex items-center gap-2">
                     <div className="animate-pulse">Thinking...</div>
                   </div>
@@ -267,19 +293,31 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
             >
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder={
-                  selectedConnection
-                    ? "Ask a question about your data..."
-                    : "Select a database connection first"
-                }
-                disabled={!selectedConnection || isLoading}
-                className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-gray-800"
-              />
+              <div className="flex-1 relative">
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={(e) => setInput(e.currentTarget.textContent || '')}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs min-h-[36px] max-h-[100px] overflow-y-auto"
+                  style={{ 
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: input 
+                      ? input.replace(/\[\[(?:table|column):([^\]]+)\]\]/g, '<span class="cursor-inline-code">$1</span>')
+                      : ''
+                  }}
+                />
+                {!input && (
+                  <div className="absolute inset-0 px-3 py-2 text-muted-foreground pointer-events-none text-xs flex items-center">
+                    {selectedConnection
+                      ? "Ask a question about your data..."
+                      : "Select a database connection first"}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleSendMessage}
                 disabled={!input.trim() || !selectedConnection || isLoading}
@@ -312,7 +350,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                 }
               }}
               placeholder="SELECT * FROM customers LIMIT 10;"
-              className="w-full h-full resize-none border border-border rounded-md p-3 bg-background text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                              className="w-full h-full resize-none border border-border rounded-md p-3 bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
           <div className="border-t border-border p-4">
