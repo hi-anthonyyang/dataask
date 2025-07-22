@@ -294,10 +294,43 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               onDragOver={(e) => e.preventDefault()}
             >
               <div className="flex-1 relative">
+                {/* Actual input field - now textarea for dynamic growth */}
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
+                  placeholder={
+                    selectedConnection
+                      ? "Ask a question about your data..."
+                      : "Select a database connection first"
+                  }
+                  disabled={!selectedConnection || isLoading}
+                  rows={1}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0 resize-none overflow-hidden"
+                  style={{
+                    caretColor: 'rgb(59 130 246)', // Always show blue cursor
+                    minHeight: '36px',
+                    maxHeight: '120px',
+                    color: /\[\[(?:table|column):[^\]]+\]\]/.test(input) ? 'transparent' : 'inherit'
+                  }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement
+                    target.style.height = 'auto'
+                    const newHeight = Math.min(target.scrollHeight, 120)
+                    target.style.height = newHeight + 'px'
+                    
+                    // Update overlay height to match
+                    const overlay = target.parentElement?.querySelector('.styled-overlay') as HTMLElement
+                    if (overlay) {
+                      overlay.style.height = newHeight + 'px'
+                    }
+                  }}
+                />
+                
                 {/* Styled overlay for table/column references only */}
                 {/\[\[(?:table|column):[^\]]+\]\]/.test(input) && (
                   <div
-                    className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap"
+                    className="styled-overlay absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap"
                     style={{
                       background: 'transparent',
                       border: '1px solid transparent',
@@ -329,7 +362,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                       )
                     }
                     
-                    // Render regular text normally - don't hide it!
+                    // Render regular text as invisible to maintain exact spacing
                     return (
                       <span key={index} style={{ 
                         color: 'transparent',
@@ -342,31 +375,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                   })}
                 </div>
               )}
-                
-                {/* Actual input field - now textarea for dynamic growth */}
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                  placeholder={
-                    selectedConnection
-                      ? "Ask a question about your data..."
-                      : "Select a database connection first"
-                  }
-                  disabled={!selectedConnection || isLoading}
-                  rows={1}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0 resize-none overflow-hidden"
-                  style={{
-                    caretColor: 'rgb(59 130 246)', // Always show blue cursor
-                    minHeight: '36px',
-                    maxHeight: '120px'
-                  }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement
-                    target.style.height = 'auto'
-                    target.style.height = Math.min(target.scrollHeight, 120) + 'px'
-                  }}
-                />
               </div>
               <button
                 onClick={handleSendMessage}
