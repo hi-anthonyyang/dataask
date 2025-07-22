@@ -294,41 +294,50 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               onDragOver={(e) => e.preventDefault()}
             >
               <div className="flex-1 relative">
-                {/* Styled overlay for table/column references */}
-                <div
-                  className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap flex items-center"
-                  style={{
-                    background: 'transparent',
-                    border: '1px solid transparent',
-                    borderRadius: '6px'
-                  }}
-                >
-                  {input.split(/(\[\[(?:table|column):[^\]]+\]\])/g).map((part, index) => {
-                    const tableMatch = part.match(/^\[\[table:([^\]]+)\]\]$/)
-                    const columnMatch = part.match(/^\[\[column:([^\]]+)\]\]$/)
-                    
-                    if (tableMatch) {
-                      return (
-                        <span key={index} className="cursor-inline-code">
-                          {tableMatch[1]}
-                        </span>
-                      )
-                    } else if (columnMatch) {
-                      return (
-                        <span key={index} className="cursor-inline-code">
+                {/* Styled overlay for table/column references only */}
+                {/\[\[(?:table|column):[^\]]+\]\]/.test(input) && (
+                  <div
+                    className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap flex items-center"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid transparent',
+                      borderRadius: '6px',
+                      fontFamily: 'inherit',
+                      fontSize: 'inherit',
+                      lineHeight: 'inherit'
+                    }}
+                  >
+                    {input.split(/(\[\[(?:table|column):[^\]]+\]\])/g).map((part, index) => {
+                      const tableMatch = part.match(/^\[\[table:([^\]]+)\]\]$/)
+                      const columnMatch = part.match(/^\[\[column:([^\]]+)\]\]$/)
+                      
+                      if (tableMatch) {
+                        return (
+                          <span key={index} className="cursor-inline-code">
+                            {tableMatch[1]}
+                          </span>
+                        )
+                      } else if (columnMatch) {
+                        return (
+                          <span key={index} className="cursor-inline-code">
                           {columnMatch[1]}
                         </span>
                       )
                     }
                     
-                    // Render regular text as transparent to maintain spacing
+                    // Render regular text as invisible to maintain exact spacing
                     return (
-                      <span key={index} style={{ color: 'transparent' }}>
+                      <span key={index} style={{ 
+                        visibility: 'hidden',
+                        fontFamily: 'inherit',
+                        fontSize: 'inherit' 
+                      }}>
                         {part}
                       </span>
                     )
                   })}
                 </div>
+              )}
                 
                 {/* Actual input field */}
                 <input
@@ -345,7 +354,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                   className="w-full px-3 py-2 border border-border rounded-md bg-background placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0"
                   style={{
                     color: /\[\[(?:table|column):[^\]]+\]\]/.test(input) 
-                      ? 'rgba(107, 114, 128, 0.5)' // Semi-transparent gray that works in light/dark
+                      ? 'rgba(107, 114, 128, 0.8)' // More visible gray
                       : 'inherit',
                     caretColor: 'rgb(59 130 246)' // Always show blue cursor
                   }}
