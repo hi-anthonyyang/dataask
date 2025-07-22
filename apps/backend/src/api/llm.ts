@@ -212,7 +212,35 @@ router.post('/summarize', async (req, res) => {
       });
     }
 
-    const systemPrompt = `You are a helpful assistant that creates concise, descriptive titles for data queries.
+    // Detect if this is a SQL query or natural language
+    const isSqlQuery = /^\s*(SELECT|WITH|EXPLAIN|DESCRIBE)\s+/i.test(request.query.trim())
+
+    let systemPrompt = ''
+    let userPrompt = ''
+
+    if (isSqlQuery) {
+      // Handle SQL queries - infer intent from the SQL
+      systemPrompt = `You are a helpful assistant that creates concise, descriptive titles for SQL queries by inferring their business intent.
+
+Generate a short, clear title (maximum 50 characters) that describes what the SQL query does in business terms.
+
+Rules:
+- Focus on the business purpose, not the technical implementation
+- Use business/data terminology 
+- Keep it under 50 characters
+- No quotes or special characters
+- Make it searchable and memorable
+- Avoid saying "SQL Query" in the title
+
+Examples:
+- "SELECT COUNT(*) FROM orders" → "Total Order Count"
+- "SELECT * FROM customers WHERE created_date > '2023-01-01'" → "Recent Customer List"
+- "SELECT product_name, SUM(quantity) FROM orders GROUP BY product_name" → "Product Sales Summary"`;
+
+      userPrompt = `Create a business-focused title for this SQL query:\n\n${request.query}`;
+    } else {
+      // Handle natural language queries
+      systemPrompt = `You are a helpful assistant that creates concise, descriptive titles for data queries.
 
 Generate a short, clear title (maximum 50 characters) that captures the essence of the user's query.
 
@@ -228,11 +256,14 @@ Examples:
 - "Show me customer acquisition by month for 2023" → "Monthly Customer Acquisition 2023"
 - "Which regions have the lowest revenue?" → "Lowest Revenue by Region"`;
 
+      userPrompt = `Create a title for this query: "${request.query}"`;
+    }
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Create a title for this query: "${request.query}"` }
+        { role: 'user', content: userPrompt }
       ],
       temperature: 0.1,
       max_tokens: 20
@@ -254,7 +285,8 @@ Examples:
 
     logger.info('Query summarization successful', { 
       originalQuery: request.query,
-      generatedTitle: title 
+      generatedTitle: title,
+      queryType: isSqlQuery ? 'sql' : 'natural_language'
     });
 
     res.json({ 

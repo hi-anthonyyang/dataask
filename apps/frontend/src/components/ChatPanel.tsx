@@ -122,6 +122,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
   const [activeTab, setActiveTab] = useState<'chat' | 'sql' | 'history'>('chat')
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
   const [expandedHistoryItems, setExpandedHistoryItems] = useState<Set<string>>(new Set())
+  const [lastNaturalLanguageQuery, setLastNaturalLanguageQuery] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLDivElement>(null)
 
@@ -133,7 +134,16 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     } else {
       setQueryHistory([])
     }
+    // Clear any tracked natural language query when switching connections
+    setLastNaturalLanguageQuery('')
   }, [selectedConnection])
+
+  // Clear natural language query when switching to SQL tab (direct SQL editing)
+  useEffect(() => {
+    if (activeTab === 'sql') {
+      setLastNaturalLanguageQuery('')
+    }
+  }, [activeTab])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -184,6 +194,9 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     setMessages(prev => [...prev, userMessage])
     clearInput()
     setIsLoading(true)
+
+    // Store the original natural language query for later use in history
+    setLastNaturalLanguageQuery(inputText)
 
     let wasSuccessful = false
     let generatedSql = ''
@@ -236,20 +249,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       setMessages(prev => [...prev, errorMessage])
     }
 
-    // Save to history regardless of success/failure
-    if (selectedConnection) {
-      await saveQueryToHistory({
-        naturalLanguage: inputText,
-        sql: generatedSql,
-        connectionId: selectedConnection,
-        wasSuccessful
-      })
-      
-      // Refresh history display
-      const updatedHistory = getQueryHistory(selectedConnection)
-      setQueryHistory(updatedHistory)
-    }
-
+    // NOTE: No longer saving to history here - only save when query is actually executed
     setIsLoading(false)
   }
 
@@ -277,7 +277,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
         const successMessage: Message = {
           id: Date.now().toString(),
           type: 'assistant',
-          content: `✅ Query executed successfully! Found ${results.rowCount} records. Check the analysis panel for detailed results and insights.`,
+          content: `Query executed successfully! Found ${results.rowCount} records. Check the analysis panel for detailed results and insights.`,
           timestamp: new Date()
         }
         setMessages(prev => [...prev, successMessage])
@@ -292,18 +292,34 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       setMessages(prev => [...prev, errorMessage])
     }
 
-    // Save SQL queries to history too (with generic natural language description)
+    // Save to history after query execution
     if (selectedConnection && currentSql.trim()) {
-      await saveQueryToHistory({
-        naturalLanguage: `SQL Query: ${currentSql.substring(0, 100)}${currentSql.length > 100 ? '...' : ''}`,
-        sql: currentSql,
-        connectionId: selectedConnection,
-        wasSuccessful
-      })
-      
-      // Refresh history display
-      const updatedHistory = getQueryHistory(selectedConnection)
-      setQueryHistory(updatedHistory)
+      try {
+        // Determine what text to use for history
+        let queryText = ''
+        if (lastNaturalLanguageQuery) {
+          // Use original natural language query if available
+          queryText = lastNaturalLanguageQuery
+          setLastNaturalLanguageQuery('') // Clear after use
+        } else {
+          // Use the SQL itself - let OpenAI infer intent
+          queryText = currentSql
+        }
+
+        await saveQueryToHistory({
+          naturalLanguage: queryText,
+          sql: currentSql,
+          connectionId: selectedConnection,
+          wasSuccessful
+        })
+        
+        // Refresh history display
+        const updatedHistory = getQueryHistory(selectedConnection)
+        setQueryHistory(updatedHistory)
+      } catch (error) {
+        console.error('Failed to save to history:', error)
+        // Don't fail the whole operation if history fails
+      }
     }
 
     setIsLoading(false)
@@ -410,6 +426,8 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     
     // Execute the query
     setIsLoading(true)
+    let wasSuccessful = false
+    
     try {
       const response = await fetch('/api/db/query', {
         method: 'POST',
@@ -423,11 +441,12 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (response.ok) {
         const results = await response.json()
         onQueryExecute(results)
+        wasSuccessful = true
         
         const successMessage: Message = {
           id: Date.now().toString(),
           type: 'assistant',
-          content: `✅ Query executed successfully! Found ${results.rowCount} records. Check the analysis panel for detailed results and insights.`,
+          content: `Query executed successfully! Found ${results.rowCount} records. Check the analysis panel for detailed results and insights.`,
           timestamp: new Date()
         }
         setMessages(prev => [...prev, successMessage])
@@ -441,6 +460,8 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       }
       setMessages(prev => [...prev, errorMessage])
     }
+    
+    // NOTE: Intentionally NOT saving to history when running from history to avoid duplicates
     setIsLoading(false)
   }
 
