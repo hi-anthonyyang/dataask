@@ -2,10 +2,12 @@ import { useState, useRef, useEffect } from 'react'
 import SchemaBrowser from './components/SchemaBrowser'
 import AnalysisPanel from './components/AnalysisPanel'
 import ChatPanel from './components/ChatPanel'
+import TableDetails from './components/TableDetails'
 import { Database, ChevronLeft, ChevronRight } from 'lucide-react'
 
 function App() {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
+  const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [currentQuery, setCurrentQuery] = useState<string>('')
   const [queryResults, setQueryResults] = useState<any>(null)
   const [leftPanelWidth, setLeftPanelWidth] = useState(320) // 25% of ~1280px
@@ -91,6 +93,8 @@ function App() {
             <SchemaBrowser 
               selectedConnection={selectedConnection}
               onConnectionSelect={setSelectedConnection}
+              selectedTable={selectedTable}
+              onTableSelect={setSelectedTable}
             />
           )}
 
@@ -109,10 +113,18 @@ function App() {
 
         {/* Center Panel - Analysis & Results (Flexible) */}
         <div className="flex-1 bg-background">
-          <AnalysisPanel 
-            queryResults={queryResults}
-            currentQuery={currentQuery}
-          />
+          {selectedTable ? (
+            <TableDetails 
+              selectedConnection={selectedConnection}
+              selectedTable={selectedTable}
+              onClose={() => setSelectedTable(null)}
+            />
+          ) : (
+            <AnalysisPanel 
+              queryResults={queryResults}
+              currentQuery={currentQuery}
+            />
+          )}
         </div>
 
         {/* Right Panel - Chat & SQL (Fixed) */}

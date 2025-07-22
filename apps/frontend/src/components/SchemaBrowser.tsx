@@ -21,9 +21,11 @@ interface SchemaTable {
 interface SchemaBrowserProps {
   selectedConnection: string | null
   onConnectionSelect: (connectionId: string | null) => void
+  selectedTable: string | null
+  onTableSelect: (tableName: string | null) => void
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect }: SchemaBrowserProps) {
   const [connections, setConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
@@ -150,10 +152,15 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect }
                       schema.tables.map((table) => (
                         <div key={table.name} className="text-sm">
                           <button
-                            onClick={() => toggleTable(table.name)}
+                            onClick={() => {
+                              toggleTable(table.name)
+                              onTableSelect(table.name === selectedTable ? null : table.name)
+                            }}
                             onDragStart={(e) => handleDragStart(e, table.name, 'table')}
                             draggable
-                            className="w-full text-left p-1 rounded hover:bg-muted flex items-center gap-1"
+                            className={`w-full text-left p-1 rounded hover:bg-muted flex items-center gap-1 ${
+                              selectedTable === table.name ? 'bg-primary/10 border border-primary/20' : ''
+                            }`}
                           >
                             {expandedTables.has(table.name) ? (
                               <ChevronDown className="h-3 w-3" />

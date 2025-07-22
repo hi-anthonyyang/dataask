@@ -428,6 +428,185 @@ class DatabaseManager {
       throw error;
     }
   }
+
+  // Get table metadata (row count, size, created date)
+  async getTableMetadata(connectionId: string, tableName: string): Promise<any> {
+    const connection = this.connections.get(connectionId);
+    const config = this.connectionConfigs.get(connectionId);
+    
+    if (!connection || !config) {
+      throw new Error('Connection not found');
+    }
+
+    try {
+      if (config.type === 'postgresql') {
+        return await this.getPostgreSQLTableMetadata(connection, tableName);
+      } else if (config.type === 'sqlite') {
+        return await this.getSQLiteTableMetadata(connection, tableName);
+      } else {
+        throw new Error('Unsupported database type');
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get detailed table column information
+  async getTableColumns(connectionId: string, tableName: string): Promise<any[]> {
+    const connection = this.connections.get(connectionId);
+    const config = this.connectionConfigs.get(connectionId);
+    
+    if (!connection || !config) {
+      throw new Error('Connection not found');
+    }
+
+    try {
+      if (config.type === 'postgresql') {
+        return await this.getPostgreSQLTableColumns(connection, tableName);
+      } else if (config.type === 'sqlite') {
+        return await this.getSQLiteTableColumns(connection, tableName);
+      } else {
+        throw new Error('Unsupported database type');
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Preview table data (first N rows)
+  async getTablePreview(connectionId: string, tableName: string, limit: number = 100): Promise<QueryResult> {
+    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sql = `SELECT * FROM "${sanitizedTableName}" LIMIT ${Math.min(limit, 1000)}`;
+    
+    return await this.executeQuery(connectionId, sql);
+  }
+
+  // PostgreSQL-specific table metadata
+  private async getPostgreSQLTableMetadata(connection: any, tableName: string): Promise<any> {
+    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    
+    const queries = [
+      // Row count
+      `SELECT COUNT(*) as row_count FROM "${sanitizedTableName}"`,
+      // Table size
+      `SELECT 
+         pg_size_pretty(pg_total_relation_size('${sanitizedTableName}')) as table_size,
+         pg_size_pretty(pg_relation_size('${sanitizedTableName}')) as data_size,
+         pg_size_pretty(pg_total_relation_size('${sanitizedTableName}') - pg_relation_size('${sanitizedTableName}')) as index_size`,
+      // Table info
+      `SELECT 
+         schemaname, tablename, tableowner, 
+         hasindexes, hasrules, hastriggers
+       FROM pg_tables 
+       WHERE tablename = '${sanitizedTableName}'`
+    ];
+
+    const results = await Promise.all(
+      queries.map(async (query) => {
+        const result = await connection.query(query);
+        return result.rows[0] || {};
+      })
+    );
+
+    return {
+      tableName: sanitizedTableName,
+      rowCount: parseInt(results[0].row_count) || 0,
+      tableSize: results[1].table_size || 'Unknown',
+      dataSize: results[1].data_size || 'Unknown',
+      indexSize: results[1].index_size || 'Unknown',
+      schema: results[2].schemaname || 'public',
+      owner: results[2].tableowner || 'Unknown',
+      hasIndexes: results[2].hasindexes || false,
+      hasRules: results[2].hasrules || false,
+      hasTriggers: results[2].hastriggers || false,
+    };
+  }
+
+  // SQLite-specific table metadata
+  private async getSQLiteTableMetadata(connection: any, tableName: string): Promise<any> {
+    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    
+    return new Promise((resolve, reject) => {
+      // Get row count
+      connection.get(`SELECT COUNT(*) as row_count FROM "${sanitizedTableName}"`, (err: any, row: any) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        resolve({
+          tableName: sanitizedTableName,
+          rowCount: row?.row_count || 0,
+          tableSize: 'N/A (SQLite)',
+          dataSize: 'N/A (SQLite)', 
+          indexSize: 'N/A (SQLite)',
+          schema: 'main',
+          owner: 'N/A (SQLite)',
+          hasIndexes: false, // Could be enhanced
+          hasRules: false,
+          hasTriggers: false,
+        });
+      });
+    });
+  }
+
+  // PostgreSQL-specific table columns
+  private async getPostgreSQLTableColumns(connection: any, tableName: string): Promise<any[]> {
+    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    
+    const query = `
+      SELECT 
+        column_name,
+        data_type,
+        is_nullable,
+        column_default,
+        character_maximum_length,
+        numeric_precision,
+        numeric_scale,
+        ordinal_position
+      FROM information_schema.columns 
+      WHERE table_name = $1 
+      ORDER BY ordinal_position
+    `;
+
+    const result = await connection.query(query, [sanitizedTableName]);
+    
+    return result.rows.map((col: any) => ({
+      name: col.column_name,
+      type: col.data_type,
+      nullable: col.is_nullable === 'YES',
+      defaultValue: col.column_default,
+      maxLength: col.character_maximum_length,
+      precision: col.numeric_precision,
+      scale: col.numeric_scale,
+      position: col.ordinal_position
+    }));
+  }
+
+  // SQLite-specific table columns
+  private async getSQLiteTableColumns(connection: any, tableName: string): Promise<any[]> {
+    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    
+    return new Promise((resolve, reject) => {
+      connection.all(`PRAGMA table_info("${sanitizedTableName}")`, (err: any, rows: any[]) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        const columns = rows.map((col) => ({
+          name: col.name,
+          type: col.type,
+          nullable: col.notnull === 0,
+          defaultValue: col.dflt_value,
+          primaryKey: col.pk === 1,
+          position: col.cid
+        }));
+
+        resolve(columns);
+      });
+    });
+  }
 }
 
 export { DatabaseManager, ConnectionConfig, QueryResult, DatabaseSchema, SchemaTable }; 

@@ -28,6 +28,17 @@ const QuerySchema = z.object({
   params: z.array(z.any()).optional()
 });
 
+const TableMetadataSchema = z.object({
+  connectionId: z.string(),
+  tableName: z.string().min(1)
+});
+
+const TablePreviewSchema = z.object({
+  connectionId: z.string(),
+  tableName: z.string().min(1),
+  limit: z.number().min(1).max(1000).optional()
+});
+
 // Test database connection
 router.post('/test-connection', async (req, res) => {
   try {
@@ -145,6 +156,51 @@ router.delete('/connections/:connectionId', async (req, res) => {
   } catch (error) {
     logger.error('Failed to delete connection:', error);
     res.status(500).json({ error: 'Failed to delete connection' });
+  }
+});
+
+// Get table metadata (row count, size, created date)
+router.post('/table-metadata', async (req, res) => {
+  try {
+    const { connectionId, tableName } = TableMetadataSchema.parse(req.body);
+    
+    const dbManager = DatabaseManager.getInstance();
+    const metadata = await dbManager.getTableMetadata(connectionId, tableName);
+    
+    res.json(metadata);
+  } catch (error) {
+    logger.error('Failed to get table metadata:', error);
+    res.status(500).json({ error: 'Failed to get table metadata' });
+  }
+});
+
+// Get table column details
+router.post('/table-columns', async (req, res) => {
+  try {
+    const { connectionId, tableName } = TableMetadataSchema.parse(req.body);
+    
+    const dbManager = DatabaseManager.getInstance();
+    const columns = await dbManager.getTableColumns(connectionId, tableName);
+    
+    res.json({ columns });
+  } catch (error) {
+    logger.error('Failed to get table columns:', error);
+    res.status(500).json({ error: 'Failed to get table columns' });
+  }
+});
+
+// Preview table data (first 100 rows)
+router.post('/table-preview', async (req, res) => {
+  try {
+    const { connectionId, tableName, limit = 100 } = TablePreviewSchema.parse(req.body);
+    
+    const dbManager = DatabaseManager.getInstance();
+    const preview = await dbManager.getTablePreview(connectionId, tableName, limit);
+    
+    res.json(preview);
+  } catch (error) {
+    logger.error('Failed to get table preview:', error);
+    res.status(500).json({ error: 'Failed to get table preview' });
   }
 });
 
