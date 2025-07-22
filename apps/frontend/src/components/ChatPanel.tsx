@@ -15,32 +15,6 @@ interface ChatPanelProps {
   onQueryExecute: (results: any) => void
 }
 
-// Helper function to render text with styled inline code
-const renderTextWithInlineCode = (text: string) => {
-  const parts = text.split(/(\[\[(?:table|column):[^\]]+\]\])/g)
-  
-  return parts.map((part, index) => {
-    const tableMatch = part.match(/^\[\[table:([^\]]+)\]\]$/)
-    const columnMatch = part.match(/^\[\[column:([^\]]+)\]\]$/)
-    
-    if (tableMatch) {
-      return (
-        <span key={index} className="cursor-inline-code">
-          {tableMatch[1]}
-        </span>
-      )
-    } else if (columnMatch) {
-      return (
-        <span key={index} className="cursor-inline-code">
-          {columnMatch[1]}
-        </span>
-      )
-    }
-    
-    return part
-  })
-}
-
 export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryExecute }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -50,28 +24,60 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       timestamp: new Date()
     }
   ])
-  const [input, setInput] = useState('')
   const [currentSql, setCurrentSql] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'chat' | 'sql'>('chat')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Extract plain text from contentEditable, converting styled elements back to readable names
+  const getInputText = (): string => {
+    if (!inputRef.current) return ''
+    
+    const clonedDiv = inputRef.current.cloneNode(true) as HTMLDivElement
+    
+    // Convert styled table/column references back to plain text
+    const styledElements = clonedDiv.querySelectorAll('[data-type]')
+    styledElements.forEach(el => {
+      const type = el.getAttribute('data-type')
+      const name = el.getAttribute('data-name')
+      if (type && name) {
+        el.replaceWith(document.createTextNode(name))
+      }
+    })
+    
+    return clonedDiv.textContent || ''
+  }
+
+  // Set content in contentEditable div
+  const setInputContent = (htmlContent: string) => {
+    if (!inputRef.current) return
+    inputRef.current.innerHTML = htmlContent
+  }
+
+  // Clear input
+  const clearInput = () => {
+    if (!inputRef.current) return
+    inputRef.current.innerHTML = ''
+  }
+
   const handleSendMessage = async () => {
-    if (!input.trim() || !selectedConnection) return
+    const inputText = getInputText().trim()
+    if (!inputText || !selectedConnection) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: input,
+      content: inputText,
       timestamp: new Date()
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInput('')
+    clearInput()
     setIsLoading(true)
 
     try {
@@ -89,7 +95,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: input,
+          query: inputText,
           schema: schema,
           connectionType: 'postgresql'
         })
@@ -168,25 +174,74 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     const jsonData = e.dataTransfer.getData('application/json')
     const plainText = e.dataTransfer.getData('text/plain')
     
-    let formattedText = plainText
-    
     try {
       if (jsonData) {
         const parsed = JSON.parse(jsonData)
-        if (parsed.type === 'table') {
-          // Format table names with special marker for custom styling
-          formattedText = `[[table:${parsed.item}]]`
-        } else if (parsed.type === 'column') {
-          // Format column references with special marker for custom styling
-          formattedText = `[[column:${parsed.item}]]`
+        if (parsed.type === 'table' || parsed.type === 'column') {
+          // Create styled element directly
+          const styledElement = document.createElement('span')
+          styledElement.className = 'cursor-inline-code'
+          styledElement.setAttribute('data-type', parsed.type)
+          styledElement.setAttribute('data-name', parsed.item)
+          styledElement.textContent = parsed.item
+          styledElement.contentEditable = 'false' // Make styled elements non-editable
+          
+          // Insert at current cursor position or at end
+          if (inputRef.current) {
+            const selection = window.getSelection()
+            if (selection && selection.rangeCount > 0 && inputRef.current.contains(selection.focusNode)) {
+              // Insert at cursor
+              const range = selection.getRangeAt(0)
+              range.deleteContents()
+              range.insertNode(document.createTextNode(' '))
+              range.insertNode(styledElement)
+              range.insertNode(document.createTextNode(' '))
+              range.setStartAfter(styledElement)
+              range.collapse(true)
+              selection.removeAllRanges()
+              selection.addRange(range)
+            } else {
+              // Insert at end
+              if (inputRef.current.textContent?.trim()) {
+                inputRef.current.appendChild(document.createTextNode(' '))
+              }
+              inputRef.current.appendChild(styledElement)
+              inputRef.current.appendChild(document.createTextNode(' '))
+            }
+            
+            // Focus back on the input
+            inputRef.current.focus()
+          }
+          
+          return
         }
       }
     } catch (error) {
-      // Fall back to plain text if JSON parsing fails
-      formattedText = plainText
+      // Fall back to plain text insertion
     }
     
-    setInput(prev => prev + (prev ? ' ' : '') + formattedText)
+    // Fallback: insert plain text
+    if (plainText && inputRef.current) {
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0 && inputRef.current.contains(selection.focusNode)) {
+        const range = selection.getRangeAt(0)
+        range.deleteContents()
+        range.insertNode(document.createTextNode((inputRef.current.textContent?.trim() ? ' ' : '') + plainText + ' '))
+        range.collapse(false)
+        selection.removeAllRanges()
+        selection.addRange(range)
+      } else {
+        inputRef.current.appendChild(document.createTextNode((inputRef.current.textContent?.trim() ? ' ' : '') + plainText + ' '))
+      }
+      inputRef.current.focus()
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
   }
 
   return (
@@ -293,92 +348,26 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
             >
-              <div className="flex-1 relative">
-                {/* Actual input field - now textarea for dynamic growth */}
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
-                  placeholder={
+              <div className="flex-1">
+                <div
+                  ref={inputRef}
+                  contentEditable
+                  onKeyDown={handleKeyDown}
+                  className="w-full min-h-[36px] max-h-[120px] px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs overflow-y-auto resize-none"
+                  style={{ 
+                    wordWrap: 'break-word',
+                    whiteSpace: 'pre-wrap'
+                  }}
+                  data-placeholder={
                     selectedConnection
                       ? "Ask a question about your data..."
                       : "Select a database connection first"
                   }
-                  disabled={!selectedConnection || isLoading}
-                  rows={1}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0 resize-none overflow-hidden"
-                  style={{
-                    caretColor: 'rgb(59 130 246)', // Always show blue cursor
-                    minHeight: '36px',
-                    maxHeight: '120px',
-                    color: /\[\[(?:table|column):[^\]]+\]\]/.test(input) ? 'transparent' : 'inherit'
-                  }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement
-                    target.style.height = 'auto'
-                    const newHeight = Math.min(target.scrollHeight, 120)
-                    target.style.height = newHeight + 'px'
-                    
-                    // Update overlay height to match
-                    const overlay = target.parentElement?.querySelector('.styled-overlay') as HTMLElement
-                    if (overlay) {
-                      overlay.style.height = newHeight + 'px'
-                    }
-                  }}
                 />
-                
-                {/* Styled overlay for table/column references only */}
-                {/\[\[(?:table|column):[^\]]+\]\]/.test(input) && (
-                  <div
-                    className="styled-overlay absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap"
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid transparent',
-                      borderRadius: '6px',
-                      fontFamily: 'inherit',
-                      fontSize: 'inherit',
-                      lineHeight: 'inherit',
-                      minHeight: '36px',
-                      maxHeight: '120px',
-                      overflow: 'hidden',
-                      paddingTop: '8px' // Match textarea padding
-                    }}
-                  >
-                    {input.split(/(\[\[(?:table|column):[^\]]+\]\])/g).map((part, index) => {
-                      const tableMatch = part.match(/^\[\[table:([^\]]+)\]\]$/)
-                      const columnMatch = part.match(/^\[\[column:([^\]]+)\]\]$/)
-                      
-                      if (tableMatch) {
-                        return (
-                          <span key={index} className="cursor-inline-code">
-                            {tableMatch[1]}
-                          </span>
-                        )
-                      } else if (columnMatch) {
-                        return (
-                          <span key={index} className="cursor-inline-code">
-                          {columnMatch[1]}
-                        </span>
-                      )
-                    }
-                    
-                    // Render regular text as invisible to maintain exact spacing
-                    return (
-                      <span key={index} style={{ 
-                        color: 'transparent',
-                        fontFamily: 'inherit',
-                        fontSize: 'inherit' 
-                      }}>
-                        {part}
-                      </span>
-                    )
-                  })}
-                </div>
-              )}
               </div>
               <button
                 onClick={handleSendMessage}
-                disabled={!input.trim() || !selectedConnection || isLoading}
+                disabled={!getInputText().trim() || !selectedConnection || isLoading}
                 className="px-3 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="h-4 w-4" />
@@ -408,7 +397,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                 }
               }}
               placeholder="SELECT * FROM customers LIMIT 10;"
-                              className="w-full h-full resize-none border border-border rounded-md p-3 bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full h-full resize-none border border-border rounded-md p-3 bg-background text-foreground font-mono text-xs focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
           <div className="border-t border-border p-4">

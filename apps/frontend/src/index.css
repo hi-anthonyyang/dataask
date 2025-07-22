@@ -99,6 +99,17 @@
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* ContentEditable placeholder styling */
+[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+[contenteditable]:focus:before {
+  content: none;
+}
+
 /* Cursor-style inline code for table/column references */
 .cursor-inline-code {
   background: rgba(99, 102, 241, 0.08);
@@ -112,6 +123,7 @@
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
+  user-select: none; /* Prevent accidental text selection within styled elements */
 }
 
 .dark .cursor-inline-code {
