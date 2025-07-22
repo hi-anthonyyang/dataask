@@ -3,13 +3,14 @@ import SchemaBrowser from './components/SchemaBrowser'
 import AnalysisPanel from './components/AnalysisPanel'
 import ChatPanel from './components/ChatPanel'
 import TableDetails from './components/TableDetails'
-import { Database, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Database, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react'
 
 function App() {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
   const [currentQuery, setCurrentQuery] = useState<string>('')
   const [queryResults, setQueryResults] = useState<any>(null)
+  const [showConnectionModal, setShowConnectionModal] = useState(false)
   const [leftPanelWidth, setLeftPanelWidth] = useState(320) // 25% of ~1280px
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -79,7 +80,7 @@ function App() {
           {/* Minimize/Expand Button */}
           <button
             onClick={toggleLeftPanel}
-            className="absolute top-4 right-2 z-10 p-1 hover:bg-muted rounded-md transition-colors"
+            className="absolute top-4 right-3 z-10 p-1.5 hover:bg-muted rounded-md transition-colors"
             title={isLeftPanelMinimized ? "Expand panel" : "Minimize panel"}
           >
             {isLeftPanelMinimized ? (
@@ -89,13 +90,36 @@ function App() {
             )}
           </button>
 
-          {!isLeftPanelMinimized && (
+          {!isLeftPanelMinimized ? (
             <SchemaBrowser 
               selectedConnection={selectedConnection}
               onConnectionSelect={setSelectedConnection}
               selectedTable={selectedTable}
               onTableSelect={setSelectedTable}
+              showConnectionModal={showConnectionModal}
+              setShowConnectionModal={setShowConnectionModal}
             />
+          ) : (
+            <div className="flex flex-col items-center p-2 gap-3 mt-16">
+              <button
+                onClick={() => setShowConnectionModal(true)}
+                className="p-2 hover:bg-muted rounded-md transition-colors"
+                title="Add database connection"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              <button
+                className="p-2 hover:bg-muted rounded-md transition-colors"
+                title="Connection settings"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+              {selectedConnection && (
+                <div className="p-2">
+                  <Database className="h-4 w-4 text-primary" />
+                </div>
+              )}
+            </div>
           )}
 
           {/* Drag Handle */}

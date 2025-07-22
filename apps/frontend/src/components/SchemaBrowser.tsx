@@ -23,14 +23,15 @@ interface SchemaBrowserProps {
   onConnectionSelect: (connectionId: string | null) => void
   selectedTable: string | null
   onTableSelect: (tableName: string | null) => void
+  showConnectionModal: boolean
+  setShowConnectionModal: (show: boolean) => void
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, showConnectionModal, setShowConnectionModal }: SchemaBrowserProps) {
   const [connections, setConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
-  const [showConnectionModal, setShowConnectionModal] = useState(false)
 
   // Load connections on mount
   useEffect(() => {
@@ -101,7 +102,7 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
           <h2 className="font-semibold text-sm text-foreground">Database Explorer</h2>
           <button 
             onClick={() => setShowConnectionModal(true)}
-            className="p-1 hover:bg-muted rounded"
+            className="p-1.5 hover:bg-muted rounded mr-8"
             title="Add database connection"
           >
             <Plus className="h-4 w-4" />

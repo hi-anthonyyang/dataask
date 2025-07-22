@@ -137,8 +137,30 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    const droppedText = e.dataTransfer.getData('text/plain')
-    setInput(prev => prev + (prev ? ' ' : '') + droppedText)
+    
+    // Try to get structured data first
+    const jsonData = e.dataTransfer.getData('application/json')
+    const plainText = e.dataTransfer.getData('text/plain')
+    
+    let formattedText = plainText
+    
+    try {
+      if (jsonData) {
+        const parsed = JSON.parse(jsonData)
+        if (parsed.type === 'table') {
+          // Format table names with special styling markers
+          formattedText = `📊${parsed.item}`
+        } else if (parsed.type === 'column') {
+          // Format column references  
+          formattedText = `📋${parsed.item}`
+        }
+      }
+    } catch (error) {
+      // Fall back to plain text if JSON parsing fails
+      formattedText = plainText
+    }
+    
+    setInput(prev => prev + (prev ? ' ' : '') + formattedText)
   }
 
   return (

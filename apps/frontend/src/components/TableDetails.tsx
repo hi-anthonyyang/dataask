@@ -317,12 +317,12 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
                               <td className="p-2 font-mono text-foreground">{col.name}</td>
                               <td className="p-2 font-mono text-primary">{col.type}</td>
                               <td className="p-2">
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                   col.nullable 
-                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                    ? 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800'
+                                    : 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
                                 }`}>
-                                  {col.nullable ? 'NULL' : 'NOT NULL'}
+                                  {col.nullable ? 'Nullable' : 'Required'}
                                 </span>
                               </td>
                               <td className="p-2 font-mono text-muted-foreground">
@@ -365,8 +365,8 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
                 <div className="mb-4 text-sm text-muted-foreground">
                   Showing first {previewData.length} rows
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                <div className="overflow-x-auto max-w-full">
+                  <table className="min-w-full text-xs whitespace-nowrap">
                     <thead>
                       <tr className="border-b border-border">
                         {Object.keys(previewData[0]).map((key) => (
