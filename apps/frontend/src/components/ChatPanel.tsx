@@ -660,7 +660,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       {/* History Tab */}
       {activeTab === 'history' && (
         <div className="flex-1 overflow-auto scrollbar-thin p-4">
-          <h3 className="font-semibold text-foreground mb-2">Query History</h3>
           {queryHistory.length === 0 ? (
             <p className="text-muted-foreground">No query history yet for this connection.</p>
           ) : (
@@ -691,9 +690,10 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className={`text-xs ${item.wasSuccessful ? 'text-green-500' : 'text-red-500'}`}>
-                            {item.wasSuccessful ? '✅' : '❌'}
-                          </span>
+                          <div 
+                            className={`w-2 h-2 rounded-full ${item.wasSuccessful ? 'bg-green-500' : 'bg-red-500'}`}
+                            title={item.wasSuccessful ? 'Query executed successfully' : 'Query execution failed'}
+                          />
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
