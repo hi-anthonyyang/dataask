@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, Database, Table, Columns, Plus, Settings } from 'lucide-react'
+import ConnectionModal from './ConnectionModal'
 
 interface Connection {
   id: string
@@ -27,6 +28,7 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect }
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
+  const [showConnectionModal, setShowConnectionModal] = useState(false)
 
   // Load connections on mount
   useEffect(() => {
@@ -84,13 +86,22 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect }
     e.dataTransfer.setData('application/json', JSON.stringify({ item, type }))
   }
 
+  const handleConnectionAdded = (connectionId: string) => {
+    loadConnections() // Refresh the connections list
+    onConnectionSelect(connectionId) // Auto-select the new connection
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-sm text-foreground">Database Explorer</h2>
-          <button className="p-1 hover:bg-muted rounded">
+          <button 
+            onClick={() => setShowConnectionModal(true)}
+            className="p-1 hover:bg-muted rounded"
+            title="Add database connection"
+          >
             <Plus className="h-4 w-4" />
           </button>
         </div>
@@ -102,7 +113,10 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect }
           <div className="p-4 text-center text-muted-foreground text-sm">
             <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>No database connections</p>
-            <button className="mt-2 text-primary hover:underline text-xs">
+            <button 
+              onClick={() => setShowConnectionModal(true)}
+              className="mt-2 text-primary hover:underline text-xs"
+            >
               Add Connection
             </button>
           </div>
@@ -192,6 +206,13 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect }
           <span>Connection Settings</span>
         </button>
       </div>
+
+      {/* Connection Modal */}
+      <ConnectionModal
+        isOpen={showConnectionModal}
+        onClose={() => setShowConnectionModal(false)}
+        onConnectionAdded={handleConnectionAdded}
+      />
     </div>
   )
 } 

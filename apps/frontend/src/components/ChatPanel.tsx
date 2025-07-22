@@ -274,6 +274,12 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                 setCurrentSql(e.target.value)
                 onQueryUpdate(e.target.value)
               }}
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault()
+                  handleExecuteQuery()
+                }
+              }}
               placeholder="SELECT * FROM customers LIMIT 10;"
               className="w-full h-full resize-none border border-border rounded-md p-3 bg-background text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
@@ -287,6 +293,9 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
               <Play className="h-4 w-4" />
               {isLoading ? 'Executing...' : 'Run Query'}
             </button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              ⌘+Enter or Ctrl+Enter
+            </p>
           </div>
         </div>
       )}

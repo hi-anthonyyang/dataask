@@ -42,8 +42,19 @@ interface DatabaseSchema {
 }
 
 class DatabaseManager {
+  private static instance: DatabaseManager;
   private connections: Map<string, any> = new Map();
   private connectionConfigs: Map<string, ConnectionConfig> = new Map();
+
+  // Singleton pattern to persist connections across API calls
+  public static getInstance(): DatabaseManager {
+    if (!DatabaseManager.instance) {
+      DatabaseManager.instance = new DatabaseManager();
+    }
+    return DatabaseManager.instance;
+  }
+
+  private constructor() {} // Private constructor for singleton
 
   /**
    * Test a database connection without storing it

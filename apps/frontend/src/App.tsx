@@ -1,13 +1,48 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import SchemaBrowser from './components/SchemaBrowser'
 import AnalysisPanel from './components/AnalysisPanel'
 import ChatPanel from './components/ChatPanel'
-import { Database } from 'lucide-react'
+import { Database, ChevronLeft, ChevronRight } from 'lucide-react'
 
 function App() {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
   const [currentQuery, setCurrentQuery] = useState<string>('')
   const [queryResults, setQueryResults] = useState<any>(null)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(320) // 25% of ~1280px
+  const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true)
+    e.preventDefault()
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+    const newWidth = Math.max(200, Math.min(600, e.clientX))
+    setLeftPanelWidth(newWidth)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  // Add global mouse event listeners
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isDragging])
+
+  const toggleLeftPanel = () => {
+    setIsLeftPanelMinimized(!isLeftPanelMinimized)
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -16,7 +51,7 @@ function App() {
         <div className="flex items-center gap-2">
           <Database className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-semibold text-foreground">DataAsk</h1>
-          <span className="text-sm text-muted-foreground">AI-Powered SQL Analysis</span>
+          <span className="text-sm text-muted-foreground"># Just ask your data</span>
         </div>
         <div className="flex items-center gap-2">
           {selectedConnection && (
@@ -30,15 +65,49 @@ function App() {
 
       {/* Main Content - Three Panel Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Schema Browser (25%) */}
-        <div className="w-1/4 border-r border-border bg-card">
-          <SchemaBrowser 
-            selectedConnection={selectedConnection}
-            onConnectionSelect={setSelectedConnection}
-          />
+        {/* Left Panel - Schema Browser (Resizable) */}
+        <div 
+          className={`border-r border-border bg-card relative transition-all duration-200 ${
+            isLeftPanelMinimized ? 'w-12' : ''
+          }`}
+          style={{ 
+            width: isLeftPanelMinimized ? '48px' : `${leftPanelWidth}px` 
+          }}
+        >
+          {/* Minimize/Expand Button */}
+          <button
+            onClick={toggleLeftPanel}
+            className="absolute top-4 right-2 z-10 p-1 hover:bg-muted rounded-md transition-colors"
+            title={isLeftPanelMinimized ? "Expand panel" : "Minimize panel"}
+          >
+            {isLeftPanelMinimized ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </button>
+
+          {!isLeftPanelMinimized && (
+            <SchemaBrowser 
+              selectedConnection={selectedConnection}
+              onConnectionSelect={setSelectedConnection}
+            />
+          )}
+
+          {/* Drag Handle */}
+          {!isLeftPanelMinimized && (
+            <div
+              ref={dragRef}
+              onMouseDown={handleMouseDown}
+              className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/20 transition-colors group"
+              title="Drag to resize panel"
+            >
+              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-border group-hover:bg-primary transition-colors" />
+            </div>
+          )}
         </div>
 
-        {/* Center Panel - Analysis & Results (50%) */}
+        {/* Center Panel - Analysis & Results (Flexible) */}
         <div className="flex-1 bg-background">
           <AnalysisPanel 
             queryResults={queryResults}
@@ -46,8 +115,8 @@ function App() {
           />
         </div>
 
-        {/* Right Panel - Chat & SQL (25%) */}
-        <div className="w-1/4 border-l border-border bg-card">
+        {/* Right Panel - Chat & SQL (Fixed) */}
+        <div className="w-80 border-l border-border bg-card">
           <ChatPanel 
             selectedConnection={selectedConnection}
             onQueryUpdate={setCurrentQuery}

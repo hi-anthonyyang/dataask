@@ -33,7 +33,7 @@ router.post('/test-connection', async (req, res) => {
   try {
     const connection = ConnectionSchema.parse(req.body);
     
-    const dbManager = new DatabaseManager();
+    const dbManager = DatabaseManager.getInstance();
     const isValid = await dbManager.testConnection(connection);
     
     res.json({ 
@@ -53,7 +53,7 @@ router.post('/connections', async (req, res) => {
   try {
     const connection = ConnectionSchema.parse(req.body);
     
-    const dbManager = new DatabaseManager();
+    const dbManager = DatabaseManager.getInstance();
     const connectionId = await dbManager.createConnection(connection);
     
     res.json({ 
@@ -73,7 +73,7 @@ router.get('/connections/:connectionId/schema', async (req, res) => {
   try {
     const { connectionId } = req.params;
     
-    const dbManager = new DatabaseManager();
+    const dbManager = DatabaseManager.getInstance();
     const schema = await dbManager.getSchema(connectionId);
     
     res.json({ schema });
@@ -97,7 +97,7 @@ router.post('/query', async (req, res) => {
       });
     }
     
-    const dbManager = new DatabaseManager();
+    const dbManager = DatabaseManager.getInstance();
     const result = await dbManager.executeQuery(
       queryRequest.connectionId,
       queryRequest.sql,
@@ -123,9 +123,9 @@ router.post('/query', async (req, res) => {
 // Get list of connections
 router.get('/connections', async (req, res) => {
   try {
-    const dbManager = new DatabaseManager();
+        const dbManager = DatabaseManager.getInstance();
     const connections = await dbManager.listConnections();
-    
+
     res.json({ connections });
   } catch (error) {
     logger.error('Failed to list connections:', error);
@@ -138,7 +138,7 @@ router.delete('/connections/:connectionId', async (req, res) => {
   try {
     const { connectionId } = req.params;
     
-    const dbManager = new DatabaseManager();
+    const dbManager = DatabaseManager.getInstance();
     await dbManager.deleteConnection(connectionId);
     
     res.json({ message: 'Connection deleted successfully' });
