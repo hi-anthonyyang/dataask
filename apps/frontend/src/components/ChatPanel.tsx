@@ -297,14 +297,18 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                 {/* Styled overlay for table/column references only */}
                 {/\[\[(?:table|column):[^\]]+\]\]/.test(input) && (
                   <div
-                    className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap flex items-center"
+                    className="absolute inset-0 px-3 py-2 text-xs pointer-events-none z-10 whitespace-pre-wrap"
                     style={{
                       background: 'transparent',
                       border: '1px solid transparent',
                       borderRadius: '6px',
                       fontFamily: 'inherit',
                       fontSize: 'inherit',
-                      lineHeight: 'inherit'
+                      lineHeight: 'inherit',
+                      minHeight: '36px',
+                      maxHeight: '120px',
+                      overflow: 'hidden',
+                      paddingTop: '8px' // Match textarea padding
                     }}
                   >
                     {input.split(/(\[\[(?:table|column):[^\]]+\]\])/g).map((part, index) => {
@@ -325,10 +329,10 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                       )
                     }
                     
-                    // Render regular text as invisible to maintain exact spacing
+                    // Render regular text normally - don't hide it!
                     return (
                       <span key={index} style={{ 
-                        visibility: 'hidden',
+                        color: 'transparent',
                         fontFamily: 'inherit',
                         fontSize: 'inherit' 
                       }}>
@@ -339,24 +343,28 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                 </div>
               )}
                 
-                {/* Actual input field */}
-                <input
-                  type="text"
+                {/* Actual input field - now textarea for dynamic growth */}
+                <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                   placeholder={
                     selectedConnection
                       ? "Ask a question about your data..."
                       : "Select a database connection first"
                   }
                   disabled={!selectedConnection || isLoading}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0"
+                  rows={1}
+                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs relative z-0 resize-none overflow-hidden"
                   style={{
-                    color: /\[\[(?:table|column):[^\]]+\]\]/.test(input) 
-                      ? 'rgba(107, 114, 128, 0.8)' // More visible gray
-                      : 'inherit',
-                    caretColor: 'rgb(59 130 246)' // Always show blue cursor
+                    caretColor: 'rgb(59 130 246)', // Always show blue cursor
+                    minHeight: '36px',
+                    maxHeight: '120px'
+                  }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement
+                    target.style.height = 'auto'
+                    target.style.height = Math.min(target.scrollHeight, 120) + 'px'
                   }}
                 />
               </div>
