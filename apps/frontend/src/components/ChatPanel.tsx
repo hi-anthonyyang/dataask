@@ -49,10 +49,34 @@ const saveQueryToHistory = async (item: Omit<QueryHistoryItem, 'id' | 'summarize
     const historyKey = getHistoryKey(item.connectionId)
     const existingHistory = getQueryHistory(item.connectionId)
     
-    // Generate summarized title using simple truncation for now (will integrate OpenAI later)
-    const summarizedTitle = item.naturalLanguage.length > 50 
-      ? item.naturalLanguage.substring(0, 50).trim() + '...'
-      : item.naturalLanguage
+    // Generate summarized title using OpenAI API
+    let summarizedTitle = item.naturalLanguage
+    
+    try {
+      const response = await fetch('/api/llm/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: item.naturalLanguage
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        summarizedTitle = result.title
+      } else {
+        // Fallback to truncation if API fails
+        summarizedTitle = item.naturalLanguage.length > 50 
+          ? item.naturalLanguage.substring(0, 50).trim() + '...'
+          : item.naturalLanguage
+      }
+    } catch (error) {
+      console.error('Failed to generate AI title:', error)
+      // Fallback to truncation
+      summarizedTitle = item.naturalLanguage.length > 50 
+        ? item.naturalLanguage.substring(0, 50).trim() + '...'
+        : item.naturalLanguage
+    }
     
     const newItem: QueryHistoryItem = {
       ...item,

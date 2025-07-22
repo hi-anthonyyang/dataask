@@ -34,6 +34,11 @@ const AnalysisSchema = z.object({
   context: z.string().optional()
 });
 
+// Schema for summarization requests
+const SummarizationSchema = z.object({
+  query: z.string().min(1)
+});
+
 // Convert natural language to SQL
 router.post('/nl-to-sql', async (req, res) => {
   try {
@@ -192,6 +197,83 @@ ${JSON.stringify(dataPreview, null, 2)}`;
     logger.error('Data analysis failed:', error);
     res.status(500).json({ 
       error: error instanceof z.ZodError ? 'Invalid request parameters' : 'Failed to generate analysis'
+    });
+  }
+});
+
+// Generate concise title for natural language query
+router.post('/summarize', async (req, res) => {
+  try {
+    const request = SummarizationSchema.parse(req.body);
+    
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ 
+        error: 'OpenAI API key not configured' 
+      });
+    }
+
+    const systemPrompt = `You are a helpful assistant that creates concise, descriptive titles for data queries.
+
+Generate a short, clear title (maximum 50 characters) that captures the essence of the user's query.
+
+Rules:
+- Be specific and descriptive
+- Use business/data terminology
+- Keep it under 50 characters
+- No quotes or special characters
+- Make it searchable and memorable
+
+Examples:
+- "What are the top selling products?" → "Top Selling Products"
+- "Show me customer acquisition by month for 2023" → "Monthly Customer Acquisition 2023"
+- "Which regions have the lowest revenue?" → "Lowest Revenue by Region"`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Create a title for this query: "${request.query}"` }
+      ],
+      temperature: 0.1,
+      max_tokens: 20
+    });
+
+    const title = completion.choices[0]?.message?.content?.trim();
+    
+    if (!title) {
+      // Fallback to truncation if AI fails
+      const fallbackTitle = request.query.length > 50 
+        ? request.query.substring(0, 47).trim() + '...'
+        : request.query;
+      
+      return res.json({ 
+        title: fallbackTitle,
+        source: 'fallback'
+      });
+    }
+
+    logger.info('Query summarization successful', { 
+      originalQuery: request.query,
+      generatedTitle: title 
+    });
+
+    res.json({ 
+      title: title,
+      source: 'ai'
+    });
+
+  } catch (error) {
+    logger.error('Query summarization failed:', error);
+    
+    // Fallback to truncation on any error
+    const request = req.body;
+    const fallbackTitle = request.query && request.query.length > 50 
+      ? request.query.substring(0, 47).trim() + '...'
+      : request.query || 'Untitled Query';
+    
+    res.json({ 
+      title: fallbackTitle,
+      source: 'fallback'
     });
   }
 });
