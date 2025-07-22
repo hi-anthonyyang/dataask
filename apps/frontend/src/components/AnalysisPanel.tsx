@@ -112,7 +112,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
   const chartData = generateChartData()
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-w-0">
       {/* Header with Tabs */}
       <div className="border-b border-border bg-card">
         <div className="p-4 pb-0">
@@ -216,27 +216,27 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
         {activeTab === 'data' && (
           <div className="p-4">
             <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto max-w-full">
+                <table className="min-w-full text-sm">
                   <thead className="bg-muted">
                     <tr>
                       {queryResults.fields.map((field: any) => (
-                        <th key={field.name} className="px-4 py-2 text-left font-medium">
+                        <th key={field.name} className="px-4 py-2 text-left font-medium max-w-xs truncate" title={field.name}>
                           {field.name}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {queryResults.data.slice(0, 100).map((row: any, index: number) => (
-                      <tr key={index} className="border-t border-border hover:bg-muted/50">
-                        {queryResults.fields.map((field: any) => (
-                          <td key={field.name} className="px-4 py-2">
-                            {row[field.name]?.toString() || ''}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
+                                          {queryResults.data.slice(0, 100).map((row: any, index: number) => (
+                        <tr key={index} className="border-t border-border hover:bg-muted/50">
+                          {queryResults.fields.map((field: any) => (
+                            <td key={field.name} className="px-4 py-2 max-w-xs truncate" title={row[field.name]?.toString() || ''}>
+                              {row[field.name]?.toString() || ''}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>

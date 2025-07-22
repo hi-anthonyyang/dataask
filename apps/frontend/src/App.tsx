@@ -112,7 +112,7 @@ function App() {
         </div>
 
         {/* Center Panel - Analysis & Results (Flexible) */}
-        <div className="flex-1 bg-background">
+        <div className="flex-1 bg-background min-w-0 overflow-hidden">
           {selectedTable ? (
             <TableDetails 
               selectedConnection={selectedConnection}
