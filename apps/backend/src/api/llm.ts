@@ -55,14 +55,22 @@ router.post('/nl-to-sql', async (req, res) => {
 
     const systemPrompt = `You are a SQL expert. Convert natural language queries to ${request.connectionType.toUpperCase()} SQL.
 
-IMPORTANT RULES:
+CRITICAL RULES:
+- Generate EXACTLY ONE SQL statement only
+- Never create multiple statements separated by semicolons
 - Only generate SELECT, EXPLAIN, or DESCRIBE statements
 - Never generate INSERT, UPDATE, DELETE, DROP, CREATE, ALTER, or any DDL/DML
 - Use proper ${request.connectionType} syntax
-- Return only the SQL query, no explanations
+- Return only the SQL query, no explanations or comments
 - Use table and column names exactly as provided
 - Include appropriate JOINs when querying multiple tables
 - Add LIMIT clauses for potentially large result sets
+
+FOR COMPARISON QUERIES (best/worst, top/bottom, etc.):
+- Use window functions, subqueries, or UNION to show multiple results in one statement
+- Use ORDER BY to show ranges (e.g., ORDER BY value DESC to show best first)
+- Use CASE statements to categorize results
+- Example: For "best and worst products" use ORDER BY with sufficient LIMIT to show both ends
 
 Database Schema:
 ${schemaContext}`;
