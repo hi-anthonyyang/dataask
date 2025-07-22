@@ -49,13 +49,22 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     setIsLoading(true)
 
     try {
-      // Convert natural language to SQL
+      // Get current database schema first
+      const schemaResponse = await fetch(`/api/db/connections/${selectedConnection}/schema`)
+      let schema = { tables: [] }
+      
+      if (schemaResponse.ok) {
+        const result = await schemaResponse.json()
+        schema = result.schema || { tables: [] }
+      }
+
+      // Convert natural language to SQL with real schema context
       const response = await fetch('/api/llm/nl-to-sql', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: input,
-          schema: { tables: [] }, // TODO: Get actual schema
+          schema: schema,
           connectionType: 'postgresql'
         })
       })

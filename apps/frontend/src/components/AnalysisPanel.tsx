@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { TrendingUp, Download, Eye, BarChart3 } from 'lucide-react'
 
@@ -9,6 +9,46 @@ interface AnalysisPanelProps {
 
 export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPanelProps) {
   const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'chart'>('insights')
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+
+  // Generate AI analysis when query results change
+  useEffect(() => {
+    if (queryResults && queryResults.data && queryResults.data.length > 0 && currentQuery) {
+      generateAIAnalysis()
+    } else {
+      setAiAnalysis(null)
+    }
+  }, [queryResults, currentQuery])
+
+  const generateAIAnalysis = async () => {
+    if (!queryResults || !currentQuery) return
+
+    setIsAnalyzing(true)
+    try {
+      const response = await fetch('/api/llm/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: queryResults.data,
+          query: currentQuery,
+          context: 'Business data analysis for database exploration'
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setAiAnalysis(result.analysis)
+      } else {
+        setAiAnalysis('Failed to generate AI analysis. Please try again.')
+      }
+    } catch (error) {
+      console.error('AI analysis error:', error)
+      setAiAnalysis('Error occurred while generating insights. Please try again.')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
 
   if (!queryResults) {
     return (
@@ -128,13 +168,23 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
             <div className="bg-muted p-4 rounded-lg">
               <h3 className="font-medium text-foreground mb-2 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Key Insights
+                {isAnalyzing ? 'Generating AI Insights...' : 'AI Insights'}
               </h3>
-              <p className="text-muted-foreground text-sm">
-                Found {queryResults.rowCount} records. The data shows various patterns 
-                that could be analyzed for business insights. Consider exploring trends 
-                over time or comparing different categories.
-              </p>
+              
+              {isAnalyzing ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  Analyzing your data with AI...
+                </div>
+              ) : aiAnalysis ? (
+                <div className="text-sm text-foreground whitespace-pre-wrap">
+                  {aiAnalysis}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  No AI insights available. Try running a query with data to get intelligent analysis.
+                </p>
+              )}
             </div>
             
             <div className="bg-card border border-border p-4 rounded-lg">
@@ -149,6 +199,15 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
                   <span className="font-medium ml-2">{queryResults.fields.length}</span>
                 </div>
               </div>
+              
+              {!isAnalyzing && !aiAnalysis && (
+                <button
+                  onClick={generateAIAnalysis}
+                  className="mt-3 px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                >
+                  Generate AI Analysis
+                </button>
+              )}
             </div>
           </div>
         )}
