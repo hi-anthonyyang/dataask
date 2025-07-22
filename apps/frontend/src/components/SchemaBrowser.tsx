@@ -25,18 +25,25 @@ interface SchemaBrowserProps {
   onTableSelect: (tableName: string | null) => void
   showConnectionModal: boolean
   setShowConnectionModal: (show: boolean) => void
+  onConnectionAdded?: () => void
+  connections?: Connection[]
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, showConnectionModal, setShowConnectionModal }: SchemaBrowserProps) {
-  const [connections, setConnections] = useState<Connection[]>([])
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, showConnectionModal, setShowConnectionModal, onConnectionAdded, connections: propConnections }: SchemaBrowserProps) {
+  const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
 
-  // Load connections on mount
+  // Use connections from props if available, otherwise use internal state
+  const connections = propConnections || internalConnections
+
+  // Load connections on mount only if not provided via props
   useEffect(() => {
-    loadConnections()
-  }, [])
+    if (!propConnections) {
+      loadConnections()
+    }
+  }, [propConnections])
 
   // Load schema when connection is selected
   useEffect(() => {
@@ -52,7 +59,7 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
       const response = await fetch('/api/db/connections')
       if (response.ok) {
         const data = await response.json()
-        setConnections(data.connections)
+        setInternalConnections(data.connections)
       }
     } catch (error) {
       console.error('Failed to load connections:', error)
@@ -90,7 +97,11 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
   }
 
   const handleConnectionAdded = (connectionId: string) => {
-    loadConnections() // Refresh the connections list
+    if (onConnectionAdded) {
+      onConnectionAdded() // Notify parent to refresh connections
+    } else {
+      loadConnections() // Fallback to internal loading
+    }
     onConnectionSelect(connectionId) // Auto-select the new connection
   }
 

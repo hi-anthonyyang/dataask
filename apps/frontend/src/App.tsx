@@ -5,6 +5,12 @@ import ChatPanel from './components/ChatPanel'
 import TableDetails from './components/TableDetails'
 import { Database, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react'
 
+interface Connection {
+  id: string
+  name: string
+  type: string
+}
+
 function App() {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
   const [selectedTable, setSelectedTable] = useState<string | null>(null)
@@ -16,8 +22,26 @@ function App() {
   const [rightPanelWidth, setRightPanelWidth] = useState(400) // ~30% of ~1280px
   const [isDraggingLeft, setIsDraggingLeft] = useState(false)
   const [isDraggingRight, setIsDraggingRight] = useState(false)
+  const [connections, setConnections] = useState<Connection[]>([])
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
+
+  // Load connections on mount
+  useEffect(() => {
+    loadConnections()
+  }, [])
+
+  const loadConnections = async () => {
+    try {
+      const response = await fetch('/api/db/connections')
+      if (response.ok) {
+        const data = await response.json()
+        setConnections(data.connections)
+      }
+    } catch (error) {
+      console.error('Failed to load connections:', error)
+    }
+  }
 
   const handleLeftMouseDown = (e: React.MouseEvent) => {
     setIsDraggingLeft(true)
@@ -78,6 +102,14 @@ function App() {
     setIsLeftPanelMinimized(!isLeftPanelMinimized)
   }
 
+  const handleConnectionSelect = (connectionId: string | null) => {
+    setSelectedConnection(connectionId === selectedConnection ? null : connectionId)
+  }
+
+  const handleConnectionAdded = () => {
+    loadConnections() // Refresh connections when a new one is added
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
@@ -129,9 +161,12 @@ function App() {
               onTableSelect={setSelectedTable}
               showConnectionModal={showConnectionModal}
               setShowConnectionModal={setShowConnectionModal}
+              onConnectionAdded={handleConnectionAdded}
+              connections={connections}
             />
           ) : (
-            <div className="flex flex-col items-center p-2 gap-3 mt-16">
+            <div className="flex flex-col items-center p-2 gap-2 mt-16 h-full">
+              {/* Add Connection Button - Top */}
               <button
                 onClick={() => setShowConnectionModal(true)}
                 className="p-2 hover:bg-muted rounded-md transition-colors"
@@ -139,17 +174,34 @@ function App() {
               >
                 <Plus className="h-4 w-4" />
               </button>
+              
+              {/* Connection Icons - Middle (scrollable if many) */}
+              <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+                {connections.map((connection) => (
+                  <button
+                    key={connection.id}
+                    onClick={() => handleConnectionSelect(connection.id)}
+                    className={`p-2 hover:bg-muted rounded-md transition-colors ${
+                      selectedConnection === connection.id ? 'bg-primary/10' : ''
+                    }`}
+                    title={`${connection.name} (${connection.type})`}
+                  >
+                    <Database 
+                      className={`h-4 w-4 ${
+                        selectedConnection === connection.id ? 'text-primary' : 'text-muted-foreground'
+                      }`} 
+                    />
+                  </button>
+                ))}
+              </div>
+              
+              {/* Settings Button - Bottom */}
               <button
-                className="p-2 hover:bg-muted rounded-md transition-colors"
+                className="p-2 hover:bg-muted rounded-md transition-colors mt-auto mb-2"
                 title="Connection settings"
               >
                 <Settings className="h-4 w-4" />
               </button>
-              {selectedConnection && (
-                <div className="p-2">
-                  <Database className="h-4 w-4 text-primary" />
-                </div>
-              )}
             </div>
           )}
 
