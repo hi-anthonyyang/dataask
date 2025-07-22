@@ -11,13 +11,18 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
   const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'chart'>('insights')
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [lastAnalyzedQuery, setLastAnalyzedQuery] = useState<string | null>(null)
 
-  // Generate AI analysis when query results change
+  // Generate AI analysis when query results change (only if query actually changed)
   useEffect(() => {
     if (queryResults && queryResults.data && queryResults.data.length > 0 && currentQuery) {
-      generateAIAnalysis()
+      // Only analyze if this is a new query or if we don't have analysis yet
+      if (currentQuery !== lastAnalyzedQuery || !aiAnalysis) {
+        generateAIAnalysis()
+      }
     } else {
       setAiAnalysis(null)
+      setLastAnalyzedQuery(null)
     }
   }, [queryResults, currentQuery])
 
@@ -39,6 +44,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
       if (response.ok) {
         const result = await response.json()
         setAiAnalysis(result.analysis)
+        setLastAnalyzedQuery(currentQuery) // Cache this query as analyzed
       } else {
         setAiAnalysis('Failed to generate AI analysis. Please try again.')
       }

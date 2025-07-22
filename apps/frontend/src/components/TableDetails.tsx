@@ -33,7 +33,7 @@ interface TableDetailsProps {
 }
 
 export default function TableDetails({ selectedConnection, selectedTable, onClose }: TableDetailsProps) {
-  const [activeTab, setActiveTab] = useState<'metadata' | 'columns' | 'preview'>('metadata')
+  const [activeTab, setActiveTab] = useState<'overview' | 'preview'>('overview')
   const [metadata, setMetadata] = useState<TableMetadata | null>(null)
   const [columns, setColumns] = useState<TableColumn[]>([])
   const [previewData, setPreviewData] = useState<any[]>([])
@@ -73,8 +73,8 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
         setMetadata(metadataData)
       }
 
-      // Load columns if on columns tab
-      if (activeTab === 'columns') {
+      // Load columns for overview tab
+      if (activeTab === 'overview') {
         await loadTableColumns()
       }
 
@@ -135,10 +135,10 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
     }
   }
 
-  const handleTabChange = async (tab: 'metadata' | 'columns' | 'preview') => {
+  const handleTabChange = async (tab: 'overview' | 'preview') => {
     setActiveTab(tab)
     
-    if (tab === 'columns' && columns.length === 0) {
+    if (tab === 'overview' && columns.length === 0) {
       await loadTableColumns()
     } else if (tab === 'preview' && previewData.length === 0) {
       await loadTablePreview()
@@ -199,26 +199,15 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
       <div className="border-b border-border bg-card">
         <div className="flex">
           <button
-            onClick={() => handleTabChange('metadata')}
+            onClick={() => handleTabChange('overview')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'metadata'
+              activeTab === 'overview'
                 ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             <Info className="h-4 w-4" />
-            Metadata
-          </button>
-          <button
-            onClick={() => handleTabChange('columns')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'columns'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Columns className="h-4 w-4" />
-            Columns ({columns.length})
+            Overview
           </button>
           <button
             onClick={() => handleTabChange('preview')}
@@ -242,8 +231,8 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
           </div>
         )}
 
-        {/* Metadata Tab */}
-        {activeTab === 'metadata' && (
+        {/* Overview Tab - Combined Metadata + Columns */}
+        {activeTab === 'overview' && (
           <div className="p-4 space-y-6">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
@@ -306,6 +295,57 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
                     </div>
                   </div>
                 </div>
+
+                {/* Columns Section */}
+                <div className="space-y-4">
+                  <h3 className="font-medium text-foreground">Column Details</h3>
+                  {columns.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
+                            <th className="text-left p-2 font-medium text-muted-foreground">Type</th>
+                            <th className="text-left p-2 font-medium text-muted-foreground">Nullable</th>
+                            <th className="text-left p-2 font-medium text-muted-foreground">Default</th>
+                            <th className="text-left p-2 font-medium text-muted-foreground">Key</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {columns.map((col) => (
+                            <tr key={col.name} className="border-b border-border/50">
+                              <td className="p-2 font-mono text-foreground">{col.name}</td>
+                              <td className="p-2 font-mono text-primary">{col.type}</td>
+                              <td className="p-2">
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                  col.nullable 
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                }`}>
+                                  {col.nullable ? 'NULL' : 'NOT NULL'}
+                                </span>
+                              </td>
+                              <td className="p-2 font-mono text-muted-foreground">
+                                {col.defaultValue || '—'}
+                              </td>
+                              <td className="p-2">
+                                {col.primaryKey && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                    PK
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-muted-foreground text-sm">No column information available</p>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <div className="text-center py-8">
@@ -315,57 +355,7 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
           </div>
         )}
 
-        {/* Columns Tab */}
-        {activeTab === 'columns' && (
-          <div className="p-4">
-            {columns.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Type</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Nullable</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Default</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Key</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {columns.map((col) => (
-                      <tr key={col.name} className="border-b border-border/50">
-                        <td className="p-2 font-mono text-foreground">{col.name}</td>
-                        <td className="p-2 font-mono text-primary">{col.type}</td>
-                        <td className="p-2">
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            col.nullable 
-                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                          }`}>
-                            {col.nullable ? 'NULL' : 'NOT NULL'}
-                          </span>
-                        </td>
-                        <td className="p-2 font-mono text-muted-foreground">
-                          {col.defaultValue || '—'}
-                        </td>
-                        <td className="p-2">
-                          {col.primaryKey && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                              PK
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No column information available</p>
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Preview Tab */}
         {activeTab === 'preview' && (
