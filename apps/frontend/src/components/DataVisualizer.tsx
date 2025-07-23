@@ -48,26 +48,64 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
     }
   }
 
+  console.log('🔍 DataVisualizer Debug:', {
+    rowCount: data.length,
+    sampleRow: data[0],
+    fields: fields.map(f => ({ name: f.name, type: typeof data[0]?.[f.name], value: data[0]?.[f.name] }))
+  })
+
   const firstRow = data[0]
   const fieldNames = fields.map(f => f.name)
   
-  // Analyze column types
+  // Analyze column types - be more flexible with numeric detection
   const numericFields = fieldNames.filter(field => {
     const value = firstRow[field]
-    return typeof value === 'number' && field !== 'id'
+    // Check for actual numbers, or strings that represent numbers
+    const isNumeric = typeof value === 'number' || 
+                     (typeof value === 'string' && !isNaN(Number(value)) && Number(value) !== 0) ||
+                     (typeof value === 'string' && /^\d+$/.test(value))
+    return isNumeric && field !== 'id' && !field.toLowerCase().includes('id')
   })
   
   const textFields = fieldNames.filter(field => {
     const value = firstRow[field]
-    return typeof value === 'string' || value === null
+    const isText = (typeof value === 'string' || value === null) && 
+                   !numericFields.includes(field) && 
+                   !field.toLowerCase().includes('id')
+    return isText
   })
   
+  // Expanded date field detection
   const dateFields = fieldNames.filter(field => {
     const value = firstRow[field]
+    const fieldLower = field.toLowerCase()
+    
+    // Check field name patterns
+    const hasDateName = fieldLower.includes('date') || 
+                       fieldLower.includes('time') || 
+                       fieldLower.includes('month') || 
+                       fieldLower.includes('year') || 
+                       fieldLower.includes('quarter') ||
+                       fieldLower.includes('week')
+                       
+    // Check value patterns if it's a string
+    let hasDateValue = false
     if (typeof value === 'string') {
-      return /^\d{4}-\d{2}-\d{2}/.test(value) || field.toLowerCase().includes('date') || field.toLowerCase().includes('time')
+      hasDateValue = /^\d{4}-\d{2}-\d{2}/.test(value) || // YYYY-MM-DD
+                     /^\d{4}-\d{2}$/.test(value) ||      // YYYY-MM
+                     /^\d{4}$/.test(value) ||            // YYYY
+                     /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(value) || // Month names
+                     /^(January|February|March|April|May|June|July|August|September|October|November|December)/.test(value)
     }
-    return false
+    
+    return hasDateName || hasDateValue
+  })
+
+  console.log('🔍 Field Classification:', {
+    numericFields,
+    textFields, 
+    dateFields,
+    fieldNames
   })
 
   // Single KPI (one row, one numeric value)
@@ -82,6 +120,7 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
 
   // Time series (date + numeric)
   if (dateFields.length > 0 && numericFields.length > 0) {
+    console.log('✅ Detected time series data')
     return {
       type: 'line',
       title: 'Time Series Analysis',
@@ -93,11 +132,17 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
   // Category ranking (text + numeric, sorted data)
   if (textFields.length > 0 && numericFields.length > 0) {
     // Check if data appears to be sorted by checking first few rows
+    const numericFieldName = numericFields[0]
     const isDescendingSorted = data.length > 1 && 
       data.slice(0, Math.min(3, data.length - 1))
-        .every((row, i) => row[numericFields[0]] >= data[i + 1][numericFields[0]])
+        .every((row, i) => {
+          const currentVal = Number(row[numericFieldName]) || 0
+          const nextVal = Number(data[i + 1][numericFieldName]) || 0
+          return currentVal >= nextVal
+        })
     
     if (isDescendingSorted) {
+      console.log('✅ Detected ranking data (sorted)')
       return {
         type: 'bar',
         title: 'Ranking Analysis',
@@ -108,6 +153,7 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
 
     // Few categories - pie chart
     if (data.length <= 8) {
+      console.log('✅ Detected small category data (pie chart)')
       return {
         type: 'pie',
         title: 'Distribution Analysis',
@@ -117,6 +163,7 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
     }
 
     // Many categories - bar chart
+    console.log('✅ Detected category comparison data')
     return {
       type: 'bar',
       title: 'Category Comparison',
@@ -127,6 +174,7 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
 
   // Multiple numeric fields - could be bar chart
   if (numericFields.length >= 2) {
+    console.log('✅ Detected multi-metric data')
     return {
       type: 'bar',
       title: 'Multi-Metric Comparison',
@@ -135,12 +183,13 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
     }
   }
 
+  console.log('❌ No suitable visualization pattern found')
   // No suitable visualization
   return {
     type: 'none',
     title: 'Not Visualizable',
     description: 'This data works best as a table',
-    reason: 'No clear patterns for visualization'
+    reason: `Found ${textFields.length} text fields, ${numericFields.length} numeric fields, ${dateFields.length} date fields`
   }
 }
 
