@@ -37,7 +37,87 @@ interface ProcessedData {
   limitExceeded: boolean
 }
 
-// Smart chart detection logic
+// Configuration for scalability
+const VISUALIZATION_CONFIG = {
+  maxRows: 50,           // Configurable row limit
+  maxSeries: 12,         // Configurable series limit  
+  piechartThreshold: 10, // Configurable pie chart threshold
+  
+  // Expandable field patterns
+  datePatterns: [
+    'date', 'time', 'month', 'year', 'quarter', 'week', 'period',
+    'created', 'updated', 'modified', 'timestamp', 'fiscal'
+  ],
+  
+  numericExclusions: [
+    'id', 'key', 'index', 'position', 'rank', 'order'  
+  ],
+  
+  // Value pattern recognition
+  dateValuePatterns: [
+    /^\d{4}-\d{2}-\d{2}/,     // YYYY-MM-DD
+    /^\d{4}-\d{2}$/,          // YYYY-MM  
+    /^\d{4}$/,                // YYYY
+    /^Q[1-4]/,                // Q1, Q2, etc.
+    /^\d{1,2}\/\d{4}$/,       // MM/YYYY
+    /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i,
+    /^(January|February|March|April|May|June|July|August|September|October|November|December)/i
+  ]
+}
+
+// Enhanced field detection with broader patterns
+const detectFieldTypes = (data: any[], fields: any[]) => {
+  const firstRow = data[0]
+  const fieldNames = fields.map(f => f.name)
+  
+  // More flexible numeric detection
+  const numericFields = fieldNames.filter(field => {
+    const value = firstRow[field]
+    const fieldLower = field.toLowerCase()
+    
+    // Exclude known non-numeric identifiers
+    const isExcluded = VISUALIZATION_CONFIG.numericExclusions.some(pattern => 
+      fieldLower.includes(pattern)
+    )
+    if (isExcluded) return false
+    
+    // Check for numeric values (numbers or numeric strings)
+    const isNumeric = typeof value === 'number' || 
+                     (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '')
+    
+    return isNumeric
+  })
+  
+  // More flexible date detection  
+  const dateFields = fieldNames.filter(field => {
+    const value = firstRow[field]
+    const fieldLower = field.toLowerCase()
+    
+    // Check field name patterns
+    const hasDateName = VISUALIZATION_CONFIG.datePatterns.some(pattern => 
+      fieldLower.includes(pattern)
+    )
+                       
+    // Check value patterns
+    const hasDateValue = typeof value === 'string' && 
+      VISUALIZATION_CONFIG.dateValuePatterns.some(pattern => pattern.test(value))
+    
+    return hasDateName || hasDateValue
+  })
+  
+  // Text fields (excluding numeric and date fields)
+  const textFields = fieldNames.filter(field => {
+    const value = firstRow[field] 
+    const isText = (typeof value === 'string' || value === null) && 
+                   !numericFields.includes(field) && 
+                   !dateFields.includes(field)
+    return isText
+  })
+  
+  return { numericFields, dateFields, textFields, fieldNames }
+}
+
+// Smart chart detection logic with enhanced flexibility
 const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig => {
   if (!data || data.length === 0) {
     return {
@@ -54,52 +134,7 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
     fields: fields.map(f => ({ name: f.name, type: typeof data[0]?.[f.name], value: data[0]?.[f.name] }))
   })
 
-  const firstRow = data[0]
-  const fieldNames = fields.map(f => f.name)
-  
-  // Analyze column types - be more flexible with numeric detection
-  const numericFields = fieldNames.filter(field => {
-    const value = firstRow[field]
-    // Check for actual numbers, or strings that represent numbers
-    const isNumeric = typeof value === 'number' || 
-                     (typeof value === 'string' && !isNaN(Number(value)) && Number(value) !== 0) ||
-                     (typeof value === 'string' && /^\d+$/.test(value))
-    return isNumeric && field !== 'id' && !field.toLowerCase().includes('id')
-  })
-  
-  const textFields = fieldNames.filter(field => {
-    const value = firstRow[field]
-    const isText = (typeof value === 'string' || value === null) && 
-                   !numericFields.includes(field) && 
-                   !field.toLowerCase().includes('id')
-    return isText
-  })
-  
-  // Expanded date field detection
-  const dateFields = fieldNames.filter(field => {
-    const value = firstRow[field]
-    const fieldLower = field.toLowerCase()
-    
-    // Check field name patterns
-    const hasDateName = fieldLower.includes('date') || 
-                       fieldLower.includes('time') || 
-                       fieldLower.includes('month') || 
-                       fieldLower.includes('year') || 
-                       fieldLower.includes('quarter') ||
-                       fieldLower.includes('week')
-                       
-    // Check value patterns if it's a string
-    let hasDateValue = false
-    if (typeof value === 'string') {
-      hasDateValue = /^\d{4}-\d{2}-\d{2}/.test(value) || // YYYY-MM-DD
-                     /^\d{4}-\d{2}$/.test(value) ||      // YYYY-MM
-                     /^\d{4}$/.test(value) ||            // YYYY
-                     /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(value) || // Month names
-                     /^(January|February|March|April|May|June|July|August|September|October|November|December)/.test(value)
-    }
-    
-    return hasDateName || hasDateValue
-  })
+  const { numericFields, dateFields, textFields, fieldNames } = detectFieldTypes(data, fields)
 
   console.log('🔍 Field Classification:', {
     numericFields,
@@ -113,14 +148,13 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
     return {
       type: 'kpi',
       title: 'Key Performance Indicator',
-      description: `${numericFields[0]}: ${firstRow[numericFields[0]]}`,
+      description: `${numericFields[0]}: ${data[0][numericFields[0]]}`,
       reason: 'Single metric value'
     }
   }
 
   // Multi-series time series (date + text + numeric)
   if (dateFields.length > 0 && textFields.length > 0 && numericFields.length > 0) {
-    // Check if we have multiple rows with the same date (indicating multiple series)
     const dateField = dateFields[0]
     const uniqueDates = new Set(data.map(row => row[dateField]))
     const hasMultipleSeries = data.length > uniqueDates.size
@@ -157,7 +191,6 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
 
   // Category ranking (text + numeric, sorted data)
   if (textFields.length > 0 && numericFields.length > 0) {
-    // Check if data appears to be sorted by checking first few rows
     const numericFieldName = numericFields[0]
     const isDescendingSorted = data.length > 1 && 
       data.slice(0, Math.min(3, data.length - 1))
@@ -177,18 +210,17 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
       }
     }
 
-    // Few categories - pie chart
-    if (data.length <= 8) {
+    // Use configurable threshold for pie vs bar decision
+    if (data.length <= VISUALIZATION_CONFIG.piechartThreshold) {
       console.log('✅ Detected small category data (pie chart)')
       return {
         type: 'pie',
         title: 'Distribution Analysis',
         description: `${textFields[0]} distribution by ${numericFields[0]}`,
-        reason: 'Small number of categories suitable for pie chart'
+        reason: `Small number of categories (≤${VISUALIZATION_CONFIG.piechartThreshold}) suitable for pie chart`
       }
     }
 
-    // Many categories - bar chart
     console.log('✅ Detected category comparison data')
     return {
       type: 'bar',
@@ -198,7 +230,7 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
     }
   }
 
-  // Multiple numeric fields - could be bar chart
+  // Multiple numeric fields
   if (numericFields.length >= 2) {
     console.log('✅ Detected multi-metric data')
     return {
@@ -210,7 +242,6 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
   }
 
   console.log('❌ No suitable visualization pattern found')
-  // No suitable visualization
   return {
     type: 'none',
     title: 'Not Visualizable',
@@ -221,40 +252,11 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
 
 // Process data for chart rendering
 const processDataForChart = (data: any[], fields: any[], config: ChartConfig): ProcessedData => {
-  const limit = 25
+  const limit = VISUALIZATION_CONFIG.maxRows
   const limitExceeded = data.length > limit
   const limitedData = data.slice(0, limit)
   
-  const fieldNames = fields.map(f => f.name)
-  const numericFields = fieldNames.filter(field => {
-    const value = data[0]?.[field]
-    return typeof value === 'number' && field !== 'id'
-  })
-  
-  const textFields = fieldNames.filter(field => {
-    const value = data[0]?.[field]
-    return typeof value === 'string' || value === null
-  })
-
-  const dateFields = fieldNames.filter(field => {
-    const value = data[0]?.[field]
-    const fieldLower = field.toLowerCase()
-    const hasDateName = fieldLower.includes('date') || 
-                       fieldLower.includes('time') || 
-                       fieldLower.includes('month') || 
-                       fieldLower.includes('year') || 
-                       fieldLower.includes('quarter') ||
-                       fieldLower.includes('week')
-    let hasDateValue = false
-    if (typeof value === 'string') {
-      hasDateValue = /^\d{4}-\d{2}-\d{2}/.test(value) || 
-                     /^\d{4}-\d{2}$/.test(value) ||      
-                     /^\d{4}$/.test(value) ||            
-                     /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(value) || 
-                     /^(January|February|March|April|May|June|July|August|September|October|November|December)/.test(value)
-    }
-    return hasDateName || hasDateValue
-  })
+  const { numericFields, dateFields, textFields, fieldNames } = detectFieldTypes(data, fields)
 
   let chartData = limitedData
   let xField = textFields[0] || fieldNames[0]
@@ -288,13 +290,19 @@ const processDataForChart = (data: any[], fields: any[], config: ChartConfig): P
       new Date(a.name).getTime() - new Date(b.name).getTime()
     )
     
-    // Get all unique categories for the chart
-    const categories = [...new Set(limitedData.map(row => row[categoryField]))]
+    // Get all unique categories, limit to prevent overcrowding
+    const allCategories = [...new Set(limitedData.map(row => row[categoryField]))]
+    const categories = allCategories.slice(0, VISUALIZATION_CONFIG.maxSeries)
+    
+    if (allCategories.length > VISUALIZATION_CONFIG.maxSeries) {
+      console.warn(`⚠️ Limited to ${VISUALIZATION_CONFIG.maxSeries} series out of ${allCategories.length} available`)
+    }
     
     console.log('✅ Transformed data:', { 
       originalRows: limitedData.length, 
       chartPoints: chartData.length,
-      categories: categories.slice(0, 5) + (categories.length > 5 ? '...' : '')
+      seriesShown: categories.length,
+      totalSeries: allCategories.length
     })
     
     xField = 'name' // Date field
@@ -304,12 +312,12 @@ const processDataForChart = (data: any[], fields: any[], config: ChartConfig): P
   else if (config.type === 'pie') {
     chartData = limitedData.map(row => ({
       name: row[xField] || 'Unknown',
-      value: row[yField] || 0
+      value: Number(row[yField]) || 0
     }))
   } else if (config.type === 'bar' || config.type === 'line') {
     chartData = limitedData.map(row => ({
       name: row[xField] || 'Unknown',
-      value: row[yField] || 0,
+      value: Number(row[yField]) || 0,
       ...row // Include all original fields for tooltip
     }))
   }
