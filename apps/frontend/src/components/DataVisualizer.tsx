@@ -118,9 +118,35 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
     }
   }
 
-  // Time series (date + numeric)
+  // Multi-series time series (date + text + numeric)
+  if (dateFields.length > 0 && textFields.length > 0 && numericFields.length > 0) {
+    // Check if we have multiple rows with the same date (indicating multiple series)
+    const dateField = dateFields[0]
+    const uniqueDates = new Set(data.map(row => row[dateField]))
+    const hasMultipleSeries = data.length > uniqueDates.size
+    
+    if (hasMultipleSeries) {
+      console.log('✅ Detected multi-series time series data')
+      return {
+        type: 'line',
+        title: 'Multi-Series Time Analysis',
+        description: `${textFields[0]} trends over time`,
+        reason: 'Multiple series over time detected'
+      }
+    }
+    
+    console.log('✅ Detected single time series data')
+    return {
+      type: 'line',
+      title: 'Time Series Analysis',
+      description: `${numericFields[0]} over time`,
+      reason: 'Date column detected with numeric data'
+    }
+  }
+
+  // Simple time series (date + numeric, no categories)
   if (dateFields.length > 0 && numericFields.length > 0) {
-    console.log('✅ Detected time series data')
+    console.log('✅ Detected simple time series data')
     return {
       type: 'line',
       title: 'Time Series Analysis',
@@ -210,12 +236,72 @@ const processDataForChart = (data: any[], fields: any[], config: ChartConfig): P
     return typeof value === 'string' || value === null
   })
 
+  const dateFields = fieldNames.filter(field => {
+    const value = data[0]?.[field]
+    const fieldLower = field.toLowerCase()
+    const hasDateName = fieldLower.includes('date') || 
+                       fieldLower.includes('time') || 
+                       fieldLower.includes('month') || 
+                       fieldLower.includes('year') || 
+                       fieldLower.includes('quarter') ||
+                       fieldLower.includes('week')
+    let hasDateValue = false
+    if (typeof value === 'string') {
+      hasDateValue = /^\d{4}-\d{2}-\d{2}/.test(value) || 
+                     /^\d{4}-\d{2}$/.test(value) ||      
+                     /^\d{4}$/.test(value) ||            
+                     /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/.test(value) || 
+                     /^(January|February|March|April|May|June|July|August|September|October|November|December)/.test(value)
+    }
+    return hasDateName || hasDateValue
+  })
+
   let chartData = limitedData
   let xField = textFields[0] || fieldNames[0]
   let yField = numericFields[0] || fieldNames[1]
 
-  // Process based on chart type
-  if (config.type === 'pie') {
+  // Handle multi-series time series data
+  if (config.type === 'line' && config.title === 'Multi-Series Time Analysis') {
+    const dateField = dateFields[0]
+    const categoryField = textFields[0]
+    const valueField = numericFields[0]
+    
+    console.log('🔄 Transforming multi-series data:', { dateField, categoryField, valueField })
+    
+    // Create a map of dates to data points
+    const dateMap = new Map()
+    
+    limitedData.forEach(row => {
+      const date = row[dateField]
+      const category = row[categoryField]
+      const value = Number(row[valueField]) || 0
+      
+      if (!dateMap.has(date)) {
+        dateMap.set(date, { name: date })
+      }
+      
+      dateMap.get(date)[category] = value
+    })
+    
+    // Convert to array and sort by date
+    chartData = Array.from(dateMap.values()).sort((a, b) => 
+      new Date(a.name).getTime() - new Date(b.name).getTime()
+    )
+    
+    // Get all unique categories for the chart
+    const categories = [...new Set(limitedData.map(row => row[categoryField]))]
+    
+    console.log('✅ Transformed data:', { 
+      originalRows: limitedData.length, 
+      chartPoints: chartData.length,
+      categories: categories.slice(0, 5) + (categories.length > 5 ? '...' : '')
+    })
+    
+    xField = 'name' // Date field
+    yField = categories[0] // Will be handled differently in rendering
+  }
+  // Process based on chart type for other types
+  else if (config.type === 'pie') {
     chartData = limitedData.map(row => ({
       name: row[xField] || 'Unknown',
       value: row[yField] || 0
@@ -355,13 +441,42 @@ export default function DataVisualizer({ data, fields, currentQuery }: DataVisua
                     borderRadius: '6px'
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke={CHART_COLORS[0]} 
-                  strokeWidth={2}
-                  dot={{ fill: CHART_COLORS[0] }}
-                />
+                {config.title === 'Multi-Series Time Analysis' ? (
+                  // Multi-series: Create a line for each category
+                  (() => {
+                    const categories: string[] = []
+                    if (chartData.length > 0) {
+                      const samplePoint = chartData[0]
+                      Object.keys(samplePoint).forEach(key => {
+                        if (key !== 'name') {
+                          categories.push(key)
+                        }
+                      })
+                    }
+                    
+                    return categories.slice(0, 8).map((category: string, index: number) => (
+                      <Line 
+                        key={category}
+                        type="monotone" 
+                        dataKey={category}
+                        stroke={CHART_COLORS[index % CHART_COLORS.length]} 
+                        strokeWidth={2}
+                        dot={{ fill: CHART_COLORS[index % CHART_COLORS.length], r: 3 }}
+                        connectNulls={false}
+                      />
+                    ))
+                  })()
+                ) : (
+                  // Single series: Use the value field
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke={CHART_COLORS[0]} 
+                    strokeWidth={2}
+                    dot={{ fill: CHART_COLORS[0] }}
+                  />
+                )}
+                <Legend />
               </LineChart>
             )}
 
@@ -374,7 +489,6 @@ export default function DataVisualizer({ data, fields, currentQuery }: DataVisua
                   labelLine={false}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={100}
-                  fill="#8884d8"
                   dataKey="value"
                 >
                   {chartData.map((entry, index) => (
