@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { TrendingUp, Download, Eye, BarChart3 } from 'lucide-react'
+import DataVisualizer from './DataVisualizer'
 
 interface AnalysisPanelProps {
   queryResults: any
@@ -8,7 +8,7 @@ interface AnalysisPanelProps {
 }
 
 export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPanelProps) {
-  const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'chart'>('insights')
+  const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'visualize'>('insights')
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [lastAnalyzedQuery, setLastAnalyzedQuery] = useState<string | null>(null)
@@ -56,6 +56,9 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
     }
   }
 
+  // Check if data is suitable for visualization
+  const isVisualizableData = queryResults?.data && queryResults.data.length > 0 && queryResults.fields
+
   if (!queryResults) {
     return (
       <div className="h-full flex flex-col">
@@ -83,7 +86,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
               </div>
               <div className="flex items-center gap-1">
                 <BarChart3 className="h-4 w-4" />
-                <span>Auto Charts</span>
+                <span>Smart Charts</span>
               </div>
               <div className="flex items-center gap-1">
                 <Download className="h-4 w-4" />
@@ -95,27 +98,6 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
       </div>
     )
   }
-
-  // Generate sample chart data from query results
-  const generateChartData = () => {
-    if (!queryResults?.data || queryResults.data.length === 0) return null
-    
-    // Simple heuristic: if we have numeric data, create a bar chart
-    const firstRow = queryResults.data[0]
-    const numericColumns = Object.keys(firstRow).filter(key => 
-      typeof firstRow[key] === 'number' && key !== 'id'
-    )
-    
-    if (numericColumns.length > 0) {
-      return queryResults.data.slice(0, 10).map((row: any, index: number) => ({
-        name: row.name || row.category || row.city || `Item ${index + 1}`,
-        value: row[numericColumns[0]]
-      }))
-    }
-    return null
-  }
-
-  const chartData = generateChartData()
 
   return (
     <div className="h-full flex flex-col min-w-0">
@@ -151,18 +133,16 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
           >
             Data ({queryResults.rowCount} rows)
           </button>
-          {chartData && (
-            <button
-              onClick={() => setActiveTab('chart')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'chart'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Chart
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('visualize')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'visualize'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Visualize
+          </button>
         </div>
       </div>
 
@@ -234,15 +214,15 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
                     </tr>
                   </thead>
                   <tbody>
-                                          {queryResults.data.slice(0, 100).map((row: any, index: number) => (
-                        <tr key={index} className="border-t border-border hover:bg-muted/50">
-                          {queryResults.fields.map((field: any) => (
-                            <td key={field.name} className="px-4 py-2 max-w-xs truncate" title={row[field.name]?.toString() || ''}>
-                              {row[field.name]?.toString() || ''}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
+                    {queryResults.data.slice(0, 100).map((row: any, index: number) => (
+                      <tr key={index} className="border-t border-border hover:bg-muted/50">
+                        {queryResults.fields.map((field: any) => (
+                          <td key={field.name} className="px-4 py-2 max-w-xs truncate" title={row[field.name]?.toString() || ''}>
+                            {row[field.name]?.toString() || ''}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -256,23 +236,24 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
           </div>
         )}
 
-        {/* Chart Tab */}
-        {activeTab === 'chart' && chartData && (
+        {/* Visualize Tab */}
+        {activeTab === 'visualize' && (
           <div className="p-4">
-            <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="font-medium text-foreground mb-4">Data Visualization</h3>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#3b82f6" />
-                  </BarChart>
-                </ResponsiveContainer>
+            {isVisualizableData ? (
+              <DataVisualizer
+                data={queryResults.data}
+                fields={queryResults.fields}
+                currentQuery={currentQuery}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                <BarChart3 className="h-12 w-12 text-muted-foreground opacity-50" />
+                <div className="text-center">
+                  <h3 className="font-medium text-foreground mb-1">No Data to Visualize</h3>
+                  <p className="text-sm text-muted-foreground">Run a query that returns data to see visualizations</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
