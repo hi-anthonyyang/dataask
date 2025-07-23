@@ -403,108 +403,118 @@ export default function DataVisualizer({ data, fields, currentQuery }: DataVisua
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            {config.type === 'bar' && (
-              <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                />
-                <Bar dataKey="value" fill={CHART_COLORS[0]} />
-              </BarChart>
-            )}
+            {(() => {
+              if (config.type === 'bar') {
+                return (
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                    />
+                    <Bar dataKey="value" fill={CHART_COLORS[0]} />
+                  </BarChart>
+                )
+              }
 
-            {config.type === 'line' && (
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="name"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                />
-                {config.title === 'Multi-Series Time Analysis' ? (
-                  // Multi-series: Create a line for each category
-                  (() => {
-                    const categories: string[] = []
-                    if (chartData.length > 0) {
-                      const samplePoint = chartData[0]
-                      Object.keys(samplePoint).forEach(key => {
-                        if (key !== 'name') {
-                          categories.push(key)
+              if (config.type === 'line') {
+                return (
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="name"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={12}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                    />
+                    {config.title === 'Multi-Series Time Analysis' ? (
+                      // Multi-series: Create a line for each category
+                      (() => {
+                        const categories: string[] = []
+                        if (chartData.length > 0) {
+                          const samplePoint = chartData[0]
+                          Object.keys(samplePoint).forEach(key => {
+                            if (key !== 'name') {
+                              categories.push(key)
+                            }
+                          })
                         }
-                      })
-                    }
-                    
-                    return categories.slice(0, 8).map((category: string, index: number) => (
+                        
+                        return categories.slice(0, 8).map((category: string, index: number) => (
+                          <Line 
+                            key={category}
+                            type="monotone" 
+                            dataKey={category}
+                            stroke={CHART_COLORS[index % CHART_COLORS.length]} 
+                            strokeWidth={2}
+                            dot={{ fill: CHART_COLORS[index % CHART_COLORS.length], r: 3 }}
+                            connectNulls={false}
+                          />
+                        ))
+                      })()
+                    ) : (
+                      // Single series: Use the value field
                       <Line 
-                        key={category}
                         type="monotone" 
-                        dataKey={category}
-                        stroke={CHART_COLORS[index % CHART_COLORS.length]} 
+                        dataKey="value" 
+                        stroke={CHART_COLORS[0]} 
                         strokeWidth={2}
-                        dot={{ fill: CHART_COLORS[index % CHART_COLORS.length], r: 3 }}
-                        connectNulls={false}
+                        dot={{ fill: CHART_COLORS[0] }}
                       />
-                    ))
-                  })()
-                ) : (
-                  // Single series: Use the value field
-                  <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke={CHART_COLORS[0]} 
-                    strokeWidth={2}
-                    dot={{ fill: CHART_COLORS[0] }}
-                  />
-                )}
-                <Legend />
-              </LineChart>
-            )}
+                    )}
+                    <Legend />
+                  </LineChart>
+                )
+              }
 
-            {config.type === 'pie' && (
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            )}
+              if (config.type === 'pie') {
+                return (
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      dataKey="value"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                )
+              }
+
+              return <div>No chart available</div>
+            })()}
           </ResponsiveContainer>
         </div>
       </div>
@@ -513,7 +523,7 @@ export default function DataVisualizer({ data, fields, currentQuery }: DataVisua
       {limitExceeded && (
         <div className="text-center">
           <p className="text-xs text-muted-foreground">
-            Showing first 25 rows of {data.length} total rows for optimal performance
+            Showing first {VISUALIZATION_CONFIG.maxRows} rows of {data.length} total rows for optimal performance
           </p>
         </div>
       )}
