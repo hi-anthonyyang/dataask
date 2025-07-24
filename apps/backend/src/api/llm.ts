@@ -54,7 +54,13 @@ const isVagueQuery = (query: string): boolean => {
     'anything interesting',
     'surprise me',
     'recommendations',
-    'what should i know'
+    'what should i know',
+    'give me some ideas',
+    'give me ideas',
+    'show me ideas',
+    'any ideas',
+    'suggestions',
+    'what should i ask'
   ];
   
   const lowerQuery = query.toLowerCase();
@@ -105,8 +111,8 @@ const generateQuerySuggestions = (schema: any): string[] => {
     }
   });
   
-  // Limit to 6 most relevant suggestions
-  return suggestions.slice(0, 6);
+  // Limit to 3 most relevant suggestions
+  return suggestions.slice(0, 3);
 };
 
 // Convert natural language to SQL

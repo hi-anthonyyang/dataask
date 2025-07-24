@@ -225,9 +225,9 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
         })
       })
 
+      const data = await response.json()
+      
       if (response.ok) {
-        const data = await response.json()
-        
         // Handle vague query suggestions
         if (data.isVague) {
           const suggestionsText = data.message + '\n\n' + 
@@ -258,6 +258,34 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
           setMessages(prev => [...prev, assistantMessage])
           setCurrentSql(data.sql)
           onQueryUpdate(data.sql)
+        }
+      } else {
+        // Handle vague query response even on 400 status
+        if (data.isVague) {
+          const suggestionsText = data.message + '\n\n' + 
+            data.suggestions.map((suggestion: string, index: number) => 
+              `${index + 1}. "${suggestion}"`
+            ).join('\n') + 
+            '\n\nJust click on any suggestion or type a specific question!'
+
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'assistant',
+            content: suggestionsText,
+            suggestions: data.suggestions,
+            timestamp: new Date()
+          }
+
+          setMessages(prev => [...prev, assistantMessage])
+        } else {
+          // Handle other API errors
+          const errorMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'assistant',
+            content: data.error || 'Sorry, I encountered an error generating the SQL query. Please try again or write the SQL manually.',
+            timestamp: new Date()
+          }
+          setMessages(prev => [...prev, errorMessage])
         }
       }
     } catch (error) {
