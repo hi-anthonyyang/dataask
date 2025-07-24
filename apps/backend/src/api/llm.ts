@@ -64,7 +64,16 @@ const isVagueQuery = (query: string): boolean => {
   ];
   
   const lowerQuery = query.toLowerCase();
-  return vaguePhrases.some(phrase => lowerQuery.includes(phrase));
+  const isVague = vaguePhrases.some(phrase => lowerQuery.includes(phrase));
+  
+  // Debug logging
+  console.log('🔍 Checking vague query:', { 
+    query: lowerQuery, 
+    isVague,
+    matchedPhrases: vaguePhrases.filter(phrase => lowerQuery.includes(phrase))
+  });
+  
+  return isVague;
 };
 
 // Generate helpful suggestions for vague queries
