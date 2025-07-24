@@ -39,90 +39,88 @@ const SummarizationSchema = z.object({
   query: z.string().min(1)
 });
 
-// Detect vague or exploratory queries that need suggestions instead of SQL
-const isVagueQuery = (query: string): boolean => {
-  const vaguePhrases = [
-    'interesting insights',
-    'what can you tell me',
-    'analyze my data', 
-    'insights from',
-    'tell me about',
-    'explore',
-    'what do you see',
-    'find patterns',
-    'discovery',
-    'anything interesting',
-    'surprise me',
-    'recommendations',
-    'what should i know',
-    'give me some ideas',
-    'give me ideas',
-    'show me ideas',
-    'any ideas',
-    'suggestions',
-    'what should i ask'
-  ];
-  
-  const lowerQuery = query.toLowerCase();
-  const isVague = vaguePhrases.some(phrase => lowerQuery.includes(phrase));
-  
-  // Debug logging
-  console.log('🔍 Checking vague query:', { 
-    query: lowerQuery, 
-    isVague,
-    matchedPhrases: vaguePhrases.filter(phrase => lowerQuery.includes(phrase))
-  });
-  
-  return isVague;
+// AI-powered query classification - much more scalable than hardcoded phrases
+const classifyQuery = async (query: string, schema: any): Promise<{
+  isVague: boolean;
+  queryType: 'specific' | 'exploratory' | 'unclear';
+  suggestions?: string[];
+  message?: string;
+}> => {
+  try {
+    const schemaContext = schema.tables.map((table: any) => {
+      const columns = table.columns.map((col: any) => 
+        `${col.name} (${col.type})`
+      ).join(', ');
+      return `${table.name}: ${columns}`;
+    }).join('\n');
+
+    const classificationPrompt = `You are a smart query classifier for a database interface.
+
+TASK: Analyze if the user's request is SPECIFIC (can generate SQL) or EXPLORATORY (needs suggestions).
+
+DATABASE SCHEMA:
+${schemaContext}
+
+USER QUERY: "${query}"
+
+RULES:
+- SPECIFIC: Mentions concrete data, tables, or clear analysis goals
+- EXPLORATORY: Vague, asks for ideas/insights/exploration without specifics
+
+If EXPLORATORY, generate exactly 3 practical, actionable questions based on the schema that would give valuable insights.
+
+RESPOND IN THIS EXACT JSON FORMAT:
+{
+  "type": "specific" | "exploratory",
+  "reason": "brief explanation",
+  "suggestions": ["question 1", "question 2", "question 3"] // only if exploratory
+}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: classificationPrompt },
+        { role: 'user', content: query }
+      ],
+      temperature: 0.1,
+      max_tokens: 300
+    });
+
+    const response = completion.choices[0]?.message?.content?.trim();
+    if (!response) {
+      return { isVague: false, queryType: 'specific' };
+    }
+
+    try {
+      const parsed = JSON.parse(response);
+      
+      if (parsed.type === 'exploratory') {
+        logger.info('AI classified query as exploratory', { 
+          query,
+          reason: parsed.reason,
+          suggestions: parsed.suggestions 
+        });
+
+        return {
+          isVague: true,
+          queryType: 'exploratory',
+          suggestions: parsed.suggestions || [],
+          message: 'I can help you explore your data! Here are some specific questions you can ask:'
+        };
+      }
+
+      return { isVague: false, queryType: 'specific' };
+    } catch (parseError) {
+      logger.warn('Failed to parse query classification response', { response, error: parseError });
+      return { isVague: false, queryType: 'specific' };
+    }
+  } catch (error) {
+    logger.error('Query classification failed', { error });
+    return { isVague: false, queryType: 'specific' };
+  }
 };
 
-// Generate helpful suggestions for vague queries
-const generateQuerySuggestions = (schema: any): string[] => {
-  const tables = schema.tables;
-  const suggestions: string[] = [];
-  
-  // Generic suggestions that work with any schema
-  suggestions.push('Show me the top 10 records from the main table');
-  
-  // Table-specific suggestions
-  tables.forEach((table: any) => {
-    const tableName = table.name;
-    
-    // Look for common patterns
-    if (tableName.includes('customer') || tableName.includes('user')) {
-      suggestions.push(`How many ${tableName} do we have?`);
-      suggestions.push(`Show me recent ${tableName} activity`);
-    }
-    
-    if (tableName.includes('order') || tableName.includes('sale')) {
-      suggestions.push(`What are our top ${tableName} by value?`);
-      suggestions.push(`Show me ${tableName} trends over time`);
-    }
-    
-    if (tableName.includes('product') || tableName.includes('item')) {
-      suggestions.push(`What are the most popular ${tableName}?`);
-      suggestions.push(`Show me ${tableName} performance`);
-    }
-    
-    // Generic table suggestions
-    suggestions.push(`What's the distribution of records in ${tableName}?`);
-    
-    // Look for date columns for time-based queries
-    const dateColumns = table.columns.filter((col: any) => 
-      col.type.toLowerCase().includes('date') || 
-      col.type.toLowerCase().includes('time') ||
-      col.name.toLowerCase().includes('date') ||
-      col.name.toLowerCase().includes('time')
-    );
-    
-    if (dateColumns.length > 0) {
-      suggestions.push(`Show me ${tableName} trends over time`);
-    }
-  });
-  
-  // Limit to 3 most relevant suggestions
-  return suggestions.slice(0, 3);
-};
+
 
 // Convert natural language to SQL
 router.post('/nl-to-sql', async (req, res) => {
@@ -135,19 +133,14 @@ router.post('/nl-to-sql', async (req, res) => {
       });
     }
 
-    // Handle vague queries with helpful suggestions
-    if (isVagueQuery(request.query)) {
-      const suggestions = generateQuerySuggestions(request.schema);
-      
-      logger.info('Vague query detected, providing suggestions', { 
-        query: request.query,
-        suggestions 
-      });
-      
+    // Use AI to classify query and handle exploratory requests
+    const classification = await classifyQuery(request.query, request.schema);
+    
+    if (classification.isVague) {
       return res.json({
         isVague: true,
-        message: 'I can help you explore your data! Here are some specific questions you can ask:',
-        suggestions,
+        message: classification.message,
+        suggestions: classification.suggestions,
         originalQuery: request.query
       });
     }
