@@ -220,6 +220,17 @@ router.post('/table-columns', async (req, res) => {
     res.json({ columns });
   } catch (error) {
     logger.error('Failed to get table columns:', error);
+    
+    // Return enhanced error information for database errors
+    if (error instanceof Error && 'code' in error) {
+      const dbError = error as any;
+      return res.status(500).json({ 
+        error: dbError.message,
+        code: dbError.code,
+        type: 'database_error'
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to get table columns' });
   }
 });

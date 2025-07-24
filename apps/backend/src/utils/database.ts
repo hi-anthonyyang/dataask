@@ -1083,21 +1083,23 @@ class DatabaseManager {
           character_maximum_length,
           numeric_precision,
           numeric_scale,
-          ordinal_position
+          ordinal_position,
+          column_key
         FROM information_schema.columns 
         WHERE table_name = ? AND table_schema = DATABASE()
         ORDER BY ordinal_position
       `, [sanitizedTableName]);
 
       return (result as any[]).map((col: any) => ({
-        name: col.column_name,
-        type: col.data_type,
-        nullable: col.is_nullable === 'YES',
-        defaultValue: col.column_default,
-        maxLength: col.character_maximum_length,
-        precision: col.numeric_precision,
-        scale: col.numeric_scale,
-        position: col.ordinal_position
+        name: col.column_name || col.COLUMN_NAME,
+        type: col.data_type || col.DATA_TYPE,
+        nullable: (col.is_nullable || col.IS_NULLABLE) === 'YES',
+        defaultValue: col.column_default || col.COLUMN_DEFAULT,
+        maxLength: col.character_maximum_length || col.CHARACTER_MAXIMUM_LENGTH,
+        precision: col.numeric_precision || col.NUMERIC_PRECISION,
+        scale: col.numeric_scale || col.NUMERIC_SCALE,
+        position: col.ordinal_position || col.ORDINAL_POSITION,
+        primaryKey: (col.column_key || col.COLUMN_KEY) === 'PRI'
       }));
     } catch (error) {
       const context = { 
