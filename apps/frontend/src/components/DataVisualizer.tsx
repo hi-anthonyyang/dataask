@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   BarChart,
   Bar,
@@ -37,6 +37,12 @@ interface ChartConfig {
   title: string
   description: string
   reason: string
+  scaleAnalysis?: {
+    categoryStats: Map<string, any>
+    scaleRatio: number
+    hasScaleIssues: boolean
+    dominantCategory: string
+  }
 }
 
 interface ProcessedData {
@@ -127,6 +133,43 @@ const detectFieldTypes = (data: DataRow[], fields: DataField[]) => {
   return { numericFields, dateFields, textFields, fieldNames }
 }
 
+// Analyze value scales to detect multi-scale issues
+const analyzeValueScales = (data: DataRow[], categoryField: string, valueField: string) => {
+  const categoryStats = new Map()
+  
+  data.forEach(row => {
+    const category = row[categoryField]
+    const value = Number(row[valueField]) || 0
+    
+    if (!categoryStats.has(category)) {
+      categoryStats.set(category, { values: [], min: Infinity, max: -Infinity, avg: 0 })
+    }
+    
+    const stats = categoryStats.get(category)
+    stats.values.push(value)
+    stats.min = Math.min(stats.min, value)
+    stats.max = Math.max(stats.max, value)
+  })
+  
+  // Calculate averages and detect scale differences
+  const allMaxValues: number[] = []
+  categoryStats.forEach((stats, category) => {
+    stats.avg = stats.values.reduce((a: number, b: number) => a + b, 0) / stats.values.length
+    allMaxValues.push(stats.max)
+  })
+  
+  const globalMax = Math.max(...allMaxValues)
+  const globalMin = Math.min(...allMaxValues)
+  const scaleRatio = globalMax / (globalMin || 1)
+  
+  return { 
+    categoryStats, 
+    scaleRatio, 
+    hasScaleIssues: scaleRatio > 10, // 10x difference indicates scale issues
+    dominantCategory: [...categoryStats.entries()].reduce((a, b) => a[1].max > b[1].max ? a : b)[0]
+  }
+}
+
 // Smart chart detection logic with enhanced flexibility
 const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): ChartConfig => {
   if (!data || data.length === 0) {
@@ -166,15 +209,32 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
   // Multi-series time series (date + text + numeric)
   if (dateFields.length > 0 && textFields.length > 0 && numericFields.length > 0) {
     const dateField = dateFields[0]
+    const categoryField = textFields[0]
+    const valueField = numericFields[0]
     const uniqueDates = new Set(data.map(row => row[dateField]))
     const hasMultipleSeries = data.length > uniqueDates.size
     
     if (hasMultipleSeries) {
+      // Analyze scales to determine best visualization approach
+      const scaleAnalysis = analyzeValueScales(data, categoryField, valueField)
+      
+      console.log('🔍 Scale Analysis:', scaleAnalysis)
+      
+      if (scaleAnalysis.hasScaleIssues) {
+        return {
+          type: 'line',
+          title: 'Multi-Scale Time Analysis',
+          description: `${categoryField} trends over time (mixed scales detected)`,
+          reason: 'Multiple series with different scales detected',
+          scaleAnalysis
+        }
+      }
+      
       console.log('✅ Detected multi-series time series data')
       return {
         type: 'line',
         title: 'Multi-Series Time Analysis',
-        description: `${textFields[0]} trends over time`,
+        description: `${categoryField} trends over time`,
         reason: 'Multiple series over time detected'
       }
     }
@@ -354,12 +414,48 @@ const CHART_COLORS = [
 ]
 
 export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
+  const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
+  const [useLogScale, setUseLogScale] = useState(false)
+  
   const processedData = useMemo(() => {
     const config = analyzeDataForVisualization(data, fields)
     return processDataForChart(data, fields, config)
   }, [data, fields])
 
   const { chartData, config, yField, limitExceeded } = processedData
+  
+  // Get all series names for multi-series charts
+  const allSeries = useMemo(() => {
+    if (config.title?.includes('Multi-') && chartData.length > 0) {
+      return Object.keys(chartData[0]).filter(key => key !== 'name')
+    }
+    return []
+  }, [chartData, config.title])
+  
+  // Filter chart data based on hidden series
+  const filteredChartData = useMemo(() => {
+    if (hiddenSeries.size === 0) return chartData
+    
+    return chartData.map(point => {
+      const filtered = { ...point }
+      hiddenSeries.forEach((series: string) => {
+        delete filtered[series]
+      })
+      return filtered
+    })
+  }, [chartData, hiddenSeries])
+  
+  const toggleSeries = (seriesName: string) => {
+    setHiddenSeries((prev: Set<string>) => {
+      const newHidden = new Set(prev)
+      if (newHidden.has(seriesName)) {
+        newHidden.delete(seriesName)
+      } else {
+        newHidden.add(seriesName)
+      }
+      return newHidden
+    })
+  }
 
   // KPI Display
   if (config.type === 'kpi') {
@@ -403,11 +499,79 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
             {config.title}
           </h3>
           <p className="text-sm text-muted-foreground">{config.description}</p>
+          
+          {/* Scale Analysis Warning */}
+          {config.scaleAnalysis?.hasScaleIssues && (
+            <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-800">
+              ⚠️ Mixed scales detected ({Math.round(config.scaleAnalysis.scaleRatio)}x difference). 
+              Use controls below to focus on specific categories.
+            </div>
+          )}
         </div>
         <div className="text-xs text-muted-foreground">
           {config.reason}
         </div>
       </div>
+      
+      {/* Series Visibility Controls */}
+      {allSeries.length > 1 && (
+        <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+          <p className="text-xs font-medium text-muted-foreground">Categories:</p>
+          <div className="flex flex-wrap gap-2">
+            {allSeries.map((series, index) => (
+              <button
+                key={series}
+                onClick={() => toggleSeries(series)}
+                className={`px-2 py-1 text-xs rounded border transition-colors ${
+                  hiddenSeries.has(series)
+                    ? 'bg-gray-100 text-gray-400 border-gray-200 line-through'
+                    : 'bg-white text-foreground border-gray-300 hover:bg-gray-50'
+                }`}
+                style={{
+                  borderColor: hiddenSeries.has(series) ? undefined : CHART_COLORS[index % CHART_COLORS.length],
+                  color: hiddenSeries.has(series) ? undefined : CHART_COLORS[index % CHART_COLORS.length]
+                }}
+              >
+                <span className="inline-block w-2 h-2 rounded-full mr-1" 
+                      style={{ 
+                        backgroundColor: hiddenSeries.has(series) 
+                          ? '#ccc' 
+                          : CHART_COLORS[index % CHART_COLORS.length] 
+                      }} />
+                {series}
+              </button>
+            ))}
+          </div>
+          
+          {/* Quick Actions */}
+          <div className="flex gap-2 text-xs">
+            <button
+              onClick={() => setHiddenSeries(new Set())}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              Show All
+            </button>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => setHiddenSeries(new Set(allSeries))}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              Hide All
+            </button>
+            {config.scaleAnalysis?.dominantCategory && (
+              <>
+                <span className="text-gray-300">|</span>
+                <button
+                  onClick={() => setHiddenSeries(new Set([config.scaleAnalysis!.dominantCategory]))}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  Hide {config.scaleAnalysis.dominantCategory}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Chart Container */}
       <div className="bg-card border border-border rounded-lg p-4">
@@ -416,7 +580,7 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
             {(() => {
               if (config.type === 'bar') {
                 return (
-                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <BarChart data={filteredChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="name" 
@@ -443,7 +607,7 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
 
               if (config.type === 'line') {
                 return (
-                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <LineChart data={filteredChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis 
                       dataKey="name"
@@ -464,13 +628,13 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
                       }}
                     />
                     {config.title === 'Multi-Series Time Analysis' ? (
-                      // Multi-series: Create a line for each category
+                      // Multi-series: Create a line for each visible category
                       (() => {
                         const categories: string[] = []
-                        if (chartData.length > 0) {
-                          const samplePoint = chartData[0]
+                        if (filteredChartData.length > 0) {
+                          const samplePoint = filteredChartData[0]
                           Object.keys(samplePoint).forEach(key => {
-                            if (key !== 'name') {
+                            if (key !== 'name' && !hiddenSeries.has(key)) {
                               categories.push(key)
                             }
                           })

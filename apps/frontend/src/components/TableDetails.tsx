@@ -330,7 +330,8 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
                               </td>
                               <td className="p-2">
                                 {col.primaryKey && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                                        style={{ backgroundColor: '#D5EEFF', color: '#5AB4F7' }}>
                                     PK
                                   </span>
                                 )}
