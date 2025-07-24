@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Database, Table, BarChart3, Info, RefreshCw, Users, HardDrive, Columns } from 'lucide-react'
+import { Table, BarChart3, Info, RefreshCw, Users, HardDrive } from 'lucide-react'
 
 interface TableMetadata {
   tableName: string

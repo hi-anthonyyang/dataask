@@ -1,9 +1,24 @@
 import { Pool, Client } from 'pg';
 import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
-import { v4 as uuidv4 } from 'uuid';
+// Using require to avoid TypeScript module declaration issues
+const { v4: uuidv4 } = require('uuid');
 import { logger } from './logger';
 import { sanitizeParams, limitQueryResult, validateQueryResult } from '../security/sanitize';
+
+// Database configuration constants
+const DATABASE_CONFIG = {
+  connection: {
+    testTimeoutMs: parseInt(process.env.DB_TEST_TIMEOUT_MS || '5000'),
+    poolMaxConnections: parseInt(process.env.DB_POOL_MAX_CONNECTIONS || '5'),
+    poolIdleTimeoutMs: parseInt(process.env.DB_POOL_IDLE_TIMEOUT_MS || '30000'),
+    poolConnectionTimeoutMs: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT_MS || '10000'),
+  },
+  query: {
+    defaultPreviewLimit: parseInt(process.env.DB_DEFAULT_PREVIEW_LIMIT || '100'),
+    maxPreviewLimit: parseInt(process.env.DB_MAX_PREVIEW_LIMIT || '1000'),
+  }
+};
 
 interface ConnectionConfig {
   type: 'postgresql' | 'sqlite';
@@ -24,7 +39,7 @@ interface QueryResult {
   rows: any[];
   fields: any[];
   rowCount: number;
-  executionTime: number;
+  executionTime?: number;
 }
 
 interface SchemaTable {
@@ -98,7 +113,7 @@ class DatabaseManager {
 
     } catch (error) {
       logger.error('Failed to create database connection:', error);
-      throw new Error(`Failed to connect to ${config.type} database: ${error.message}`);
+      throw new Error(`Failed to connect to ${config.type} database: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -144,7 +159,7 @@ class DatabaseManager {
       return limitedResult;
 
     } catch (error) {
-      logger.error('Query execution failed:', { connectionId, error: error.message });
+      logger.error('Query execution failed:', { connectionId, error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   }
@@ -170,7 +185,7 @@ class DatabaseManager {
       }
     } catch (error) {
       logger.error('Failed to retrieve schema:', error);
-      throw new Error(`Failed to retrieve schema: ${error.message}`);
+      throw new Error(`Failed to retrieve schema: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -229,7 +244,7 @@ class DatabaseManager {
       database: config.config.database,
       user: config.config.username,
       password: config.config.password,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: DATABASE_CONFIG.connection.testTimeoutMs,
     });
 
     try {
@@ -249,9 +264,9 @@ class DatabaseManager {
       database: config.config.database,
       user: config.config.username,
       password: config.config.password,
-      max: 5, // Maximum number of connections
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
+      max: DATABASE_CONFIG.connection.poolMaxConnections, // Maximum number of connections
+      idleTimeoutMillis: DATABASE_CONFIG.connection.poolIdleTimeoutMs,
+      connectionTimeoutMillis: DATABASE_CONFIG.connection.poolConnectionTimeoutMs,
     });
 
     // Test the connection
@@ -374,10 +389,21 @@ class DatabaseManager {
   }
 
   private async executeSQLiteQuery(db: sqlite3.Database, sql: string, params: any[]): Promise<QueryResult> {
-    const allAsync = promisify(db.all.bind(db));
     
     try {
-      const rows = await allAsync(sql, params) as any[];
+      const rows = await new Promise<any[]>((resolve, reject) => {
+        if (params && params.length > 0) {
+          db.all(sql, params, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          });
+        } else {
+          db.all(sql, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          });
+        }
+      });
       
       // Get column information from the first row
       const fields = rows.length > 0 ? 
@@ -474,9 +500,9 @@ class DatabaseManager {
   }
 
   // Preview table data (first N rows)
-  async getTablePreview(connectionId: string, tableName: string, limit: number = 100): Promise<QueryResult> {
+  async getTablePreview(connectionId: string, tableName: string, limit: number = DATABASE_CONFIG.query.defaultPreviewLimit): Promise<QueryResult> {
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-    const sql = `SELECT * FROM "${sanitizedTableName}" LIMIT ${Math.min(limit, 1000)}`;
+    const sql = `SELECT * FROM "${sanitizedTableName}" LIMIT ${Math.min(limit, DATABASE_CONFIG.query.maxPreviewLimit)}`;
     
     return await this.executeQuery(connectionId, sql);
   }

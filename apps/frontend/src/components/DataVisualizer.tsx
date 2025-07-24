@@ -16,9 +16,19 @@ import {
 } from 'recharts'
 import { BarChart3, TrendingUp, PieChart as PieChartIcon, AlertCircle } from 'lucide-react'
 
+// Type definitions for better type safety
+interface DataField {
+  name: string;
+  type?: string;
+}
+
+interface DataRow {
+  [key: string]: string | number;
+}
+
 interface DataVisualizerProps {
-  data: any[]
-  fields: any[]
+  data: DataRow[]
+  fields: DataField[]
   currentQuery: string
 }
 
@@ -30,7 +40,7 @@ interface ChartConfig {
 }
 
 interface ProcessedData {
-  chartData: any[]
+  chartData: DataRow[]
   config: ChartConfig
   xField: string
   yField: string
@@ -66,7 +76,7 @@ const VISUALIZATION_CONFIG = {
 }
 
 // Enhanced field detection with broader patterns
-const detectFieldTypes = (data: any[], fields: any[]) => {
+const detectFieldTypes = (data: DataRow[], fields: DataField[]) => {
   const firstRow = data[0]
   const fieldNames = fields.map(f => f.name)
   
@@ -118,7 +128,7 @@ const detectFieldTypes = (data: any[], fields: any[]) => {
 }
 
 // Smart chart detection logic with enhanced flexibility
-const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig => {
+const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): ChartConfig => {
   if (!data || data.length === 0) {
     return {
       type: 'none',
@@ -251,7 +261,7 @@ const analyzeDataForVisualization = (data: any[], fields: any[]): ChartConfig =>
 }
 
 // Process data for chart rendering
-const processDataForChart = (data: any[], fields: any[], config: ChartConfig): ProcessedData => {
+const processDataForChart = (data: DataRow[], fields: DataField[], config: ChartConfig): ProcessedData => {
   const limit = VISUALIZATION_CONFIG.maxRows
   const limitExceeded = data.length > limit
   const limitedData = data.slice(0, limit)
@@ -306,17 +316,17 @@ const processDataForChart = (data: any[], fields: any[], config: ChartConfig): P
     })
     
     xField = 'name' // Date field
-    yField = categories[0] // Will be handled differently in rendering
+    yField = String(categories[0]) // Will be handled differently in rendering
   }
   // Process based on chart type for other types
   else if (config.type === 'pie') {
     chartData = limitedData.map(row => ({
-      name: row[xField] || 'Unknown',
+      name: String(row[xField] || 'Unknown'),
       value: Number(row[yField]) || 0
     }))
   } else if (config.type === 'bar' || config.type === 'line') {
     chartData = limitedData.map(row => ({
-      name: row[xField] || 'Unknown',
+      name: String(row[xField] || 'Unknown'),
       value: Number(row[yField]) || 0,
       ...row // Include all original fields for tooltip
     }))
@@ -343,13 +353,13 @@ const CHART_COLORS = [
   '#f97316', // Orange
 ]
 
-export default function DataVisualizer({ data, fields, currentQuery }: DataVisualizerProps) {
+export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
   const processedData = useMemo(() => {
     const config = analyzeDataForVisualization(data, fields)
     return processDataForChart(data, fields, config)
   }, [data, fields])
 
-  const { chartData, config, xField, yField, limitExceeded } = processedData
+  const { chartData, config, yField, limitExceeded } = processedData
 
   // KPI Display
   if (config.type === 'kpi') {
@@ -505,7 +515,7 @@ export default function DataVisualizer({ data, fields, currentQuery }: DataVisua
                       outerRadius={100}
                       dataKey="value"
                     >
-                      {chartData.map((entry, index) => (
+                      {chartData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>

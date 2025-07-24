@@ -27,7 +27,7 @@ interface SchemaBrowserProps {
   connections?: Connection[]
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, showConnectionModal, setShowConnectionModal, connections: propConnections }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections }: SchemaBrowserProps) {
   const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())

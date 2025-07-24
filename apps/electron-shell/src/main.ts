@@ -3,6 +3,8 @@ import * as path from 'path'
 
 const isDev = process.env.NODE_ENV === 'development'
 
+console.log('🔧 Electron starting...', { isDev, NODE_ENV: process.env.NODE_ENV })
+
 function createWindow(): void {
   // Create the browser window
   const mainWindow = new BrowserWindow({
@@ -16,16 +18,28 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
     },
     titleBarStyle: 'default',
-    icon: path.join(__dirname, '../../assets/icon.png'), // TODO: Add icon
+    show: false, // Don't show until ready
+  })
+
+  // Show window when ready to prevent blank flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
+    console.log('✅ Electron window ready and shown')
   })
 
   // Load the React app
   if (isDev) {
+    console.log('🌐 Loading development server: http://localhost:3000')
     mainWindow.loadURL('http://localhost:3000')
-    mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../frontend/dist/index.html'))
+    console.log('📁 Loading production build')
+    mainWindow.loadFile(path.join(__dirname, '../../frontend/dist/index.html'))
   }
+
+  // Handle load failures
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('❌ Failed to load:', { errorCode, errorDescription, validatedURL })
+  })
 
   // Open external links in the default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -35,12 +49,13 @@ function createWindow(): void {
 
   // Handle window closed
   mainWindow.on('closed', () => {
-    // Dereference the window object
+    console.log('🔴 Electron window closed')
   })
 }
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
+  console.log('🚀 Electron app ready, creating window...')
   createWindow()
 
   app.on('activate', () => {
@@ -56,9 +71,9 @@ app.on('window-all-closed', () => {
 
 // Security: Prevent new window creation
 app.on('web-contents-created', (event, contents) => {
-  contents.on('new-window', (navigationEvent, navigationURL, frameName, disposition) => {
-    navigationEvent.preventDefault()
-    shell.openExternal(navigationURL)
+  contents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
   })
 })
 

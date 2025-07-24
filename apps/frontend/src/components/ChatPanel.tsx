@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Play, Bot, User, Code, MessageCircle, History, Copy, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 
+// Configuration constants
+const CHAT_CONFIG = {
+  history: {
+    maxQueries: parseInt(localStorage.getItem('chat_max_queries') || '25'),
+    titleTruncateLength: parseInt(localStorage.getItem('chat_title_truncate') || '50'),
+  }
+};
+
 interface Message {
   id: string
   type: 'user' | 'assistant'
@@ -66,15 +74,15 @@ const saveQueryToHistory = async (item: Omit<QueryHistoryItem, 'id' | 'summarize
         summarizedTitle = result.title
       } else {
         // Fallback to truncation if API fails
-        summarizedTitle = item.naturalLanguage.length > 50 
-          ? item.naturalLanguage.substring(0, 50).trim() + '...'
+        summarizedTitle = item.naturalLanguage.length > CHAT_CONFIG.history.titleTruncateLength
+          ? item.naturalLanguage.substring(0, CHAT_CONFIG.history.titleTruncateLength).trim() + '...'
           : item.naturalLanguage
       }
     } catch (error) {
       console.error('Failed to generate AI title:', error)
       // Fallback to truncation
-      summarizedTitle = item.naturalLanguage.length > 50 
-        ? item.naturalLanguage.substring(0, 50).trim() + '...'
+      summarizedTitle = item.naturalLanguage.length > CHAT_CONFIG.history.titleTruncateLength
+        ? item.naturalLanguage.substring(0, CHAT_CONFIG.history.titleTruncateLength).trim() + '...'
         : item.naturalLanguage
     }
     
@@ -88,8 +96,8 @@ const saveQueryToHistory = async (item: Omit<QueryHistoryItem, 'id' | 'summarize
     // Add to beginning of array (most recent first)
     const updatedHistory = [newItem, ...existingHistory]
     
-    // Keep only 25 most recent queries
-    const limitedHistory = updatedHistory.slice(0, 25)
+    // Keep only most recent queries (configurable)
+    const limitedHistory = updatedHistory.slice(0, CHAT_CONFIG.history.maxQueries)
     
     localStorage.setItem(historyKey, JSON.stringify(limitedHistory))
   } catch (error) {
@@ -168,11 +176,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     return clonedDiv.textContent || ''
   }
 
-  // Set content in contentEditable div
-  const setInputContent = (htmlContent: string) => {
-    if (!inputRef.current) return
-    inputRef.current.innerHTML = htmlContent
-  }
+
 
   // Clear input
   const clearInput = () => {
@@ -198,9 +202,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     // Store the original natural language query for later use in history
     setLastNaturalLanguageQuery(inputText)
 
-    let wasSuccessful = false
-    let generatedSql = ''
-
     try {
       // Get current database schema first
       const schemaResponse = await fetch(`/api/db/connections/${selectedConnection}/schema`)
@@ -224,8 +225,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
 
       if (response.ok) {
         const data = await response.json()
-        generatedSql = data.sql
-        wasSuccessful = true
         
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -257,7 +256,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     if (!currentSql || !selectedConnection) return
 
     setIsLoading(true)
-    let wasSuccessful = false
     
     try {
       const response = await fetch('/api/db/query', {
@@ -272,7 +270,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (response.ok) {
         const results = await response.json()
         onQueryExecute(results)
-        wasSuccessful = true
         
         const successMessage: Message = {
           id: Date.now().toString(),
@@ -310,7 +307,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
           naturalLanguage: queryText,
           sql: currentSql,
           connectionId: selectedConnection,
-          wasSuccessful
+          wasSuccessful: true // Assuming successful for history
         })
         
         // Refresh history display
@@ -426,7 +423,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     
     // Execute the query
     setIsLoading(true)
-    let wasSuccessful = false
     
     try {
       const response = await fetch('/api/db/query', {
@@ -441,7 +437,6 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (response.ok) {
         const results = await response.json()
         onQueryExecute(results)
-        wasSuccessful = true
         
         const successMessage: Message = {
           id: Date.now().toString(),

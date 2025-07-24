@@ -117,7 +117,7 @@ router.post('/query', async (req, res) => {
     
     logger.info(`Query executed successfully: ${queryRequest.sql.substring(0, 100)}...`);
     
-    res.json({
+    return res.json({
       data: result.rows,
       rowCount: result.rowCount,
       fields: result.fields,
@@ -125,7 +125,7 @@ router.post('/query', async (req, res) => {
     });
   } catch (error) {
     logger.error('Query execution failed:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: error instanceof Error ? error.message : 'Query execution failed'
     });
   }

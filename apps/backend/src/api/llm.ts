@@ -116,14 +116,14 @@ ${schemaContext}`;
       sql: generatedSQL 
     });
 
-    res.json({ 
+    return res.json({ 
       sql: generatedSQL,
       explanation: `Generated SQL for: "${request.query}"`
     });
 
   } catch (error) {
     logger.error('NL-to-SQL conversion failed:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: error instanceof z.ZodError ? 'Invalid request parameters' : 'Failed to generate SQL'
     });
   }
@@ -184,7 +184,7 @@ ${JSON.stringify(dataPreview, null, 2)}`;
 
     logger.info('Data analysis generated successfully');
 
-    res.json({ 
+    return res.json({ 
       analysis,
       metadata: {
         rowCount,
@@ -195,7 +195,7 @@ ${JSON.stringify(dataPreview, null, 2)}`;
 
   } catch (error) {
     logger.error('Data analysis failed:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: error instanceof z.ZodError ? 'Invalid request parameters' : 'Failed to generate analysis'
     });
   }
@@ -289,7 +289,7 @@ Examples:
       queryType: isSqlQuery ? 'sql' : 'natural_language'
     });
 
-    res.json({ 
+    return res.json({ 
       title: title,
       source: 'ai'
     });
@@ -303,7 +303,7 @@ Examples:
       ? request.query.substring(0, 47).trim() + '...'
       : request.query || 'Untitled Query';
     
-    res.json({ 
+    return res.json({ 
       title: fallbackTitle,
       source: 'fallback'
     });
@@ -315,14 +315,14 @@ router.get('/health', async (req, res) => {
   try {
     const hasApiKey = !!process.env.OPENAI_API_KEY;
     
-    res.json({
+    return res.json({
       status: hasApiKey ? 'OK' : 'No API key configured',
       hasApiKey,
       model: 'gpt-4'
     });
   } catch (error) {
     logger.error('LLM health check failed:', error);
-    res.status(500).json({ error: 'Health check failed' });
+    return res.status(500).json({ error: 'Health check failed' });
   }
 });
 

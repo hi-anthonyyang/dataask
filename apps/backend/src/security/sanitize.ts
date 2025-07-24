@@ -6,6 +6,18 @@ export interface QueryValidationResult {
   sanitizedQuery?: string;
 }
 
+interface QueryResultField {
+  name: string;
+  type?: string;
+}
+
+interface QueryResult {
+  rows: Record<string, any>[];
+  fields: QueryResultField[];
+  rowCount: number;
+  executionTime?: number;
+}
+
 // Keywords that indicate write operations (not allowed)
 const FORBIDDEN_KEYWORDS = [
   'INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'TRUNCATE',
@@ -115,7 +127,7 @@ export function validateQuery(sql: string): QueryValidationResult {
 /**
  * Sanitizes query parameters to prevent injection
  */
-export function sanitizeParams(params: any[]): any[] {
+export function sanitizeParams(params: unknown[]): unknown[] {
   if (!Array.isArray(params)) {
     return [];
   }
@@ -132,12 +144,12 @@ export function sanitizeParams(params: any[]): any[] {
 /**
  * Validates that a query result set is safe to return
  */
-export function validateQueryResult(result: any): boolean {
+export function validateQueryResult(result: QueryResult): boolean {
   // Check for potentially sensitive column names that shouldn't be returned
   const sensitiveColumns = ['password', 'secret', 'token', 'key', 'hash'];
   
   if (result.fields && Array.isArray(result.fields)) {
-    const columnNames = result.fields.map((field: any) => 
+    const columnNames = result.fields.map((field: QueryResultField) => 
       field.name?.toLowerCase() || ''
     );
     
@@ -159,7 +171,7 @@ export function validateQueryResult(result: any): boolean {
 /**
  * Limits query result size to prevent memory exhaustion
  */
-export function limitQueryResult(result: any, maxRows: number = 10000): any {
+export function limitQueryResult(result: QueryResult, maxRows: number = 10000): QueryResult {
   if (!result || !result.rows) {
     return result;
   }
@@ -169,8 +181,7 @@ export function limitQueryResult(result: any, maxRows: number = 10000): any {
     return {
       ...result,
       rows: result.rows.slice(0, maxRows),
-      truncated: true,
-      originalRowCount: result.rows.length
+      rowCount: maxRows
     };
   }
 

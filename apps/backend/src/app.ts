@@ -32,6 +32,22 @@ app.use((req, res, next) => {
 app.use('/api/db', dbRouter);
 app.use('/api/llm', llmRouter);
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    name: 'DataAsk Backend API',
+    version: '1.0.0',
+    status: 'Running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: {
+      health: '/health',
+      database: '/api/db/*',
+      llm: '/api/llm/*'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({

@@ -26,7 +26,10 @@ const logger = winston.createLogger({
   level: logLevel,
   format: process.env.NODE_ENV === 'production' ? prodFormat : devFormat,
   transports: [
-    new winston.transports.Console(),
+    // Console transport with environment-specific format
+    new winston.transports.Console({
+      format: process.env.NODE_ENV === 'production' ? prodFormat : devFormat
+    }),
     
     // File transports for production
     ...(process.env.NODE_ENV === 'production' ? [
@@ -45,11 +48,6 @@ const logger = winston.createLogger({
   ]
 });
 
-// If we're not in production, log to the console with the devFormat
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: devFormat
-  }));
-}
+// Remove duplicate console transport addition - this was causing duplicate logs in development
 
 export { logger }; 
