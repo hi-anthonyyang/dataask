@@ -272,7 +272,7 @@ Examples:
     const title = completion.choices[0]?.message?.content?.trim();
     
     if (!title) {
-      // Fallback to truncation if AI fails
+      // Fallback to truncation iffails
       const fallbackTitle = request.query.length > 50 
         ? request.query.substring(0, 47).trim() + '...'
         : request.query;

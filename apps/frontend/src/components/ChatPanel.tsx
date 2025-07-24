@@ -79,7 +79,7 @@ const saveQueryToHistory = async (item: Omit<QueryHistoryItem, 'id' | 'summarize
           : item.naturalLanguage
       }
     } catch (error) {
-      console.error('Failed to generate AI title:', error)
+      console.error('Failed to generate title:', error)
       // Fallback to truncation
       summarizedTitle = item.naturalLanguage.length > CHAT_CONFIG.history.titleTruncateLength
         ? item.naturalLanguage.substring(0, CHAT_CONFIG.history.titleTruncateLength).trim() + '...'

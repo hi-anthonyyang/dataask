@@ -16,6 +16,113 @@ import {
 } from 'recharts'
 import { BarChart3, TrendingUp, PieChart as PieChartIcon, AlertCircle } from 'lucide-react'
 
+// Universal date formatting utilities (works with any database)
+const formatDateForDisplay = (dateValue: any): string => {
+  if (!dateValue) return 'Unknown'
+  
+  try {
+    let date: Date
+    
+    // Handle different date formats from different databases
+    if (dateValue instanceof Date) {
+      date = dateValue
+    } else if (typeof dateValue === 'string') {
+      // Handle ISO strings, MySQL dates, etc.
+      date = new Date(dateValue)
+    } else if (typeof dateValue === 'number') {
+      // Handle timestamps
+      date = new Date(dateValue)
+    } else {
+      return String(dateValue)
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return String(dateValue)
+    }
+    
+    // Format based on the precision/type
+    const dateStr = dateValue.toString()
+    
+    // Time series data (has time component)
+    if (dateStr.includes('T') || dateStr.includes(':')) {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    }
+    
+    // Date-only data
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  } catch (error) {
+    return String(dateValue)
+  }
+}
+
+const formatDateForTooltip = (dateValue: any): string => {
+  if (!dateValue) return 'Unknown'
+  
+  try {
+    let date: Date
+    
+    if (dateValue instanceof Date) {
+      date = dateValue
+    } else {
+      date = new Date(dateValue)
+    }
+    
+    if (isNaN(date.getTime())) {
+      return String(dateValue)
+    }
+    
+    const dateStr = dateValue.toString()
+    
+    // Full date with time if available
+    if (dateStr.includes('T') || dateStr.includes(':')) {
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    }
+    
+    // Date only
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  } catch (error) {
+    return String(dateValue)
+  }
+}
+
+// Detect if a value looks like a date (universal across databases)
+const isDateValue = (value: any): boolean => {
+  if (!value) return false
+  
+  const str = String(value)
+  
+  // ISO date patterns
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(str)) return true
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return true
+  
+  // Other common date patterns
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) return true
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(str)) return true
+  
+  // Try parsing as date
+  const date = new Date(value)
+  return !isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100
+}
+
 // Type definitions for better type safety
 interface DataField {
   name: string;
@@ -104,7 +211,7 @@ const detectFieldTypes = (data: DataRow[], fields: DataField[]) => {
     return isNumeric
   })
   
-  // More flexible date detection  
+  // Universal date detection (works with any database)
   const dateFields = fieldNames.filter(field => {
     const value = firstRow[field]
     const fieldLower = field.toLowerCase()
@@ -113,10 +220,9 @@ const detectFieldTypes = (data: DataRow[], fields: DataField[]) => {
     const hasDateName = VISUALIZATION_CONFIG.datePatterns.some(pattern => 
       fieldLower.includes(pattern)
     )
-                       
-    // Check value patterns
-    const hasDateValue = typeof value === 'string' && 
-      VISUALIZATION_CONFIG.dateValuePatterns.some(pattern => pattern.test(value))
+    
+    // Use our universal date detection
+    const hasDateValue = isDateValue(value)
     
     return hasDateName || hasDateValue
   })
@@ -348,17 +454,26 @@ const processDataForChart = (data: DataRow[], fields: DataField[], config: Chart
       const category = row[categoryField]
       const value = Number(row[valueField]) || 0
       
+      // Format date for display but keep original for sorting
+      const formattedDate = formatDateForDisplay(date)
+      
       if (!dateMap.has(date)) {
-        dateMap.set(date, { name: date })
+        dateMap.set(date, { 
+          name: formattedDate, 
+          originalDate: String(date) // Keep for sorting and tooltip
+        })
       }
       
       dateMap.get(date)[category] = value
     })
     
-    // Convert to array and sort by date
+    // Convert to array and sort by original date
     chartData = Array.from(dateMap.values()).sort((a, b) => 
-      new Date(a.name).getTime() - new Date(b.name).getTime()
+      new Date(a.originalDate).getTime() - new Date(b.originalDate).getTime()
     )
+    
+    // Keep originalDate for tooltip formatting but don't interfere with chart rendering
+    // (Recharts will ignore unknown properties)
     
     // Get all unique categories, limit to prevent overcrowding
     const allCategories = [...new Set(limitedData.map(row => row[categoryField]))]
@@ -380,16 +495,32 @@ const processDataForChart = (data: DataRow[], fields: DataField[], config: Chart
   }
   // Process based on chart type for other types
   else if (config.type === 'pie') {
-    chartData = limitedData.map(row => ({
-      name: String(row[xField] || 'Unknown'),
-      value: Number(row[yField]) || 0
-    }))
+    chartData = limitedData.map(row => {
+      const nameValue = row[xField]
+      return {
+        name: isDateValue(nameValue) ? formatDateForDisplay(nameValue) : String(nameValue || 'Unknown'),
+        value: Number(row[yField]) || 0
+      }
+    })
   } else if (config.type === 'bar' || config.type === 'line') {
-    chartData = limitedData.map(row => ({
-      name: String(row[xField] || 'Unknown'),
-      value: Number(row[yField]) || 0,
-      ...row // Include all original fields for tooltip
-    }))
+    chartData = limitedData.map(row => {
+      const nameValue = row[xField]
+      return {
+        name: isDateValue(nameValue) ? formatDateForDisplay(nameValue) : String(nameValue || 'Unknown'),
+        value: Number(row[yField]) || 0,
+        originalDate: isDateValue(nameValue) ? String(nameValue) : '', // Keep for tooltip
+        ...row // Include all original fields for tooltip
+      }
+    })
+    
+    // Sort by date if x-axis contains dates
+    if (isDateValue(limitedData[0]?.[xField])) {
+      chartData.sort((a, b) => {
+        const dateA = new Date(a.originalDate || a[xField])
+        const dateB = new Date(b.originalDate || b[xField])
+        return dateA.getTime() - dateB.getTime()
+      })
+    }
   }
 
   return {
@@ -599,6 +730,15 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '6px'
                       }}
+                      labelFormatter={(label, payload) => {
+                        if (payload && payload.length > 0) {
+                          const data = payload[0].payload
+                          if (data.originalDate) {
+                            return formatDateForTooltip(data.originalDate)
+                          }
+                        }
+                        return label
+                      }}
                     />
                     <Bar dataKey="value" fill={CHART_COLORS[0]} />
                   </BarChart>
@@ -625,6 +765,20 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '6px'
+                      }}
+                      labelFormatter={(label, payload) => {
+                        // For all time charts, try to get original date for better formatting
+                        if (payload && payload.length > 0) {
+                          const data = payload[0].payload
+                          if (data.originalDate) {
+                            return formatDateForTooltip(data.originalDate)
+                          }
+                        }
+                        // Fallback: if label looks like a date, format it
+                        if (isDateValue(label)) {
+                          return formatDateForTooltip(label)
+                        }
+                        return label
                       }}
                     />
                     {config.title === 'Multi-Series Time Analysis' ? (

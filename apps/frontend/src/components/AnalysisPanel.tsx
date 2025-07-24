@@ -46,7 +46,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
         setAiAnalysis(result.analysis)
         setLastAnalyzedQuery(currentQuery) // Cache this query as analyzed
       } else {
-        setAiAnalysis('Failed to generate AI analysis. Please try again.')
+        setAiAnalysis('Failed to generate analysis. Please try again.')
       }
     } catch (error) {
       console.error('AI analysis error:', error)
@@ -82,7 +82,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
             <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <TrendingUp className="h-4 w-4" />
-                <span>AI Insights</span>
+                <span>Insights</span>
               </div>
               <div className="flex items-center gap-1">
                 <BarChart3 className="h-4 w-4" />
@@ -121,7 +121,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            AI Insights
+            Insights
           </button>
           <button
             onClick={() => setActiveTab('data')}
@@ -154,13 +154,13 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
             <div className="bg-muted p-4 rounded-lg">
               <h3 className="font-medium text-foreground mb-2 flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                {isAnalyzing ? 'Generating AI Insights...' : 'AI Insights'}
+                {isAnalyzing ? 'Generating Insights...' : 'Insights'}
               </h3>
               
               {isAnalyzing ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  Analyzing your data with AI...
+                  Analyzing your data...
                 </div>
               ) : aiAnalysis ? (
                 <div className="text-sm text-foreground whitespace-pre-wrap">
@@ -168,7 +168,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">
-                  No AI insights available. Try running a query with data to get intelligent analysis.
+                  No insights available. Try running a query with data to get intelligent analysis.
                 </p>
               )}
             </div>
@@ -191,7 +191,7 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
                   onClick={generateAIAnalysis}
                   className="mt-3 px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
                 >
-                  Generate AI Analysis
+                  Generate Analysis
                 </button>
               )}
             </div>
