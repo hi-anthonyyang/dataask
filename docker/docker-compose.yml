@@ -21,6 +21,27 @@ services:
       timeout: 5s
       retries: 5
 
+  mysql:
+    image: mysql:8.0
+    container_name: dataask-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: dataask_root_password
+      MYSQL_DATABASE: dataask_dev
+      MYSQL_USER: dataask_user
+      MYSQL_PASSWORD: dataask_dev_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./seed/mysql:/docker-entrypoint-initdb.d
+    networks:
+      - dataask-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "dataask_user", "-pdataask_dev_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Optional: pgAdmin for database management during development
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -41,6 +62,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  mysql_data:
     driver: local
 
 networks:

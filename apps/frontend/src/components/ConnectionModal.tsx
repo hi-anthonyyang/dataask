@@ -8,7 +8,7 @@ interface ConnectionModalProps {
 }
 
 interface ConnectionFormData {
-  type: 'postgresql' | 'sqlite'
+  type: 'postgresql' | 'sqlite' | 'mysql'
   name: string
   host?: string
   port?: number
@@ -39,13 +39,20 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
     setTestResult(null) // Clear test result when form changes
   }
 
-  const handleTypeChange = (type: 'postgresql' | 'sqlite') => {
+  const handleTypeChange = (type: 'postgresql' | 'sqlite' | 'mysql') => {
     setFormData({
       type,
-      name: type === 'postgresql' ? 'PostgreSQL Connection' : 'SQLite Connection',
+      name: type === 'postgresql' ? 'PostgreSQL Connection' : 
+            type === 'mysql' ? 'MySQL Connection' : 'SQLite Connection',
       ...(type === 'postgresql' ? {
         host: 'localhost',
         port: 5432,
+        database: 'dataask_dev',
+        username: 'dataask_user',
+        password: 'dataask_dev_password'
+      } : type === 'mysql' ? {
+        host: 'localhost',
+        port: 3306,
         database: 'dataask_dev',
         username: 'dataask_user',
         password: 'dataask_dev_password'
@@ -68,7 +75,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
           type: formData.type,
           name: formData.name,
           config: {
-            ...(formData.type === 'postgresql' ? {
+            ...(formData.type === 'postgresql' || formData.type === 'mysql' ? {
               host: formData.host,
               port: formData.port,
               database: formData.database,
@@ -107,7 +114,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
           type: formData.type,
           name: formData.name,
           config: {
-            ...(formData.type === 'postgresql' ? {
+            ...(formData.type === 'postgresql' || formData.type === 'mysql' ? {
               host: formData.host,
               port: formData.port,
               database: formData.database,
@@ -174,6 +181,16 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
                 PostgreSQL
               </button>
               <button
+                onClick={() => handleTypeChange('mysql')}
+                className={`flex-1 p-2 text-sm border rounded transition-colors ${
+                  formData.type === 'mysql'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:bg-muted'
+                }`}
+              >
+                MySQL
+              </button>
+              <button
                 onClick={() => handleTypeChange('sqlite')}
                 className={`flex-1 p-2 text-sm border rounded transition-colors ${
                   formData.type === 'sqlite'
@@ -198,8 +215,8 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
             />
           </div>
 
-          {/* PostgreSQL Fields */}
-          {formData.type === 'postgresql' && (
+          {/* PostgreSQL & MySQL Fields */}
+          {(formData.type === 'postgresql' || formData.type === 'mysql') && (
             <>
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -279,7 +296,8 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
           )}
 
           {/* Sample Data Info */}
-          {formData.type === 'postgresql' && formData.host === 'localhost' && formData.port === 5432 && (
+          {((formData.type === 'postgresql' && formData.host === 'localhost' && formData.port === 5432) ||
+            (formData.type === 'mysql' && formData.host === 'localhost' && formData.port === 3306)) && (
             <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
               <p className="font-medium">📊 Sample Data Available</p>
               <p>This connection includes sample customers, products, and orders for testing DataAsk features.</p>

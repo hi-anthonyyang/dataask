@@ -24,7 +24,7 @@ const NLQuerySchema = z.object({
       }))
     }))
   }),
-  connectionType: z.enum(['postgresql', 'sqlite'])
+  connectionType: z.enum(['postgresql', 'sqlite', 'mysql'])
 });
 
 // Schema for analysis requests

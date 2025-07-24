@@ -8,7 +8,7 @@ const router = Router();
 
 // Connection schema validation
 const ConnectionSchema = z.object({
-  type: z.enum(['postgresql', 'sqlite']),
+  type: z.enum(['postgresql', 'sqlite', 'mysql']),
   name: z.string().min(1),
   config: z.object({
     // PostgreSQL config
@@ -73,9 +73,22 @@ router.post('/connections', async (req, res) => {
     });
   } catch (error) {
     logger.error('Failed to create connection:', error);
-    res.status(400).json({ 
-      error: error instanceof z.ZodError ? 'Invalid connection parameters' : 'Failed to create connection'
-    });
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid connection parameters' });
+    }
+    
+    // Return enhanced error information for database connection errors
+    if (error instanceof Error && 'code' in error) {
+      const dbError = error as any;
+      return res.status(400).json({ 
+        error: dbError.message,
+        code: dbError.code,
+        type: 'connection_error'
+      });
+    }
+    
+    res.status(400).json({ error: 'Failed to create connection' });
   }
 });
 
@@ -90,6 +103,17 @@ router.get('/connections/:connectionId/schema', async (req, res) => {
     res.json({ schema });
   } catch (error) {
     logger.error('Failed to get schema:', error);
+    
+    // Return user-friendly error messages for database errors
+    if (error instanceof Error && 'code' in error) {
+      const dbError = error as any;
+      return res.status(500).json({ 
+        error: 'Failed to retrieve schema',
+        details: dbError.message,
+        code: dbError.code
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to retrieve schema' });
   }
 });
@@ -125,6 +149,17 @@ router.post('/query', async (req, res) => {
     });
   } catch (error) {
     logger.error('Query execution failed:', error);
+    
+    // Return enhanced error information for database errors
+    if (error instanceof Error && 'code' in error) {
+      const dbError = error as any;
+      return res.status(500).json({ 
+        error: dbError.message,
+        code: dbError.code,
+        type: 'database_error'
+      });
+    }
+    
     return res.status(500).json({ 
       error: error instanceof Error ? error.message : 'Query execution failed'
     });
