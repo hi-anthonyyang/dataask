@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, Download, Eye, BarChart3 } from 'lucide-react'
+import { TrendingUp, Download, Eye, BarChart3, Copy } from 'lucide-react'
 import DataVisualizer from './DataVisualizer'
+import { copyInsightsText, copyTableAsCSV, copyTableAsTSV, getCopyButtonProps } from '../services/copyService'
 
 interface AnalysisPanelProps {
   queryResults: any
@@ -152,10 +153,22 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
         {activeTab === 'insights' && (
           <div className="p-4 space-y-4">
             <div className="bg-muted p-4 rounded-lg">
-              <h3 className="font-medium text-foreground mb-2 flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                {isAnalyzing ? 'Generating Insights...' : 'Insights'}
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-medium text-foreground flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  {isAnalyzing ? 'Generating Insights...' : 'Insights'}
+                </h3>
+                {aiAnalysis && !isAnalyzing && (
+                  <button
+                    {...getCopyButtonProps(
+                      () => copyInsightsText(aiAnalysis),
+                      'Copy insights to clipboard'
+                    )}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               
               {isAnalyzing ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -201,6 +214,35 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
         {/* Data Table Tab */}
         {activeTab === 'data' && (
           <div className="p-4">
+            {/* Copy Options */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium text-foreground">Data Table</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  {...getCopyButtonProps(
+                    () => copyTableAsCSV(queryResults.data, queryResults.fields),
+                    'Copy as CSV (comma-separated)',
+                    'sm'
+                  )}
+                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1"
+                >
+                  <Copy className="h-3 w-3" />
+                  CSV
+                </button>
+                <button
+                  {...getCopyButtonProps(
+                    () => copyTableAsTSV(queryResults.data, queryResults.fields),
+                    'Copy as TSV (tab-separated)',
+                    'sm'
+                  )}
+                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1"
+                >
+                  <Copy className="h-3 w-3" />
+                  TSV
+                </button>
+              </div>
+            </div>
+            
             <div className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="overflow-x-auto max-w-full">
                 <table className="min-w-full text-sm">

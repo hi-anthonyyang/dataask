@@ -39,6 +39,76 @@ const SummarizationSchema = z.object({
   query: z.string().min(1)
 });
 
+// Detect vague or exploratory queries that need suggestions instead of SQL
+const isVagueQuery = (query: string): boolean => {
+  const vaguePhrases = [
+    'interesting insights',
+    'what can you tell me',
+    'analyze my data', 
+    'insights from',
+    'tell me about',
+    'explore',
+    'what do you see',
+    'find patterns',
+    'discovery',
+    'anything interesting',
+    'surprise me',
+    'recommendations',
+    'what should i know'
+  ];
+  
+  const lowerQuery = query.toLowerCase();
+  return vaguePhrases.some(phrase => lowerQuery.includes(phrase));
+};
+
+// Generate helpful suggestions for vague queries
+const generateQuerySuggestions = (schema: any): string[] => {
+  const tables = schema.tables;
+  const suggestions: string[] = [];
+  
+  // Generic suggestions that work with any schema
+  suggestions.push('Show me the top 10 records from the main table');
+  
+  // Table-specific suggestions
+  tables.forEach((table: any) => {
+    const tableName = table.name;
+    
+    // Look for common patterns
+    if (tableName.includes('customer') || tableName.includes('user')) {
+      suggestions.push(`How many ${tableName} do we have?`);
+      suggestions.push(`Show me recent ${tableName} activity`);
+    }
+    
+    if (tableName.includes('order') || tableName.includes('sale')) {
+      suggestions.push(`What are our top ${tableName} by value?`);
+      suggestions.push(`Show me ${tableName} trends over time`);
+    }
+    
+    if (tableName.includes('product') || tableName.includes('item')) {
+      suggestions.push(`What are the most popular ${tableName}?`);
+      suggestions.push(`Show me ${tableName} performance`);
+    }
+    
+    // Generic table suggestions
+    suggestions.push(`What's the distribution of records in ${tableName}?`);
+    
+    // Look for date columns for time-based queries
+    const dateColumns = table.columns.filter((col: any) => 
+      col.type.toLowerCase().includes('date') || 
+      col.type.toLowerCase().includes('time') ||
+      col.name.toLowerCase().includes('date') ||
+      col.name.toLowerCase().includes('time')
+    );
+    
+    if (dateColumns.length > 0) {
+      suggestions.push(`Show me ${tableName} trends over time`);
+    }
+  });
+  
+  // Limit to 6 most relevant suggestions
+  return suggestions.slice(0, 6);
+};
+
 // Convert natural language to SQL
 router.post('/nl-to-sql', async (req, res) => {
   try {
@@ -47,6 +117,23 @@ router.post('/nl-to-sql', async (req, res) => {
     if (!process.env.OPENAI_API_KEY) {
       return res.status(500).json({ 
         error: 'OpenAI API key not configured' 
+      });
+    }
+
+    // Handle vague queries with helpful suggestions
+    if (isVagueQuery(request.query)) {
+      const suggestions = generateQuerySuggestions(request.schema);
+      
+      logger.info('Vague query detected, providing suggestions', { 
+        query: request.query,
+        suggestions 
+      });
+      
+      return res.json({
+        isVague: true,
+        message: 'I can help you explore your data! Here are some specific questions you can ask:',
+        suggestions,
+        originalQuery: request.query
       });
     }
 

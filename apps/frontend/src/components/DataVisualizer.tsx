@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import {
   BarChart,
   Bar,
@@ -14,7 +14,8 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts'
-import { BarChart3, TrendingUp, PieChart as PieChartIcon, AlertCircle } from 'lucide-react'
+import { BarChart3, TrendingUp, PieChart as PieChartIcon, AlertCircle, Copy } from 'lucide-react'
+import { copyChartAsImage, getCopyButtonProps } from '../services/copyService'
 
 // Universal date formatting utilities (works with any database)
 const formatDateForDisplay = (dateValue: any): string => {
@@ -110,6 +111,7 @@ const isDateValue = (value: any): boolean => {
   
   const str = String(value)
   
+  // Strict pattern matching for reliable date detection
   // ISO date patterns
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(str)) return true
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return true
@@ -118,9 +120,20 @@ const isDateValue = (value: any): boolean => {
   if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) return true
   if (/^\d{4}\/\d{2}\/\d{2}$/.test(str)) return true
   
-  // Try parsing as date
-  const date = new Date(value)
-  return !isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100
+  // Monthly patterns
+  if (/^\d{4}-\d{2}$/.test(str)) return true
+  if (/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}$/i.test(str)) return true
+  
+  // Quarter patterns
+  if (/^Q[1-4]\s+\d{4}$/i.test(str)) return true
+  
+  // Only try Date parsing for numeric-looking strings to avoid false positives with city names
+  if (/^\d/.test(str)) {
+    const date = new Date(value)
+    return !isNaN(date.getTime()) && date.getFullYear() > 1900 && date.getFullYear() < 2100
+  }
+  
+  return false
 }
 
 // Type definitions for better type safety
@@ -547,6 +560,7 @@ const CHART_COLORS = [
 export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
   const [useLogScale, setUseLogScale] = useState(false)
+  const chartRef = useRef<HTMLDivElement>(null)
   
   const processedData = useMemo(() => {
     const config = analyzeDataForVisualization(data, fields)
@@ -639,8 +653,18 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
             </div>
           )}
         </div>
-        <div className="text-xs text-muted-foreground">
-          {config.reason}
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-muted-foreground">
+            {config.reason}
+          </div>
+          <button
+            {...getCopyButtonProps(
+              () => chartRef.current && copyChartAsImage(chartRef.current),
+              'Copy chart as image'
+            )}
+          >
+            <Copy className="h-4 w-4" />
+          </button>
         </div>
       </div>
       
@@ -705,7 +729,7 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
       )}
 
       {/* Chart Container */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div ref={chartRef} className="bg-card border border-border rounded-lg p-4">
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             {(() => {

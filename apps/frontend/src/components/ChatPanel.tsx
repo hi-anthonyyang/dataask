@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Play, Bot, User, Code, MessageCircle, History, Copy, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { copySQLQuery, getCopyButtonProps } from '../services/copyService'
 
 // Configuration constants
 const CHAT_CONFIG = {
@@ -14,6 +15,7 @@ interface Message {
   type: 'user' | 'assistant'
   content: string
   sql?: string
+  suggestions?: string[]
   timestamp: Date
 }
 
@@ -226,17 +228,37 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (response.ok) {
         const data = await response.json()
         
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'assistant',
-          content: `I've generated this SQL query for you:\n\n\`\`\`sql\n${data.sql}\n\`\`\`\n\nWould you like me to run it?`,
-          sql: data.sql,
-          timestamp: new Date()
-        }
+        // Handle vague query suggestions
+        if (data.isVague) {
+          const suggestionsText = data.message + '\n\n' + 
+            data.suggestions.map((suggestion: string, index: number) => 
+              `${index + 1}. "${suggestion}"`
+            ).join('\n') + 
+            '\n\nJust click on any suggestion or type a specific question!'
 
-        setMessages(prev => [...prev, assistantMessage])
-        setCurrentSql(data.sql)
-        onQueryUpdate(data.sql)
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'assistant',
+            content: suggestionsText,
+            suggestions: data.suggestions,
+            timestamp: new Date()
+          }
+
+          setMessages(prev => [...prev, assistantMessage])
+        } else {
+          // Handle normal SQL generation
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            type: 'assistant',
+            content: `I've generated this SQL query for you:\n\n\`\`\`sql\n${data.sql}\n\`\`\`\n\nWould you like me to run it?`,
+            sql: data.sql,
+            timestamp: new Date()
+          }
+
+          setMessages(prev => [...prev, assistantMessage])
+          setCurrentSql(data.sql)
+          onQueryUpdate(data.sql)
+        }
       }
     } catch (error) {
       const errorMessage: Message = {
@@ -411,7 +433,16 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
   }
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+    copySQLQuery(text)
+  }
+
+  const handleSuggestionClick = (suggestion: string) => {
+    // Set the suggestion in the input and trigger message sending
+    if (inputRef.current) {
+      inputRef.current.textContent = suggestion
+      inputRef.current.focus()
+      handleSendMessage()
+    }
   }
 
   const runQueryFromHistory = async (sql: string) => {
@@ -569,6 +600,19 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                         Run Query
                       </button>
                     )}
+                    {message.suggestions && (
+                      <div className="mt-3 space-y-1">
+                        {message.suggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="block w-full text-left px-2 py-1 text-xs bg-card border border-border rounded hover:bg-muted/50 transition-colors"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1 px-1">
                     {message.timestamp.toLocaleTimeString()}
@@ -640,7 +684,22 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       {/* SQL Tab */}
       {activeTab === 'sql' && (
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 p-4">
+          {/* SQL Header */}
+          <div className="flex items-center justify-between p-4 pb-2">
+            <h3 className="font-medium text-foreground text-sm">SQL Editor</h3>
+            {currentSql.trim() && (
+              <button
+                {...getCopyButtonProps(
+                  () => copyToClipboard(currentSql),
+                  'Copy SQL query'
+                )}
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          
+          <div className="flex-1 p-4 pt-0">
             <textarea
               value={currentSql}
               onChange={(e) => {
