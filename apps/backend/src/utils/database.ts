@@ -653,8 +653,27 @@ class DatabaseManager {
 
   // Preview table data (first N rows)
   async getTablePreview(connectionId: string, tableName: string, limit: number = DATABASE_CONFIG.query.defaultPreviewLimit): Promise<QueryResult> {
+    const config = this.connectionConfigs.get(connectionId);
+    if (!config) {
+      throw new Error('Connection not found');
+    }
+
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-    const sql = `SELECT * FROM "${sanitizedTableName}" LIMIT ${Math.min(limit, DATABASE_CONFIG.query.maxPreviewLimit)}`;
+    
+    // Use database-specific identifier quoting
+    let quotedTableName: string;
+    switch (config.type) {
+      case 'mysql':
+        quotedTableName = `\`${sanitizedTableName}\``;  // MySQL uses backticks
+        break;
+      case 'postgresql':
+      case 'sqlite':
+      default:
+        quotedTableName = `"${sanitizedTableName}"`; // PostgreSQL and SQLite use double quotes
+        break;
+    }
+    
+    const sql = `SELECT * FROM ${quotedTableName} LIMIT ${Math.min(limit, DATABASE_CONFIG.query.maxPreviewLimit)}`;
     
     return await this.executeQuery(connectionId, sql);
   }
