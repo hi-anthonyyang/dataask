@@ -1,111 +1,60 @@
-# DataAsk
+# DataAsk repository architecture
 
-An AI-native, minimal SQL data analysis tool. Think DBeaver, but radically simplified with a chat-first AI interface for fast, secure, read-only database exploration.
+DataAsk is an AI‑native SQL analysis tool. The project is organized as a monorepo with distinct backend, frontend and desktop applications plus shared infrastructure. This document explains the architecture and key modules to aid large‑language‑model agents in navigating, testing and extending the codebase.
 
-## Features
+## Repository structure
 
-- **Three-Panel Interface**: Familiar layout with schema browser, analysis panel, and chat interface
-- **Natural Language Queries**: Ask questions in plain English, get SQL and insights
-- **Security First**: Read-only queries, backend-only API keys, encrypted credential storage
-- **Multiple Database Support**: PostgreSQL and SQLite support
-- **AI-Powered Analysis**: Auto-generated insights, summaries, and visualizations
-- **Desktop Native**: Electron app with familiar desktop database tool experience
+* `apps/backend/` – Node.js/TypeScript Express server providing API endpoints for database management and LLM‑powered analysis.
+* `apps/frontend/` – React/TypeScript single‑page application with a three‑panel interface for exploring schemas, running queries and visualizing results.
+* `apps/electron-shell/` – Electron wrapper that packages the frontend into a desktop app.
+* `docker/` – Docker Compose configuration and seed data for local databases.
+* `packages/` – placeholder for shared code (currently empty).
+* `docs/` – documentation.
 
-## Quick Start
+### Backend architecture
 
-### Prerequisites
+The backend is built with Express. The entry point (`app.ts`) initializes the Express app, sets security middleware like helmet and cors, mounts API routers for database and LLM functions and defines root/health endpoints with a global error handler. `server.ts` reads environment variables, configures the listening port and starts the server with graceful shutdown handling.
 
-- Node.js 18+ and npm 9+
-- Docker and Docker Compose (for local database development)
+#### Database API
 
-### Setup
+Routes under `/api/db` are defined in `api/db.ts`. They expose operations to test a database connection, create/list/delete connections, retrieve a connection’s schema, run read‑only SQL queries and get table metadata/columns/preview data. The route for executing queries validates that generated SQL is read‑only and safe using the sanitization utilities.
 
-1. **Clone and install dependencies:**
-   ```bash
-   git clone <repo-url>
-   cd dataask
-   npm run setup  # Installs dependencies and starts Docker containers
-   ```
+Database connections are handled by a `DatabaseManager` class in `utils/database.ts`. It creates, stores and removes connections for PostgreSQL, SQLite and MySQL, executes sanitized queries with timing and error mapping, and exposes methods to fetch schema information such as table metadata and columns.
 
-2. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your OpenAI API key and other configuration
-   ```
+Security is critical. The `security/sanitize.ts` module validates that a SQL statement is read‑only (no writes, multiple statements or injection patterns), sanitizes parameters and limits result size. Logging is configured via a Winston logger that uses different formats for development and production. An in‑memory cache (`utils/cache.ts`) stores results from expensive LLM operations using hashed keys and TTL to reduce costs.
 
-3. **Start development environment:**
-   ```bash
-   npm run dev  # Starts backend, frontend, and electron concurrently
-   ```
+#### LLM API
 
-## Architecture
+The `/api/llm` router (`api/llm.ts`) provides AI‑powered functions. It classifies natural language queries, generates SQL from plain English using OpenAI, analyzes query result sets to produce narrative insights and summarizes queries for history titles. Dynamic prompts incorporate database schemas and security rules, and outputs are validated using the sanitization layer. The module uses the shared LLM cache to avoid recomputing identical requests.
 
-This is a monorepo with three main applications:
+### Frontend architecture
 
-- **`apps/backend/`**: Node.js/Express API server handling database connections and LLM integration
-- **`apps/frontend/`**: React/TypeScript UI with three-panel layout
-- **`apps/electron-shell/`**: Electron wrapper for desktop experience
+The frontend is a React SPA written in TypeScript. The top‑level component (`App.tsx`) manages global state (selected connection, query text and results, panel sizes) and renders a three‑panel layout: a schema browser on the left, an analysis panel below and a chat/SQL panel on the right. It loads available connections when the app mounts.
 
-## Security
+#### Components
 
-### API Keys & Secrets
-- **NEVER** store API keys in frontend code or commit them to git
-- All secrets belong in `.env` files or environment variables
-- OpenAI API key is only accessible to the backend
+* **SchemaBrowser** (`SchemaBrowser.tsx`) – displays the list of database connections and, for the selected connection, a collapsible tree of tables and columns; loads schemas via API calls and tracks which tables are expanded.
+* **ConnectionModal** (`ConnectionModal.tsx`) – modal dialog that collects connection parameters (host, port, database, username, password or SQLite filename), tests connectivity and creates new connections using backend endpoints.
+* **TableDetails** (`TableDetails.tsx`) – when a table is selected, fetches and displays metadata (row counts, size), column list and a preview of the first rows with tabs for overview and preview.
+* **AnalysisPanel** (`AnalysisPanel.tsx`) – shows AI‑generated insights, raw data and charts for the current query result; triggers analysis by calling `/api/llm/analyze`, and uses the copy service to copy data or insights to clipboard.
+* **DataVisualizer** (`DataVisualizer.tsx`) – inspects the result set to choose an appropriate visualization (bar, line, pie or KPI), processes data accordingly, provides controls to toggle series and warns about mixed scales. Charts are rendered with Recharts and can be copied as an image via the copy service.
+* **ChatPanel** (`ChatPanel.tsx`) – conversational interface where users type natural language questions. It sends queries to `/api/llm/sql` to generate SQL, executes the SQL via the database API, and displays both the assistant’s messages and user input. The panel also offers a tab to edit SQL directly and a history tab that stores past queries in local storage. It summarizes natural language queries into short titles using `/api/llm/summarize` and provides copy buttons for SQL and natural language queries.
 
-### Database Security
-- All queries are validated for read-only operations (SELECT, EXPLAIN, DESCRIBE only)
-- SQL injection prevention through parameterized queries
-- Database credentials encrypted in local storage
-- Connection strings never exposed to frontend
+#### Services & utilities
 
-### Development Security
-- Use `.env.example` for documentation, never commit real `.env` files
-- Review generated SQL before execution
-- Sanitize all user inputs and LLM outputs
+* **copyService.ts** – exposes functions to copy text to the clipboard with user feedback; includes helpers to copy tables as CSV/TSV, copy insights text, copy SQL queries and capture chart images.
+* **storage.ts** – simple client‑side persistence layer that stores connections (encrypting passwords), panel sizes, expanded tables and query history in `localStorage`, with helper methods to add/update connections and manage history.
 
-## Development
+### Electron shell
 
-### Available Scripts
+The electron shell (`apps/electron-shell`) wraps the frontend into a desktop application. The main process (`main.ts`) creates a browser window with a preload script, loads the React dev server in development or the built frontend in production, and restricts navigation to external sites. The preload script (`preload.js`) exposes a minimal API (platform and version) to the renderer and maintains context isolation for security.
 
-```bash
-# Development
-npm run dev                 # Start all services
-npm run dev:backend        # Backend only
-npm run dev:frontend       # Frontend only  
-npm run dev:electron       # Electron only
+### Development environment
 
-# Docker services
-npm run docker:up          # Start PostgreSQL container
-npm run docker:down        # Stop containers
+Docker Compose spins up PostgreSQL and MySQL containers with initial sample data and an optional pgAdmin instance for development. Scripts in `docker/seed` insert sample customers, products, orders and order items to enable realistic queries. The top‑level `README.md` in the repository contains installation and development instructions with `npm` scripts for running backend, frontend or electron individually and for starting/stopping Docker containers.
 
-# Build & deployment
-npm run build              # Build all apps
-npm run clean              # Clean build artifacts
-```
+---
 
-### Project Structure
+This architecture description is intended to help LLM agents navigate the codebase. When modifying or testing the system, pay attention to the strict read‑only constraints enforced by the backend, validate SQL through the `sanitize` module, and maintain consistency between the database and LLM layers.
 
-```
-dataask/
-├── apps/
-│   ├── backend/          # Express API server
-│   ├── frontend/         # React UI application  
-│   └── electron-shell/   # Electron desktop wrapper
-├── packages/
-│   └── shared/          # Shared types and utilities
-├── docker/              # Docker Compose setup
-└── docs/               # Documentation
-```
-
-## Contributing
-
-1. Follow the security guidelines above
-2. Test with both PostgreSQL and SQLite databases
-3. Ensure all queries remain read-only
-4. Add TypeScript types for new features
-5. Update tests for API changes
-
-## License
-
-MIT License 
+For detailed module‑level docstrings, see [DOCSTRINGS.md](./DOCSTRINGS.md).
