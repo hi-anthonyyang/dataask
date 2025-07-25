@@ -189,7 +189,27 @@ router.post('/nl-to-sql', async (req, res) => {
       return res.json(cached);
     }
 
-    // SQL generation prompt - explicit about format
+    // Database-specific SQL generation prompt
+    const getDatabaseSpecificRules = (connectionType: string) => {
+      switch (connectionType.toLowerCase()) {
+        case 'mysql':
+          return `- Use DATE_FORMAT(date, '%Y-%m-01') for month grouping
+- Use DATE_SUB(NOW(), INTERVAL 1 YEAR) for time intervals
+- Use backticks (\`) for table/column names if needed`;
+        case 'postgresql':
+          return `- Use DATE_TRUNC('month', date) for month grouping
+- Use INTERVAL '1 year' for time intervals
+- Use double quotes (") for table/column names if needed`;
+        case 'sqlite':
+          return `- Use strftime('%Y-%m', date) for month grouping
+- Use datetime('now', '-1 year') for time intervals
+- Use square brackets ([]) for table/column names if needed`;
+        default:
+          return `- Use DATE_TRUNC('month', date) for month grouping
+- Use INTERVAL '1 year' for time intervals`;
+      }
+    };
+
     const systemPrompt = `Generate a single ${request.connectionType.toUpperCase()} SQL query. Return ONLY the SQL query with no formatting, no markdown, no code blocks, no comments.
 
 Schema: ${schemaHash}
@@ -199,9 +219,9 @@ Rules:
 - Start with SELECT
 - Single statement only
 - Proper JOINs for relationships  
-- Use DATE_TRUNC for time grouping
 - Include meaningful column aliases
 - End with semicolon
+${getDatabaseSpecificRules(request.connectionType)}
 
 Example response format:
 SELECT city, COUNT(*) AS customer_count FROM customers GROUP BY city LIMIT 100;`;
