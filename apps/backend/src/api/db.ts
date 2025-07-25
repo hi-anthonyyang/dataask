@@ -67,7 +67,7 @@ router.post('/connections', async (req, res) => {
     const dbManager = DatabaseManager.getInstance();
     const connectionId = await dbManager.createConnection(connection);
     
-    res.json({ 
+    return res.json({ 
       connectionId,
       message: 'Connection created successfully'
     });
@@ -88,7 +88,7 @@ router.post('/connections', async (req, res) => {
       });
     }
     
-    res.status(400).json({ error: 'Failed to create connection' });
+    return res.status(400).json({ error: 'Failed to create connection' });
   }
 });
 
@@ -100,7 +100,7 @@ router.get('/connections/:connectionId/schema', async (req, res) => {
     const dbManager = DatabaseManager.getInstance();
     const schema = await dbManager.getSchema(connectionId);
     
-    res.json({ schema });
+    return res.json({ schema });
   } catch (error) {
     logger.error('Failed to get schema:', error);
     
@@ -114,7 +114,7 @@ router.get('/connections/:connectionId/schema', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Failed to retrieve schema' });
+    return res.status(500).json({ error: 'Failed to retrieve schema' });
   }
 });
 
@@ -217,7 +217,7 @@ router.post('/table-columns', async (req, res) => {
     const dbManager = DatabaseManager.getInstance();
     const columns = await dbManager.getTableColumns(connectionId, tableName);
     
-    res.json({ columns });
+    return res.json({ columns });
   } catch (error) {
     logger.error('Failed to get table columns:', error);
     
@@ -231,7 +231,7 @@ router.post('/table-columns', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Failed to get table columns' });
+    return res.status(500).json({ error: 'Failed to get table columns' });
   }
 });
 
@@ -243,7 +243,7 @@ router.post('/table-preview', async (req, res) => {
     const dbManager = DatabaseManager.getInstance();
     const preview = await dbManager.getTablePreview(connectionId, tableName, limit);
     
-    res.json(preview);
+    return res.json(preview);
   } catch (error) {
     logger.error('Failed to get table preview:', error);
     
@@ -257,7 +257,7 @@ router.post('/table-preview', async (req, res) => {
       });
     }
     
-    res.status(500).json({ error: 'Failed to get table preview' });
+    return res.status(500).json({ error: 'Failed to get table preview' });
   }
 });
 
