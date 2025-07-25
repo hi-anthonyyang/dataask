@@ -101,12 +101,12 @@ RESPOND IN THIS EXACT JSON FORMAT:
           suggestions: parsed.suggestions 
         });
 
-        return {
-          isVague: true,
-          queryType: 'exploratory',
-          suggestions: parsed.suggestions || [],
-          message: 'I can help you explore your data! Here are some specific questions you can ask:'
-        };
+                 return {
+           isVague: true,
+           queryType: 'exploratory',
+           suggestions: parsed.suggestions || [],
+           message: 'I can help you explore your data! Try one of these suggestions:'
+         };
       }
 
       return { isVague: false, queryType: 'specific' };

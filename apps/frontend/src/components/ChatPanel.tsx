@@ -230,16 +230,10 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       if (response.ok) {
         // Handle vague query suggestions
         if (data.isVague) {
-          const suggestionsText = data.message + '\n\n' + 
-            data.suggestions.map((suggestion: string, index: number) => 
-              `${index + 1}. "${suggestion}"`
-            ).join('\n') + 
-            '\n\nJust click on any suggestion or type a specific question!'
-
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             type: 'assistant',
-            content: suggestionsText,
+            content: data.message,
             suggestions: data.suggestions,
             timestamp: new Date()
           }
@@ -262,16 +256,10 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
       } else {
         // Handle vague query response even on 400 status
         if (data.isVague) {
-          const suggestionsText = data.message + '\n\n' + 
-            data.suggestions.map((suggestion: string, index: number) => 
-              `${index + 1}. "${suggestion}"`
-            ).join('\n') + 
-            '\n\nJust click on any suggestion or type a specific question!'
-
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
             type: 'assistant',
-            content: suggestionsText,
+            content: data.message,
             suggestions: data.suggestions,
             timestamp: new Date()
           }
