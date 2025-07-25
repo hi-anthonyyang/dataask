@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Play, Bot, User, Code, MessageCircle, History, Copy, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
-import { copySQLQuery, getCopyButtonProps } from '../services/copyService'
+import { Send, Play, Bot, User, Code, MessageCircle, History, Copy, Trash2, ChevronDown, ChevronRight, Check } from 'lucide-react'
+import { copySQLQuery } from '../services/copyService'
 
 // Configuration constants
 const CHAT_CONFIG = {
@@ -133,8 +133,39 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
   const [expandedHistoryItems, setExpandedHistoryItems] = useState<Set<string>>(new Set())
   const [lastNaturalLanguageQuery, setLastNaturalLanguageQuery] = useState<string>('')
+  const [sqlCopied, setSqlCopied] = useState(false)
+  const [historyCopyStates, setHistoryCopyStates] = useState<{
+    [key: string]: { nl: boolean; sql: boolean }
+  }>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLDivElement>(null)
+
+  const handleSqlCopy = async () => {
+    if (!currentSql) return
+    const result = await copySQLQuery(currentSql)
+    if (result.success) {
+      setSqlCopied(true)
+      setTimeout(() => {
+        setSqlCopied(false)
+      }, 2000)
+    }
+  }
+
+  const handleHistoryCopy = async (text: string, itemId: string, type: 'nl' | 'sql') => {
+    const result = await copyToClipboard(text)
+    if (result.success) {
+      setHistoryCopyStates(prev => ({
+        ...prev,
+        [itemId]: { ...prev[itemId], [type]: true }
+      }))
+      setTimeout(() => {
+        setHistoryCopyStates(prev => ({
+          ...prev,
+          [itemId]: { ...prev[itemId], [type]: false }
+        }))
+      }, 2000)
+    }
+  }
 
   // Load history when selectedConnection changes
   useEffect(() => {
@@ -448,8 +479,8 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
     setExpandedHistoryItems(newExpanded)
   }
 
-  const copyToClipboard = (text: string) => {
-    copySQLQuery(text)
+  const copyToClipboard = async (text: string) => {
+    return await copySQLQuery(text)
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -705,12 +736,16 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
             <h3 className="font-medium text-foreground text-sm">SQL Editor</h3>
             {currentSql.trim() && (
               <button
-                {...getCopyButtonProps(
-                  () => copyToClipboard(currentSql),
-                  'Copy SQL query'
-                )}
+                onClick={handleSqlCopy}
+                className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+                title="Copy SQL query"
+                type="button"
               >
-                <Copy className="h-4 w-4" />
+                {sqlCopied ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
               </button>
             )}
           </div>
@@ -788,12 +823,17 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              copyToClipboard(item.naturalLanguage)
+                              handleHistoryCopy(item.naturalLanguage, item.id, 'nl')
                             }}
-                            className="text-muted-foreground hover:text-foreground p-1 rounded"
+                            className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
                             title="Copy natural language query"
+                            type="button"
                           >
-                            <Copy className="h-3 w-3" />
+                            {historyCopyStates[item.id]?.nl ? (
+                              <Check className="h-3 w-3 text-green-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
                           </button>
                           <button
                             onClick={(e) => {
@@ -818,13 +858,18 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                copyToClipboard(item.sql)
+                                handleHistoryCopy(item.sql, item.id, 'sql')
                               }}
-                              className="px-2 py-1 bg-muted/10 text-muted-foreground rounded text-xs flex items-center gap-1 hover:bg-muted/20"
+                              className="px-2 py-1 bg-muted/10 text-muted-foreground rounded text-xs flex items-center gap-1 hover:bg-muted/20 transition-colors"
                               title="Copy SQL"
+                              type="button"
                             >
-                              <Copy className="h-3 w-3" />
-                              Copy SQL
+                              {historyCopyStates[item.id]?.sql ? (
+                                <Check className="h-3 w-3 text-green-600" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                              {historyCopyStates[item.id]?.sql ? 'Copied!' : 'Copy SQL'}
                             </button>
                             <button
                               onClick={(e) => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, Download, Eye, BarChart3, Copy } from 'lucide-react'
+import { TrendingUp, Download, Eye, BarChart3, Copy, Check } from 'lucide-react'
 import DataVisualizer from './DataVisualizer'
-import { copyInsightsText, copyTableAsCSV, copyTableAsTSV, getCopyButtonProps } from '../services/copyService'
+import { copyInsightsText, copyTableAsCSV, copyTableAsTSV } from '../services/copyService'
 
 interface AnalysisPanelProps {
   queryResults: any
@@ -13,6 +13,27 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [lastAnalyzedQuery, setLastAnalyzedQuery] = useState<string | null>(null)
+  
+  // Copy state management
+  const [copyStates, setCopyStates] = useState<{
+    insights: boolean
+    csv: boolean
+    tsv: boolean
+  }>({
+    insights: false,
+    csv: false,
+    tsv: false
+  })
+
+  const handleCopy = async (copyFunction: () => Promise<any>, type: keyof typeof copyStates) => {
+    const result = await copyFunction()
+    if (result.success) {
+      setCopyStates(prev => ({ ...prev, [type]: true }))
+      setTimeout(() => {
+        setCopyStates(prev => ({ ...prev, [type]: false }))
+      }, 2000)
+    }
+  }
 
   // Generate AI analysis when query results change (only if query actually changed)
   useEffect(() => {
@@ -160,12 +181,16 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
                 </h3>
                 {aiAnalysis && !isAnalyzing && (
                   <button
-                    {...getCopyButtonProps(
-                      () => copyInsightsText(aiAnalysis),
-                      'Copy insights to clipboard'
-                    )}
+                    onClick={() => handleCopy(() => copyInsightsText(aiAnalysis), 'insights')}
+                    className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+                    title="Copy insights to clipboard"
+                    type="button"
                   >
-                    <Copy className="h-4 w-4" />
+                    {copyStates.insights ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </button>
                 )}
               </div>
@@ -219,26 +244,30 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
               <h3 className="font-medium text-foreground">Data Table</h3>
               <div className="flex items-center gap-2">
                 <button
-                  {...getCopyButtonProps(
-                    () => copyTableAsCSV(queryResults.data, queryResults.fields),
-                    'Copy as CSV (comma-separated)',
-                    'sm'
-                  )}
-                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1"
+                  onClick={() => handleCopy(() => copyTableAsCSV(queryResults.data, queryResults.fields), 'csv')}
+                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1 transition-colors"
+                  title="Copy as CSV (comma-separated)"
+                  type="button"
                 >
-                  <Copy className="h-3 w-3" />
-                  CSV
+                  {copyStates.csv ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                  {copyStates.csv ? 'Copied!' : 'CSV'}
                 </button>
                 <button
-                  {...getCopyButtonProps(
-                    () => copyTableAsTSV(queryResults.data, queryResults.fields),
-                    'Copy as TSV (tab-separated)',
-                    'sm'
-                  )}
-                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1"
+                  onClick={() => handleCopy(() => copyTableAsTSV(queryResults.data, queryResults.fields), 'tsv')}
+                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1 transition-colors"
+                  title="Copy as TSV (tab-separated)"
+                  type="button"
                 >
-                  <Copy className="h-3 w-3" />
-                  TSV
+                  {copyStates.tsv ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                  {copyStates.tsv ? 'Copied!' : 'TSV'}
                 </button>
               </div>
             </div>

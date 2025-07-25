@@ -14,8 +14,8 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts'
-import { BarChart3, TrendingUp, PieChart as PieChartIcon, AlertCircle, Copy } from 'lucide-react'
-import { copyChartAsImage, getCopyButtonProps } from '../services/copyService'
+import { BarChart3, TrendingUp, PieChart as PieChartIcon, AlertCircle, Copy, Check } from 'lucide-react'
+import { copyChartAsImage } from '../services/copyService'
 
 // Universal date formatting utilities (works with any database)
 const formatDateForDisplay = (dateValue: any): string => {
@@ -561,6 +561,18 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
   const [useLogScale, setUseLogScale] = useState(false)
   const chartRef = useRef<HTMLDivElement>(null)
+  const [chartCopied, setChartCopied] = useState(false)
+
+  const handleChartCopy = async () => {
+    if (!chartRef.current) return
+    const result = await copyChartAsImage(chartRef.current)
+    if (result.success) {
+      setChartCopied(true)
+      setTimeout(() => {
+        setChartCopied(false)
+      }, 2000)
+    }
+  }
   
   const processedData = useMemo(() => {
     const config = analyzeDataForVisualization(data, fields)
@@ -658,12 +670,16 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
             {config.reason}
           </div>
           <button
-            {...getCopyButtonProps(
-              () => chartRef.current && copyChartAsImage(chartRef.current),
-              'Copy chart as image'
-            )}
+            onClick={handleChartCopy}
+            className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+            title="Copy chart as image"
+            type="button"
           >
-            <Copy className="h-4 w-4" />
+            {chartCopied ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
           </button>
         </div>
       </div>
