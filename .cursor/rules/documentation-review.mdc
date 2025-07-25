@@ -1,0 +1,7 @@
+---
+description: Any changes to the codebase should be reflected in README.md and docstrings.md as needed. On each PR or major update, review these documentation files for completeness, accuracy, and clarity. Do not merge if the docs are out of date or incomplete.
+globs:
+  - README.md
+  - DOCSTRINGS.md
+alwaysApply: true
+---
