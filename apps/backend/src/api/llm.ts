@@ -20,7 +20,7 @@ const MODEL_CONFIG = {
   summarization: 'gpt-3.5-turbo'    // Short outputs - 92% cheaper
 } as const;
 
-// Balanced schema compression - maintains accuracy while reducing tokens
+// Enhanced schema with relationship hints for better SQL generation
 const getOptimizedSchema = (schema: any): string => {
   return schema.tables.map((table: any) => {
     const columns = table.columns.map((col: any) => {
@@ -31,7 +31,14 @@ const getOptimizedSchema = (schema: any): string => {
                .replace(/decimal\(\d+,\d+\)/g, 'decimal')
                .replace(/timestamp with time zone/g, 'timestamptz');
       
-      return `${col.name}:${type}${col.nullable ? '?' : ''}`;
+      // Add hints for common relationship patterns
+      let hint = '';
+      if (col.name.endsWith('_id') && col.name !== 'id') {
+        const refTable = col.name.replace('_id', '');
+        hint = `->${refTable}`;
+      }
+      
+      return `${col.name}:${type}${hint}${col.nullable ? '?' : ''}`;
     }).join(',');
     
     return `${table.name}(${columns})`;
@@ -83,19 +90,21 @@ const classifyQuery = async (query: string, schema: any): Promise<{
       return cached;
     }
 
-    // Compressed prompt - 70% token reduction
-    const classificationPrompt = `Classify query as SPECIFIC (can generate SQL) or EXPLORATORY (needs suggestions).
+    // Much less aggressive classification - favor SPECIFIC unless truly vague
+    const classificationPrompt = `Classify user query:
 
 Schema: ${schemaHash}
 Query: "${query}"
 
-SPECIFIC: Mentions concrete data/tables/analysis goals
-EXPLORATORY: Vague, asks for ideas/insights
+SPECIFIC: Any query with analytical intent, metrics, comparisons, trends, or data exploration
+EXPLORATORY: ONLY single vague words without context
 
-If EXPLORATORY, generate 3 actionable questions based on schema.
+SPECIFIC examples: "correlation", "trends over time", "compare X and Y", "average by category", "top/bottom", "show me X data"
+EXPLORATORY examples: "data", "help", "ideas", "what", "test"
 
-JSON response:
-{"type": "specific|exploratory", "reason": "brief", "suggestions": ["q1","q2","q3"]}`;
+Unless query is extremely vague (1-2 words with no context), classify as SPECIFIC.
+
+JSON: {"type": "specific|exploratory", "suggestions": ["q1","q2","q3"]}`;
 
     const completion = await openai.chat.completions.create({
       model: MODEL_CONFIG.classification,
@@ -104,7 +113,7 @@ JSON response:
         { role: 'user', content: query }
       ],
       temperature: 0.0, // Deterministic for caching
-      max_tokens: 200
+      max_tokens: 150
     });
 
     const response = completion.choices[0]?.message?.content?.trim();
@@ -181,11 +190,22 @@ router.post('/nl-to-sql', async (req, res) => {
       return res.json(cached);
     }
 
-    // Optimized prompt - balanced token reduction with accuracy
-    const systemPrompt = `Convert natural language to ${request.connectionType.toUpperCase()} SQL.
-CRITICAL: Generate ONLY a single SELECT statement. No explanations, no comments.
-Use exact table/column names from schema: ${schemaHash}
-Example: SELECT * FROM customers WHERE city = 'New York' LIMIT 100;`;
+    // SQL generation prompt - explicit about format
+    const systemPrompt = `Generate a single ${request.connectionType.toUpperCase()} SQL query. Return ONLY the SQL query with no formatting, no markdown, no code blocks, no comments.
+
+Schema: ${schemaHash}
+Foreign keys: column_id->table means JOIN table ON column_id = table.id
+
+Rules:
+- Start with SELECT
+- Single statement only
+- Proper JOINs for relationships  
+- Use DATE_TRUNC for time grouping
+- Include meaningful column aliases
+- End with semicolon
+
+Example response format:
+SELECT city, COUNT(*) AS customer_count FROM customers GROUP BY city LIMIT 100;`;
 
     const completion = await openai.chat.completions.create({
       model: MODEL_CONFIG.nlToSql,
@@ -194,10 +214,10 @@ Example: SELECT * FROM customers WHERE city = 'New York' LIMIT 100;`;
         { role: 'user', content: request.query }
       ],
       temperature: 0.1,
-      max_tokens: 400
+      max_tokens: 500
     });
 
-    const generatedSQL = completion.choices[0]?.message?.content?.trim();
+    let generatedSQL = completion.choices[0]?.message?.content?.trim();
     
     if (!generatedSQL) {
       return res.status(500).json({ 
@@ -205,16 +225,25 @@ Example: SELECT * FROM customers WHERE city = 'New York' LIMIT 100;`;
       });
     }
 
+    // Clean up any unwanted formatting
+    generatedSQL = generatedSQL
+      .replace(/```sql\n?/g, '')  // Remove SQL code block markers
+      .replace(/```\n?/g, '')     // Remove any remaining code block markers
+      .replace(/^[^\w\s]*/, '')   // Remove any leading non-word characters
+      .trim();
+
     // Validate the generated SQL for security
     const validationResult = validateQuery(generatedSQL);
     if (!validationResult.isValid) {
       logger.warn('LLM generated invalid SQL:', { 
-        query: generatedSQL, 
-        errors: validationResult.errors 
+        query: generatedSQL.substring(0, 200), 
+        errors: validationResult.errors,
+        fullQuery: generatedSQL
       });
       return res.status(400).json({ 
         error: 'Generated query failed security validation',
-        details: validationResult.errors
+        details: validationResult.errors,
+        generatedSQL: generatedSQL.substring(0, 200) // Include partial SQL for debugging
       });
     }
 
