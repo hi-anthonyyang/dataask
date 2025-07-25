@@ -90,21 +90,20 @@ const classifyQuery = async (query: string, schema: any): Promise<{
       return cached;
     }
 
-    // Much less aggressive classification - favor SPECIFIC unless truly vague
-    const classificationPrompt = `Classify user query:
+    // Clean classification with proper suggestion generation
+    const classificationPrompt = `Analyze user query and classify:
 
-Schema: ${schemaHash}
 Query: "${query}"
+Schema: ${schemaHash}
 
-SPECIFIC: Any query with analytical intent, metrics, comparisons, trends, or data exploration
-EXPLORATORY: ONLY single vague words without context
+CLASSIFICATION:
+- SPECIFIC: Has analytical intent (trends, comparisons, metrics, data exploration)
+- EXPLORATORY: Extremely vague single words with no context
 
-SPECIFIC examples: "correlation", "trends over time", "compare X and Y", "average by category", "top/bottom", "show me X data"
-EXPLORATORY examples: "data", "help", "ideas", "what", "test"
+If EXPLORATORY, generate 3 practical data analysis questions based on the provided schema tables and columns.
 
-Unless query is extremely vague (1-2 words with no context), classify as SPECIFIC.
-
-JSON: {"type": "specific|exploratory", "suggestions": ["q1","q2","q3"]}`;
+RESPONSE FORMAT:
+{"type": "specific|exploratory", "suggestions": ["meaningful question 1", "meaningful question 2", "meaningful question 3"]}`;
 
     const completion = await openai.chat.completions.create({
       model: MODEL_CONFIG.classification,
