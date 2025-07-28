@@ -11,15 +11,54 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: { error: 'Too many requests, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
+// Rate limiting configuration
+const RATE_LIMITS = {
+  ai: parseInt(process.env.RATE_LIMIT_AI || '20'),
+  db: parseInt(process.env.RATE_LIMIT_DB || '60'), 
+  general: parseInt(process.env.RATE_LIMIT_GENERAL || '100'),
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000') // 15 minutes
+};
+
+// Tiered rate limiting - protect expensive endpoints
+const createLimiter = (max: number, windowMs: number = RATE_LIMITS.windowMs, message?: string) => 
+  rateLimit({
+    windowMs,
+    max,
+    message: { error: message || 'Too many requests, please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Add IP to logs for monitoring
+    onLimitReached: (req) => {
+      logger.warn('Rate limit exceeded', { 
+        ip: req.ip, 
+        path: req.path,
+        limit: max,
+        windowMinutes: windowMs / (60 * 1000)
+      });
+    }
+  });
+
+// AI endpoints - strict limits (expensive)
+const aiLimiter = createLimiter(
+  RATE_LIMITS.ai, 
+  RATE_LIMITS.windowMs, 
+  'Too many AI requests. Please wait before trying again.'
+);
+
+// Database endpoints - moderate limits  
+const dbLimiter = createLimiter(
+  RATE_LIMITS.db,
+  RATE_LIMITS.windowMs,
+  'Too many database requests. Please wait before trying again.'
+);
+
+// General endpoints - generous limits
+const generalLimiter = createLimiter(RATE_LIMITS.general);
+
+// Apply rate limiting
+app.use('/api/llm', aiLimiter);
+app.use('/api/db', dbLimiter);
+app.use(generalLimiter);
 
 // CORS configuration
 const corsOptions = {
@@ -64,7 +103,12 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    rateLimits: {
+      ai: `${RATE_LIMITS.ai} requests per ${RATE_LIMITS.windowMs / (60 * 1000)} minutes`,
+      database: `${RATE_LIMITS.db} requests per ${RATE_LIMITS.windowMs / (60 * 1000)} minutes`,
+      general: `${RATE_LIMITS.general} requests per ${RATE_LIMITS.windowMs / (60 * 1000)} minutes`
+    }
   });
 });
 
