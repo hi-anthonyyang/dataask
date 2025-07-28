@@ -113,6 +113,12 @@ function App() {
     setShowConnectionModal(false) // Close the modal
   }
 
+  const getSelectedConnectionType = (): string | null => {
+    if (!selectedConnection) return null
+    const connection = connections.find(c => c.id === selectedConnection)
+    return connection?.type || null
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
@@ -253,6 +259,7 @@ function App() {
           
           <ChatPanel 
             selectedConnection={selectedConnection}
+            connectionType={getSelectedConnectionType()}
             onQueryUpdate={setCurrentQuery}
             onQueryExecute={setQueryResults}
           />

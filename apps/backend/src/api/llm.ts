@@ -20,6 +20,75 @@ const MODEL_CONFIG = {
   summarization: 'gpt-3.5-turbo'    // Short outputs - 92% cheaper
 } as const;
 
+// MySQL-specific SQL validation and correction
+const validateAndCorrectMySQLSyntax = (sql: string): string => {
+  let correctedSQL = sql;
+  
+  // Common PostgreSQL to MySQL conversions
+  const conversions = [
+    // DATE_TRUNC to DATE_FORMAT
+    {
+      pattern: /DATE_TRUNC\s*\(\s*'month'\s*,\s*([^)]+)\s*\)/gi,
+      replacement: "DATE_FORMAT($1, '%Y-%m-01')"
+    },
+    {
+      pattern: /DATE_TRUNC\s*\(\s*'year'\s*,\s*([^)]+)\s*\)/gi,
+      replacement: "DATE_FORMAT($1, '%Y-01-01')"
+    },
+    {
+      pattern: /DATE_TRUNC\s*\(\s*'day'\s*,\s*([^)]+)\s*\)/gi,
+      replacement: "DATE($1)"
+    },
+    
+    // INTERVAL syntax
+    {
+      pattern: /INTERVAL\s+'(\d+)\s+(year|month|day|hour|minute|second)s?'/gi,
+      replacement: "INTERVAL $1 $2"
+    },
+    
+    // EXTRACT to MySQL date functions
+    {
+      pattern: /EXTRACT\s*\(\s*YEAR\s+FROM\s+([^)]+)\s*\)/gi,
+      replacement: "YEAR($1)"
+    },
+    {
+      pattern: /EXTRACT\s*\(\s*MONTH\s+FROM\s+([^)]+)\s*\)/gi,
+      replacement: "MONTH($1)"
+    },
+    {
+      pattern: /EXTRACT\s*\(\s*DAY\s+FROM\s+([^)]+)\s*\)/gi,
+      replacement: "DAY($1)"
+    },
+    
+    // string_agg to GROUP_CONCAT
+    {
+      pattern: /string_agg\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi,
+      replacement: "GROUP_CONCAT($1 SEPARATOR '$2')"
+    },
+    
+    // Remove PostgreSQL-specific functions that don't exist in MySQL
+    {
+      pattern: /\bpg_\w+\s*\([^)]*\)/gi,
+      replacement: ""
+    }
+  ];
+  
+  // Apply conversions
+  for (const conversion of conversions) {
+    correctedSQL = correctedSQL.replace(conversion.pattern, conversion.replacement);
+  }
+  
+  // Log if any conversions were made
+  if (correctedSQL !== sql) {
+    logger.info('MySQL syntax corrections applied:', {
+      original: sql.substring(0, 100),
+      corrected: correctedSQL.substring(0, 100)
+    });
+  }
+  
+  return correctedSQL;
+};
+
 // Enhanced schema with relationship hints for better SQL generation
 const getOptimizedSchema = (schema: any): string => {
   return schema.tables.map((table: any) => {
@@ -193,9 +262,46 @@ router.post('/nl-to-sql', async (req, res) => {
     const getDatabaseSpecificRules = (connectionType: string) => {
       switch (connectionType.toLowerCase()) {
         case 'mysql':
-          return `- Use DATE_FORMAT(date, '%Y-%m-01') for month grouping
-- Use DATE_SUB(NOW(), INTERVAL 1 YEAR) for time intervals
-- Use backticks (\`) for table/column names if needed`;
+          return `🚨 CRITICAL: You are generating MySQL SQL ONLY. PostgreSQL syntax is FORBIDDEN.
+
+⚠️ NEVER USE THESE POSTGRESQL FUNCTIONS IN MYSQL:
+- ❌ DATE_TRUNC() → ✅ Use DATE_FORMAT() instead
+- ❌ EXTRACT() → ✅ Use YEAR(), MONTH(), DAY() instead  
+- ❌ string_agg() → ✅ Use GROUP_CONCAT() instead
+- ❌ INTERVAL '1 year' → ✅ Use INTERVAL 1 YEAR instead
+
+✅ CORRECT MYSQL SYNTAX:
+
+DATE/TIME FUNCTIONS:
+- ✅ DATE_FORMAT(date, '%Y-%m-01') for month grouping
+- ✅ DATE_FORMAT(date, '%Y-01-01') for year grouping  
+- ✅ DATE_SUB(NOW(), INTERVAL 1 YEAR) for time intervals
+- ✅ DATE_ADD(date, INTERVAL 1 MONTH) for date arithmetic
+- ✅ YEAR(date), MONTH(date), DAY(date) for date extraction
+- ✅ NOW() or CURRENT_TIMESTAMP for current time
+
+IDENTIFIERS:
+- ✅ Use backticks (\`) for table/column names if needed
+- ✅ Example: \`table_name\`, \`column name\`
+
+AGGREGATION:
+- ✅ COUNT(*), SUM(), AVG(), MAX(), MIN() as in standard SQL
+- ✅ GROUP_CONCAT(column SEPARATOR ', ') for string aggregation
+
+LIMITS:
+- ✅ Use LIMIT clause at the end: SELECT ... FROM ... WHERE ... LIMIT 100
+
+JOINS:
+- ✅ Standard JOIN syntax: FROM table1 JOIN table2 ON table1.id = table2.id
+- ✅ LEFT JOIN, RIGHT JOIN, INNER JOIN as needed
+
+SUBQUERIES:
+- ✅ Standard subquery syntax with parentheses
+
+WINDOW FUNCTIONS:
+- ✅ ROW_NUMBER(), RANK(), DENSE_RANK() with OVER() clause
+
+🚨 REMEMBER: You are generating MySQL syntax ONLY. PostgreSQL functions are WRONG for MySQL.`;
         case 'postgresql':
           return `- Use DATE_TRUNC('month', date) for month grouping
 - Use INTERVAL '1 year' for time intervals
@@ -250,6 +356,11 @@ SELECT city, COUNT(*) AS customer_count FROM customers GROUP BY city LIMIT 100;`
       .replace(/```\n?/g, '')     // Remove any remaining code block markers
       .replace(/^[^\w\s]*/, '')   // Remove any leading non-word characters
       .trim();
+
+    // MySQL-specific SQL validation and correction
+    if (request.connectionType.toLowerCase() === 'mysql') {
+      generatedSQL = validateAndCorrectMySQLSyntax(generatedSQL);
+    }
 
     // Validate the generated SQL for security
     const validationResult = validateQuery(generatedSQL);

@@ -31,6 +31,7 @@ interface QueryHistoryItem {
 
 interface ChatPanelProps {
   selectedConnection: string | null
+  connectionType: string | null
   onQueryUpdate: (query: string) => void
   onQueryExecute: (results: any) => void
 }
@@ -118,7 +119,7 @@ const deleteFromHistory = (connectionId: string, queryId: string) => {
   }
 }
 
-export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryExecute }: ChatPanelProps) {
+export default function ChatPanel({ selectedConnection, connectionType, onQueryUpdate, onQueryExecute }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -252,7 +253,7 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
         body: JSON.stringify({
           query: inputText,
           schema: schema,
-          connectionType: 'postgresql'
+          connectionType: connectionType || 'postgresql'
         })
       })
 
@@ -347,6 +348,18 @@ export default function ChatPanel({ selectedConnection, onQueryUpdate, onQueryEx
           timestamp: new Date()
         }
         setMessages(prev => [...prev, successMessage])
+      } else {
+        // Handle HTTP error responses (400, 500, etc.)
+        const errorData = await response.json()
+        const errorMessage = errorData.error || 'Query execution failed'
+        
+        const errorMessageObj: Message = {
+          id: Date.now().toString(),
+          type: 'assistant',
+          content: `❌ Query failed: ${errorMessage}`,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, errorMessageObj])
       }
     } catch (error) {
       const errorMessage: Message = {
