@@ -1,4 +1,5 @@
 // Local storage service for persisting app state (DBeaver-style)
+import CryptoJS from 'crypto-js'
 
 interface SavedConnection {
   id: string
@@ -33,12 +34,12 @@ class StorageService {
       const connections = this.getConnections()
       const existingIndex = connections.findIndex(c => c.id === connection.id)
       
-      // Encrypt sensitive data (basic obfuscation for MVP)
+      // Encrypt sensitive data (AES encryption)
       const encryptedConnection = {
         ...connection,
         config: {
           ...connection.config,
-          password: connection.config.password ? btoa(connection.config.password) : undefined
+          password: connection.config.password ? CryptoJS.AES.encrypt(connection.config.password, 'dataask-local-v1').toString() : undefined
         }
       }
       
@@ -61,12 +62,27 @@ class StorageService {
       
       const connections = JSON.parse(data) as SavedConnection[]
       
-      // Decrypt sensitive data
+      // Decrypt sensitive data (with migration from old base64)
       return connections.map(conn => ({
         ...conn,
         config: {
           ...conn.config,
-          password: conn.config.password ? atob(conn.config.password) : undefined
+          password: conn.config.password ? (() => {
+            try {
+              // Try AES decryption first
+              return CryptoJS.AES.decrypt(conn.config.password, 'dataask-local-v1').toString(CryptoJS.enc.Utf8);
+            } catch {
+              try {
+                // Fallback to old base64 for migration
+                const oldPassword = atob(conn.config.password);
+                // Re-save with new encryption
+                this.saveConnection({...conn, config: {...conn.config, password: oldPassword}});
+                return oldPassword;
+              } catch {
+                return undefined;
+              }
+            }
+          })() : undefined
         },
         lastConnected: conn.lastConnected ? new Date(conn.lastConnected) : undefined
       }))
