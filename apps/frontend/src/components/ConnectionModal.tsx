@@ -1,10 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Database, TestTube, Loader2 } from 'lucide-react'
+
+interface Connection {
+  id: string
+  name: string
+  type: string
+  config?: {
+    host?: string
+    port?: number
+    database?: string
+    username?: string
+    password?: string
+    filename?: string
+  }
+}
 
 interface ConnectionModalProps {
   isOpen: boolean
   onClose: () => void
   onConnectionAdded: (connectionId: string) => void
+  editingConnection?: Connection | null
+  onConnectionUpdated?: (connectionId: string) => void
 }
 
 interface ConnectionFormData {
@@ -18,7 +34,7 @@ interface ConnectionFormData {
   filename?: string
 }
 
-export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: ConnectionModalProps) {
+export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, editingConnection, onConnectionUpdated }: ConnectionModalProps) {
   const [formData, setFormData] = useState<ConnectionFormData>({
     type: 'postgresql',
     name: '',
@@ -31,6 +47,34 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [isCreatingConnection, setIsCreatingConnection] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  // Initialize form data when editing
+  useEffect(() => {
+    if (editingConnection) {
+      setFormData({
+        type: editingConnection.type as 'postgresql' | 'sqlite' | 'mysql',
+        name: editingConnection.name,
+        host: editingConnection.config?.host || 'localhost',
+        port: editingConnection.config?.port || (editingConnection.type === 'postgresql' ? 5432 : 3306),
+        database: editingConnection.config?.database || 'dataask_dev',
+        username: editingConnection.config?.username || 'dataask_user',
+        password: editingConnection.config?.password || 'dataask_dev_password',
+        filename: editingConnection.config?.filename || '/path/to/database.sqlite'
+      })
+    } else {
+      // Reset to defaults for new connection
+      setFormData({
+        type: 'postgresql',
+        name: '',
+        host: 'localhost',
+        port: 5432,
+        database: 'dataask_dev',
+        username: 'dataask_user',
+        password: 'dataask_dev_password'
+      })
+    }
+    setTestResult(null)
+  }, [editingConnection])
 
   if (!isOpen) return null
 
@@ -147,6 +191,54 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
     setIsCreatingConnection(false)
   }
 
+  const updateConnection = async () => {
+    if (!editingConnection) return
+    
+    setIsCreatingConnection(true)
+
+    try {
+      const response = await fetch(`/api/db/connections/${editingConnection.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: formData.type,
+          name: formData.name,
+          config: {
+            ...(formData.type === 'postgresql' || formData.type === 'mysql' ? {
+              host: formData.host,
+              port: formData.port,
+              database: formData.database,
+              username: formData.username,
+              password: formData.password
+            } : {
+              filename: formData.filename
+            })
+          }
+        })
+      })
+
+      const result = await response.json()
+      if (response.ok) {
+        if (onConnectionUpdated) {
+          onConnectionUpdated(editingConnection.id)
+        }
+        onClose()
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || 'Failed to update connection'
+        })
+      }
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: 'Failed to update connection. Please check your backend is running.'
+      })
+    }
+
+    setIsCreatingConnection(false)
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md mx-4">
@@ -154,7 +246,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Database className="h-5 w-5" />
-            Add Database Connection
+            {editingConnection ? 'Edit Database Connection' : 'Add Database Connection'}
           </h2>
           <button
             onClick={onClose}
@@ -320,14 +412,14 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded }: 
             Test Connection
           </button>
           <button
-            onClick={createConnection}
+            onClick={editingConnection ? updateConnection : createConnection}
             disabled={isCreatingConnection || !formData.name || (testResult !== null && !testResult.success)}
             className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isCreatingConnection ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : null}
-            {isCreatingConnection ? 'Creating...' : 'Add Connection'}
+            {isCreatingConnection ? (editingConnection ? 'Updating...' : 'Creating...') : (editingConnection ? 'Update Connection' : 'Add Connection')}
           </button>
         </div>
       </div>

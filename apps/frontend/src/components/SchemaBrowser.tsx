@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Database, Table, Columns, Plus, Settings, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Database, Table, Columns, Plus, Trash2, Edit } from 'lucide-react'
 
 interface Connection {
   id: string
@@ -26,9 +26,10 @@ interface SchemaBrowserProps {
   setShowConnectionModal: (show: boolean) => void
   connections?: Connection[]
   onConnectionsChange?: () => void
+  onEditConnection?: (connection: Connection) => void
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange, onEditConnection }: SchemaBrowserProps) {
   const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
@@ -188,6 +189,18 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
+                      if (onEditConnection) {
+                        onEditConnection(connection)
+                      }
+                    }}
+                    className="p-1 text-muted-foreground hover:text-blue-500 rounded transition-colors"
+                    title="Edit connection"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
                       deleteConnection(connection.id)
                     }}
                     className="p-1 text-muted-foreground hover:text-red-500 rounded transition-colors"
@@ -262,13 +275,7 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
         )}
       </div>
 
-      {/* Footer */}
-      <div className="p-2 border-t border-border">
-        <button className="w-full text-left p-2 rounded hover:bg-muted flex items-center gap-2 text-sm text-muted-foreground">
-          <Settings className="h-4 w-4" />
-          <span>Connection Settings</span>
-        </button>
-      </div>
+
     </div>
   )
 } 

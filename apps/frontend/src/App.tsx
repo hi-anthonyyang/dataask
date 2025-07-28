@@ -4,12 +4,20 @@ import AnalysisPanel from './components/AnalysisPanel'
 import ChatPanel from './components/ChatPanel'
 import TableDetails from './components/TableDetails'
 import ConnectionModal from './components/ConnectionModal'
-import { Database, ChevronLeft, ChevronRight, Plus, Settings } from 'lucide-react'
+import { Database, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 
 interface Connection {
   id: string
   name: string
   type: string
+  config?: {
+    host?: string
+    port?: number
+    database?: string
+    username?: string
+    password?: string
+    filename?: string
+  }
 }
 
 function App() {
@@ -18,6 +26,7 @@ function App() {
   const [currentQuery, setCurrentQuery] = useState<string>('')
   const [queryResults, setQueryResults] = useState<any>(null)
   const [showConnectionModal, setShowConnectionModal] = useState(false)
+  const [editingConnection, setEditingConnection] = useState<Connection | null>(null)
   const [leftPanelWidth, setLeftPanelWidth] = useState(320) // 25% of ~1280px
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
   const [rightPanelWidth, setRightPanelWidth] = useState(400) // ~30% of ~1280px
@@ -111,12 +120,30 @@ function App() {
     loadConnections() // Refresh connections when a new one is added
     setSelectedConnection(connectionId) // Auto-select the new connection
     setShowConnectionModal(false) // Close the modal
+    setEditingConnection(null) // Clear editing state
+  }
+
+  const handleConnectionUpdated = (connectionId: string) => {
+    loadConnections() // Refresh connections when one is updated
+    setShowConnectionModal(false) // Close the modal
+    setEditingConnection(null) // Clear editing state
+  }
+
+  const handleEditConnection = (connection: Connection) => {
+    setEditingConnection(connection)
+    setShowConnectionModal(true)
   }
 
   const getSelectedConnectionType = (): string | null => {
     if (!selectedConnection) return null
     const connection = connections.find(c => c.id === selectedConnection)
     return connection?.type || null
+  }
+
+  const getSelectedConnectionDetails = (): { name: string; type: string } | null => {
+    if (!selectedConnection) return null
+    const connection = connections.find(c => c.id === selectedConnection)
+    return connection ? { name: connection.name, type: connection.type } : null
   }
 
   return (
@@ -132,7 +159,9 @@ function App() {
           {selectedConnection && (
             <div className="flex items-center gap-2 text-sm">
               <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-              <span className="text-muted-foreground">Connected</span>
+              <span className="text-muted-foreground">
+                Connected to {getSelectedConnectionDetails()?.name} ({getSelectedConnectionDetails()?.type})
+              </span>
             </div>
           )}
         </div>
@@ -172,6 +201,7 @@ function App() {
               setShowConnectionModal={setShowConnectionModal}
               connections={connections}
               onConnectionsChange={loadConnections}
+              onEditConnection={handleEditConnection}
             />
           ) : (
             <div className="flex flex-col items-center p-2 gap-2 mt-16 h-full">
@@ -204,13 +234,7 @@ function App() {
                 ))}
               </div>
               
-              {/* Settings Button - Bottom */}
-              <button
-                className="p-2 hover:bg-muted rounded-md transition-colors mt-auto mb-2"
-                title="Connection settings"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
+
             </div>
           )}
 
@@ -270,8 +294,13 @@ function App() {
       {/* Connection Modal */}
       <ConnectionModal
         isOpen={showConnectionModal}
-        onClose={() => setShowConnectionModal(false)}
+        onClose={() => {
+          setShowConnectionModal(false)
+          setEditingConnection(null)
+        }}
         onConnectionAdded={handleConnectionAdded}
+        editingConnection={editingConnection}
+        onConnectionUpdated={handleConnectionUpdated}
       />
     </div>
   )
