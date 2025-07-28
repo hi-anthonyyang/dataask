@@ -749,7 +749,7 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
               </button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Drag tables or columns from the schema browser into the input field
+              Drag tables or columns from the schema into the chat
             </p>
           </div>
         </>
