@@ -60,6 +60,12 @@ const saveQueryToHistory = async (item: Omit<QueryHistoryItem, 'id' | 'summarize
     const historyKey = getHistoryKey(item.connectionId)
     const existingHistory = getQueryHistory(item.connectionId)
     
+    console.log('saveQueryToHistory called:', {
+      historyKey,
+      existingHistoryLength: existingHistory.length,
+      newItem: item
+    })
+    
     // Generate summarized title using OpenAI API
     let summarizedTitle = item.naturalLanguage
     
@@ -385,6 +391,12 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
           queryText = currentSql
         }
 
+        console.log('Saving query to history:', {
+          naturalLanguage: queryText,
+          sql: currentSql,
+          connectionId: selectedConnection
+        })
+
         await saveQueryToHistory({
           naturalLanguage: queryText,
           sql: currentSql,
@@ -395,6 +407,8 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
         // Refresh history display
         const updatedHistory = getQueryHistory(selectedConnection)
         setQueryHistory(updatedHistory)
+        
+        console.log('History updated, total items:', updatedHistory.length)
       } catch (error) {
         console.error('Failed to save to history:', error)
         // Don't fail the whole operation if history fails

@@ -84,6 +84,9 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
   }
 
   const handleTypeChange = (type: 'postgresql' | 'sqlite' | 'mysql') => {
+    // Don't allow type changes when editing
+    if (editingConnection) return
+    
     setFormData({
       type,
       name: type === 'postgresql' ? 'PostgreSQL Connection' : 
@@ -264,31 +267,34 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
             <div className="flex gap-2">
               <button
                 onClick={() => handleTypeChange('postgresql')}
+                disabled={!!editingConnection}
                 className={`flex-1 p-2 text-sm border rounded transition-colors ${
                   formData.type === 'postgresql'
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border hover:bg-muted'
-                }`}
+                } ${editingConnection ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 PostgreSQL
               </button>
               <button
                 onClick={() => handleTypeChange('mysql')}
+                disabled={!!editingConnection}
                 className={`flex-1 p-2 text-sm border rounded transition-colors ${
                   formData.type === 'mysql'
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border hover:bg-muted'
-                }`}
+                } ${editingConnection ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 MySQL
               </button>
               <button
                 onClick={() => handleTypeChange('sqlite')}
+                disabled={!!editingConnection}
                 className={`flex-1 p-2 text-sm border rounded transition-colors ${
                   formData.type === 'sqlite'
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border hover:bg-muted'
-                }`}
+                } ${editingConnection ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 SQLite
               </button>

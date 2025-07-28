@@ -338,14 +338,15 @@ class DatabaseManager {
   /**
    * List all active connections
    */
-  async listConnections(): Promise<{ id: string; name: string; type: string }[]> {
+  async listConnections(): Promise<{ id: string; name: string; type: string; config: any }[]> {
     const connections = [];
     
     for (const [id, config] of this.connectionConfigs.entries()) {
       connections.push({
         id,
         name: config.name,
-        type: config.type
+        type: config.type,
+        config: config.config
       });
     }
 
