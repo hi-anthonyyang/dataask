@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 
@@ -40,10 +40,7 @@ const createRateLimiter = (maxRequests: number, endpointType: string) => {
         retryAfter: Math.ceil(WINDOW_MINUTES * 60)
       });
     },
-    keyGenerator: (req: Request) => {
-      // Use IP address for rate limiting
-      return req.ip || 'unknown';
-    }
+    keyGenerator: (req: Request) => ipKeyGenerator(req.ip || 'unknown')
   });
 };
 
