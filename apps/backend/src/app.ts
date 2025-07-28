@@ -1,25 +1,18 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
 import { logger } from './utils/logger';
+import { applyRateLimiting, healthCheck } from './security/rateLimiter';
 
 const app = express();
 
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: { error: 'Too many requests, please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
+// Enhanced rate limiting with different limits for different endpoints
+app.use(applyRateLimiting);
 
 // CORS configuration
 const corsOptions = {
@@ -59,14 +52,8 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
+// Enhanced health check endpoint with rate limit configuration
+app.get('/health', healthCheck);
 
 // Global error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
