@@ -11,6 +11,24 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
+// CORS configuration - should come early
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  logger.info(`${req.method} ${req.path} - ${req.ip}`);
+  next();
+});
+
 // Rate limiting configuration
 const RATE_LIMITS = {
   ai: parseInt(process.env.RATE_LIMIT_AI || '20'),
@@ -19,7 +37,7 @@ const RATE_LIMITS = {
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000') // 15 minutes
 };
 
-// Tiered rate limiting - protect expensive endpoints
+// Rate limiting helper
 const createLimiter = (max: number, windowMs: number = RATE_LIMITS.windowMs, message?: string) => 
   rateLimit({
     windowMs,
@@ -27,7 +45,6 @@ const createLimiter = (max: number, windowMs: number = RATE_LIMITS.windowMs, mes
     message: { error: message || 'Too many requests, please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
-    // Add IP to logs for monitoring
     onLimitReached: (req) => {
       logger.warn('Rate limit exceeded', { 
         ip: req.ip, 
@@ -52,35 +69,15 @@ const dbLimiter = createLimiter(
   'Too many database requests. Please wait before trying again.'
 );
 
-// General endpoints - generous limits
+// General endpoints - generous limits for everything else
 const generalLimiter = createLimiter(RATE_LIMITS.general);
 
-// Apply rate limiting
-app.use('/api/llm', aiLimiter);
-app.use('/api/db', dbLimiter);
+// Apply specific rate limiting to API routes
+app.use('/api/llm', aiLimiter, llmRouter);
+app.use('/api/db', dbLimiter, dbRouter);
+
+// Apply general rate limiting to all other routes
 app.use(generalLimiter);
-
-// CORS configuration
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true,
-  optionsSuccessStatus: 200,
-};
-app.use(cors(corsOptions));
-
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging middleware
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path} - ${req.ip}`);
-  next();
-});
-
-// API routes
-app.use('/api/db', dbRouter);
-app.use('/api/llm', llmRouter);
 
 // Root endpoint
 app.get('/', (req, res) => {
