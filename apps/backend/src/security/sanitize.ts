@@ -23,7 +23,8 @@ const FORBIDDEN_KEYWORDS = [
   'INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE', 'ALTER', 'TRUNCATE',
   'EXEC', 'EXECUTE', 'CALL', 'MERGE', 'UPSERT', 'REPLACE',
   'GRANT', 'REVOKE', 'COMMIT', 'ROLLBACK', 'SAVEPOINT',
-  'SET', 'PRAGMA', 'ATTACH', 'DETACH'
+  'SET', 'PRAGMA', 'ATTACH', 'DETACH',
+  'LOAD_FILE', 'INTO OUTFILE', 'INTO DUMPFILE', 'LOAD DATA'
 ];
 
 // Allowed read-only keywords
@@ -39,6 +40,9 @@ const DANGEROUS_PATTERNS = [
   /\/\*.*?(INSERT|UPDATE|DELETE|DROP).*?\*\//i, // Block comments
   /xp_cmdshell/i, // SQL Server command execution
   /sp_executesql/i, // SQL Server dynamic SQL execution
+  /\bCHAR\s*\(\s*\d+\s*\)/i, // CHAR() function often used in injections
+  /\bSLEEP\s*\(/i, // MySQL SLEEP function
+  /\bBENCHMARK\s*\(/i, // MySQL BENCHMARK function
 ];
 
 /**

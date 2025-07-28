@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: dataask_dev
       POSTGRES_USER: dataask_user
-      POSTGRES_PASSWORD: dataask_dev_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dataask_dev_password}
     ports:
       - "5432:5432"
     volumes:
@@ -25,10 +25,10 @@ services:
     image: mysql:8.0
     container_name: dataask-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: dataask_root_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dataask_root_password}
       MYSQL_DATABASE: dataask_dev
       MYSQL_USER: dataask_user
-      MYSQL_PASSWORD: dataask_dev_password
+              MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dataask_dev_password}
     ports:
       - "3306:3306"
     volumes:
@@ -37,7 +37,7 @@ services:
     networks:
       - dataask-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "dataask_user", "-pdataask_dev_password"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "dataask_user", "-p${MYSQL_PASSWORD:-dataask_dev_password}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,7 +48,7 @@ services:
     container_name: dataask-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@dataask.dev
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
       - "8080:80"

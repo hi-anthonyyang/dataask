@@ -125,6 +125,7 @@ const DATABASE_CONFIG = {
   query: {
     defaultPreviewLimit: parseInt(process.env.DB_DEFAULT_PREVIEW_LIMIT || '100'),
     maxPreviewLimit: parseInt(process.env.DB_MAX_PREVIEW_LIMIT || '1000'),
+    maxExecutionTimeMs: parseInt(process.env.DB_MAX_EXECUTION_TIME_MS || '30000'),
   },
   mysql: {
     // MySQL-specific optimizations
@@ -251,15 +252,25 @@ class DatabaseManager {
     try {
       let result: QueryResult;
 
-      if (config.type === 'postgresql') {
-        result = await this.executePostgreSQLQuery(connection, sql, sanitizedParams);
-      } else if (config.type === 'sqlite') {
-        result = await this.executeSQLiteQuery(connection, sql, sanitizedParams);
-      } else if (config.type === 'mysql') {
-        result = await this.executeMySQLQuery(connection, sql, sanitizedParams);
-      } else {
-        throw new Error(`Unsupported database type: ${config.type}`);
-      }
+      // Create query execution promise
+      const queryPromise = (async () => {
+        if (config.type === 'postgresql') {
+          return await this.executePostgreSQLQuery(connection, sql, sanitizedParams);
+        } else if (config.type === 'sqlite') {
+          return await this.executeSQLiteQuery(connection, sql, sanitizedParams);
+        } else if (config.type === 'mysql') {
+          return await this.executeMySQLQuery(connection, sql, sanitizedParams);
+        } else {
+          throw new Error(`Unsupported database type: ${config.type}`);
+        }
+      })();
+
+      // Add timeout protection
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Query execution timed out')), DATABASE_CONFIG.query.maxExecutionTimeMs);
+      });
+
+      result = await Promise.race([queryPromise, timeoutPromise]);
 
       result.executionTime = Date.now() - startTime;
 

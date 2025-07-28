@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
 import { logger } from './utils/logger';
@@ -9,6 +10,16 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
 
 // CORS configuration
 const corsOptions = {

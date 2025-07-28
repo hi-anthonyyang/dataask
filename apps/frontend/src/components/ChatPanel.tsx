@@ -221,7 +221,7 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
   // Clear input
   const clearInput = () => {
     if (!inputRef.current) return
-    inputRef.current.innerHTML = ''
+          inputRef.current.textContent = ''
   }
 
   const handleSendMessage = async () => {

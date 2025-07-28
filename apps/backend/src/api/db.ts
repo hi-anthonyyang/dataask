@@ -193,7 +193,7 @@ router.put('/connections/:connectionId', async (req, res) => {
     // Create the new connection
     const newConnectionId = await dbManager.createConnection(connection);
     
-    res.json({ 
+    return res.json({ 
       connectionId: newConnectionId,
       message: 'Connection updated successfully' 
     });
@@ -204,7 +204,7 @@ router.put('/connections/:connectionId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid connection parameters' });
     }
     
-    res.status(500).json({ error: 'Failed to update connection' });
+    return res.status(500).json({ error: 'Failed to update connection' });
   }
 });
 
