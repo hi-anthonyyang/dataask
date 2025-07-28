@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, Download, Eye, BarChart3, Copy, Check } from 'lucide-react'
+import { TrendingUp, Download, BarChart3, Copy, Check } from 'lucide-react'
 import DataVisualizer from './DataVisualizer'
 import { copyInsightsText, copyTableAsCSV, copyTableAsTSV } from '../services/copyService'
 
@@ -211,28 +211,16 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
               )}
             </div>
             
-            <div className="bg-card border border-border p-4 rounded-lg">
-              <h4 className="font-medium text-foreground mb-2">Summary Statistics</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Total Records:</span>
-                  <span className="font-medium ml-2">{queryResults.rowCount}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Columns:</span>
-                  <span className="font-medium ml-2">{queryResults.fields.length}</span>
-                </div>
-              </div>
-              
-              {!isAnalyzing && !aiAnalysis && (
+            {!isAnalyzing && !aiAnalysis && (
+              <div className="bg-card border border-border p-4 rounded-lg">
                 <button
                   onClick={generateAIAnalysis}
-                  className="mt-3 px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                  className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
                 >
                   Generate Analysis
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -336,10 +324,6 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
             Query executed in {queryResults.executionTime}ms
           </div>
           <div className="flex items-center gap-2">
-            <button className="px-3 py-1 text-sm border border-border rounded hover:bg-muted flex items-center gap-1">
-              <Eye className="h-3 w-3" />
-              View SQL
-            </button>
             <button className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 flex items-center gap-1">
               <Download className="h-3 w-3" />
               Export

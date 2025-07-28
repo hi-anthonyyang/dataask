@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Database, Table, Columns, Plus, Settings } from 'lucide-react'
+import { ChevronDown, ChevronRight, Database, Table, Columns, Plus, Settings, Trash2 } from 'lucide-react'
 
 interface Connection {
   id: string
@@ -25,9 +25,10 @@ interface SchemaBrowserProps {
   showConnectionModal: boolean
   setShowConnectionModal: (show: boolean) => void
   connections?: Connection[]
+  onConnectionsChange?: () => void
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange }: SchemaBrowserProps) {
   const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
@@ -94,6 +95,48 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
     e.dataTransfer.setData('application/json', JSON.stringify({ item, type }))
   }
 
+  const deleteConnection = async (connectionId: string) => {
+    // Add confirmation dialog with better UX
+    const connection = connections.find(c => c.id === connectionId)
+    if (!connection) return
+    
+    const confirmed = window.confirm(`Are you sure you want to delete "${connection.name}"?`)
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/db/connections/${connectionId}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        // If the deleted connection was selected, clear all related state safely
+        if (selectedConnection === connectionId) {
+          onConnectionSelect(null)
+          // Only clear table selection if it's from the same connection
+          if (selectedTable) {
+            onTableSelect(null)
+          }
+          setSchema(null)
+          setExpandedTables(new Set())
+        }
+        // Notify parent component to refresh connections
+        if (onConnectionsChange) {
+          onConnectionsChange()
+        } else if (!propConnections) {
+          // Fallback to internal reload if no parent callback
+          loadConnections()
+        }
+      } else {
+        // Show error feedback
+        console.error('Failed to delete connection:', response.statusText)
+      }
+    } catch (error) {
+      console.error('Failed to delete connection:', error)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -127,20 +170,32 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
           <div className="p-2">
             {connections.map((connection) => (
               <div key={connection.id} className="mb-2">
-                <button
-                  onClick={() => onConnectionSelect(
-                    selectedConnection === connection.id ? null : connection.id
-                  )}
-                  className={`w-full text-left p-2 rounded flex items-center gap-2 hover:bg-muted text-sm ${
-                    selectedConnection === connection.id ? 'bg-muted' : ''
-                  }`}
-                >
-                  <Database className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{connection.name}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {connection.type}
-                  </span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onConnectionSelect(
+                      selectedConnection === connection.id ? null : connection.id
+                    )}
+                    className={`flex-1 text-left p-2 rounded flex items-center gap-2 hover:bg-muted text-sm ${
+                      selectedConnection === connection.id ? 'bg-muted' : ''
+                    }`}
+                  >
+                    <Database className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{connection.name}</span>
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {connection.type}
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteConnection(connection.id)
+                    }}
+                    className="p-1 text-muted-foreground hover:text-red-500 rounded transition-colors"
+                    title="Delete connection"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
 
                 {/* Schema Tree */}
                 {selectedConnection === connection.id && schema && (

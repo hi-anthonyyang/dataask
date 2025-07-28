@@ -171,6 +171,7 @@ function App() {
               showConnectionModal={showConnectionModal}
               setShowConnectionModal={setShowConnectionModal}
               connections={connections}
+              onConnectionsChange={loadConnections}
             />
           ) : (
             <div className="flex flex-col items-center p-2 gap-2 mt-16 h-full">
