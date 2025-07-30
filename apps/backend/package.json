@@ -9,10 +9,12 @@
     "start": "node dist/server.js",
     "clean": "rm -rf dist/",
     "type-check": "tsc --noEmit",
-    "migrate": "tsx scripts/migrate.ts"
+    "migrate": "tsx scripts/migrate.ts",
+    "test:auth": "tsx scripts/test-auth-flow.ts"
   },
   "dependencies": {
     "@types/jest": "^30.0.0",
+    "@types/node-fetch": "^2.6.13",
     "bcrypt": "^5.1.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -23,6 +25,7 @@
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.0",
     "mysql2": "^3.14.2",
+    "node-fetch": "^3.3.2",
     "openai": "^4.0.0",
     "pg": "^8.11.0",
     "sqlite3": "^5.1.0",
