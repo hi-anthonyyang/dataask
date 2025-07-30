@@ -377,7 +377,7 @@ export function createSafePrompt(
     return result.sanitizedInput;
   });
   
-  return templateFunc(...sanitizedArgs);
+  return templateFunc(sanitizedArgs[0], sanitizedArgs[1], sanitizedArgs[2]);
 }
 
 /**

@@ -58,7 +58,7 @@ export class UserService {
   private encrypt(text: string): string {
     const iv = crypto.randomBytes(16);
     const key = crypto.scryptSync(this.encryptionKey, 'salt', 32);
-    const cipher = crypto.createCipherGCM('aes-256-gcm', key, iv);
+    const cipher = crypto.createCipher('aes-256-gcm', key);
     
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -82,7 +82,7 @@ export class UserService {
     const encrypted = parts[2];
 
     const key = crypto.scryptSync(this.encryptionKey, 'salt', 32);
-    const decipher = crypto.createDecipherGCM('aes-256-gcm', key, iv);
+    const decipher = crypto.createDecipher('aes-256-gcm', key);
     decipher.setAuthTag(authTag);
 
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
@@ -300,7 +300,7 @@ export class UserService {
       [connectionId, userId]
     );
 
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   /**
