@@ -272,7 +272,7 @@ const analyzeValueScales = (data: DataRow[], categoryField: string, valueField: 
   
   // Calculate averages and detect scale differences
   const allMaxValues: number[] = []
-  categoryStats.forEach((stats, category) => {
+  categoryStats.forEach((stats, _category) => {
     stats.avg = stats.values.reduce((a: number, b: number) => a + b, 0) / stats.values.length
     allMaxValues.push(stats.max)
   })
@@ -559,7 +559,7 @@ const CHART_COLORS = [
 
 export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
-  const [useLogScale, setUseLogScale] = useState(false)
+  const [_useLogScale, _setUseLogScale] = useState(false)
   const chartRef = useRef<HTMLDivElement>(null)
   const [chartCopied, setChartCopied] = useState(false)
 

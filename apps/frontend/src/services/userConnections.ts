@@ -1,0 +1,294 @@
+import { authService } from './auth';
+
+export interface UserConnection {
+  id: string;
+  name: string;
+  type: 'postgresql' | 'mysql' | 'sqlite';
+  config: {
+    host?: string;
+    port?: number;
+    database?: string;
+    username?: string;
+    filename?: string;
+    // Note: password is never returned from the server
+  };
+  created_at: string;
+  updated_at: string;
+  last_used?: string;
+}
+
+export interface CreateConnectionData {
+  name: string;
+  type: 'postgresql' | 'mysql' | 'sqlite';
+  config: {
+    host?: string;
+    port?: number;
+    database?: string;
+    username?: string;
+    password?: string;
+    filename?: string;
+  };
+}
+
+export interface MigrationResult {
+  message: string;
+  results: Array<{
+    name: string;
+    status: 'success' | 'error';
+    id?: string;
+    error?: string;
+  }>;
+  errors: Array<{
+    name: string;
+    status: 'error';
+    error: string;
+  }>;
+  summary: {
+    total: number;
+    successful: number;
+    failed: number;
+  };
+}
+
+class UserConnectionsService {
+  private baseUrl = '/api/user/connections';
+
+  /**
+   * Get all user connections
+   */
+  async getConnections(): Promise<UserConnection[]> {
+    try {
+      const response = await authService.authenticatedFetch(this.baseUrl);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch connections');
+      }
+
+      const result = await response.json();
+      return result.connections;
+    } catch (error) {
+      console.error('Failed to get connections:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a specific connection
+   */
+  async getConnection(connectionId: string): Promise<UserConnection> {
+    try {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}/${connectionId}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Connection not found');
+        }
+        throw new Error('Failed to fetch connection');
+      }
+
+      const result = await response.json();
+      return result.connection;
+    } catch (error) {
+      console.error('Failed to get connection:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new connection
+   */
+  async createConnection(data: CreateConnectionData): Promise<UserConnection> {
+    try {
+      const response = await authService.authenticatedFetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create connection');
+      }
+
+      return result.connection;
+    } catch (error) {
+      console.error('Failed to create connection:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a connection
+   */
+  async updateConnection(connectionId: string, data: CreateConnectionData): Promise<UserConnection> {
+    try {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}/${connectionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Connection not found');
+        }
+        throw new Error(result.error || 'Failed to update connection');
+      }
+
+      return result.connection;
+    } catch (error) {
+      console.error('Failed to update connection:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a connection
+   */
+  async deleteConnection(connectionId: string): Promise<void> {
+    try {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}/${connectionId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Connection not found');
+        }
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to delete connection');
+      }
+    } catch (error) {
+      console.error('Failed to delete connection:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update connection last used timestamp
+   */
+  async updateLastUsed(connectionId: string): Promise<void> {
+    try {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}/${connectionId}/last-used`, {
+        method: 'PATCH',
+      });
+
+      if (!response.ok) {
+        // Don't throw error for this, it's not critical
+        console.warn('Failed to update connection last used timestamp');
+      }
+    } catch (error) {
+      console.warn('Failed to update connection last used:', error);
+      // Don't throw, this is not critical
+    }
+  }
+
+  /**
+   * Migrate connections from localStorage
+   */
+  async migrateConnections(connections: CreateConnectionData[]): Promise<MigrationResult> {
+    try {
+      const response = await authService.authenticatedFetch(`${this.baseUrl}/migrate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ connections }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to migrate connections');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to migrate connections:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Test a connection before saving (use existing API)
+   */
+  async testConnection(connectionData: CreateConnectionData): Promise<boolean> {
+    try {
+      const response = await fetch('/api/db/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          type: connectionData.type,
+          name: connectionData.name,
+          config: connectionData.config
+        }),
+      });
+
+      const result = await response.json();
+      return result.success;
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Convert localStorage connection to server format
+   */
+  convertLocalStorageConnection(localConnection: any): CreateConnectionData {
+    return {
+      name: localConnection.name,
+      type: localConnection.type,
+      config: {
+        host: localConnection.config.host,
+        port: localConnection.config.port,
+        database: localConnection.config.database,
+        username: localConnection.config.username,
+        password: localConnection.config.password,
+        filename: localConnection.config.filename,
+      }
+    };
+  }
+
+  /**
+   * Sync connections with localStorage (for backward compatibility)
+   */
+  async syncWithLocalStorage(): Promise<void> {
+    try {
+      // Get server connections
+      const serverConnections = await this.getConnections();
+      
+      // Update localStorage to match server (without passwords)
+      const localStorageData = serverConnections.map(conn => ({
+        id: conn.id,
+        name: conn.name,
+        type: conn.type,
+        config: {
+          ...conn.config,
+          // Don't store password in localStorage
+          password: undefined
+        },
+        lastConnected: conn.last_used ? new Date(conn.last_used) : undefined
+      }));
+
+      // Use the existing storage service format
+      localStorage.setItem('dataask_connections', JSON.stringify(localStorageData));
+    } catch (error) {
+      console.error('Failed to sync with localStorage:', error);
+      // Don't throw, this is not critical
+    }
+  }
+}
+
+// Export singleton instance
+export const userConnectionsService = new UserConnectionsService();

@@ -887,6 +887,15 @@ class DatabaseManager {
   }
 
   private async createMySQLConnection(config: ConnectionConfig): Promise<mysql.Pool> {
+    const sslConfig = process.env.NODE_ENV === 'production' ? {
+      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+      ca: process.env.DB_SSL_CA,
+      cert: process.env.DB_SSL_CERT,
+      key: process.env.DB_SSL_KEY
+    } : process.env.DB_SSL_ENABLED === 'true' ? {
+      rejectUnauthorized: false // Allow self-signed certs in development
+    } : undefined;
+
     const pool = mysql.createPool({
       host: config.config.host,
       port: config.config.port,
@@ -905,14 +914,7 @@ class DatabaseManager {
       multipleStatements: false, // Security: prevent multiple statements
       
       // SSL configuration for secure connections
-      ssl: process.env.NODE_ENV === 'production' ? {
-        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-        ca: process.env.DB_SSL_CA,
-        cert: process.env.DB_SSL_CERT,
-        key: process.env.DB_SSL_KEY
-      } : process.env.DB_SSL_ENABLED === 'true' ? {
-        rejectUnauthorized: false // Allow self-signed certs in development
-      } : false
+      ssl: sslConfig
     });
 
     // Test the connection with enhanced retry logic
