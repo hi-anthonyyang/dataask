@@ -4,7 +4,12 @@ import AnalysisPanel from './components/AnalysisPanel'
 import ChatPanel from './components/ChatPanel'
 import TableDetails from './components/TableDetails'
 import ConnectionModal from './components/ConnectionModal'
-import { Database, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import AuthModal from './components/AuthModal'
+import MigrationModal from './components/MigrationModal'
+import { Database, ChevronLeft, ChevronRight, Plus, User, LogOut } from 'lucide-react'
+import { authService, User as AuthUser } from './services/auth'
+import { userConnectionsService } from './services/userConnections'
+import StorageService from './services/storage'
 
 interface Connection {
   id: string
@@ -36,12 +41,66 @@ function App() {
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
 
-  // Load connections on mount
+  // Authentication state
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showMigrationModal, setShowMigrationModal] = useState(false)
+  const [authInitialized, setAuthInitialized] = useState(false)
+
+  // Initialize authentication on mount
   useEffect(() => {
-    loadConnections()
+    const initAuth = async () => {
+      await authService.initialize()
+      setAuthInitialized(true)
+    }
+    initAuth()
+
+    // Listen for auth state changes
+    const unsubscribe = authService.onAuthStateChange((user) => {
+      setUser(user)
+      if (user) {
+        loadConnections()
+        checkForMigration()
+      } else {
+        // Fall back to localStorage connections for unauthenticated users
+        loadLocalConnections()
+      }
+    })
+
+    return unsubscribe
   }, [])
 
+  // Check for localStorage connections that need migration
+  const checkForMigration = () => {
+    const localConnections = StorageService.getConnections()
+    if (localConnections.length > 0) {
+      setShowMigrationModal(true)
+    }
+  }
+
   const loadConnections = async () => {
+    try {
+      if (user) {
+        // Load from server for authenticated users
+        const serverConnections = await userConnectionsService.getConnections()
+        setConnections(serverConnections.map(conn => ({
+          id: conn.id,
+          name: conn.name,
+          type: conn.type,
+          config: conn.config
+        })))
+      } else {
+        // Load from localStorage for unauthenticated users
+        loadLocalConnections()
+      }
+    } catch (error) {
+      console.error('Failed to load connections:', error)
+      // Fallback to localStorage
+      loadLocalConnections()
+    }
+  }
+
+  const loadLocalConnections = async () => {
     try {
       const response = await fetch('/api/db/connections')
       if (response.ok) {
@@ -51,6 +110,18 @@ function App() {
     } catch (error) {
       console.error('Failed to load connections:', error)
     }
+  }
+
+  const handleLogout = async () => {
+    await authService.logout()
+    setSelectedConnection(null)
+    setSelectedTable(null)
+    setQueryResults(null)
+  }
+
+  const handleMigrationComplete = () => {
+    setShowMigrationModal(false)
+    loadConnections() // Reload connections after migration
   }
 
   const handleLeftMouseDown = (e: React.MouseEvent) => {
@@ -155,13 +226,42 @@ function App() {
           <h1 className="text-xl font-semibold text-foreground">DataAsk</h1>
           <span className="text-sm text-muted-foreground"># Just ask your data</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {selectedConnection && (
             <div className="flex items-center gap-2 text-sm">
               <div className="h-2 w-2 bg-green-500 rounded-full"></div>
               <span className="text-muted-foreground">
                 Connected to {getSelectedConnectionDetails()?.name} ({getSelectedConnectionDetails()?.type})
               </span>
+            </div>
+          )}
+          
+          {/* Authentication UI */}
+          {authInitialized && (
+            <div className="flex items-center gap-2">
+              {user ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+                    <User className="w-4 h-4" />
+                    <span>{user.email}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Sign out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <User className="w-4 h-4" />
+                  Sign In
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -301,6 +401,22 @@ function App() {
         onConnectionAdded={handleConnectionAdded}
         editingConnection={editingConnection}
         onConnectionUpdated={handleConnectionUpdated}
+      />
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => {
+          // Authentication successful, connections will be loaded via auth state change
+        }}
+      />
+
+      {/* Migration Modal */}
+      <MigrationModal
+        isOpen={showMigrationModal}
+        onClose={() => setShowMigrationModal(false)}
+        onComplete={handleMigrationComplete}
       />
     </div>
   )
