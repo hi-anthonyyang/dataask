@@ -19,6 +19,10 @@ export default defineConfig({
       },
     },
   },
+  define: {
+    // Inject encryption key for localStorage security
+    __DATAASK_ENCRYPTION_KEY__: JSON.stringify(process.env.DATAASK_ENCRYPTION_KEY || ''),
+  },
   build: {
     outDir: 'dist',
     sourcemap: true,

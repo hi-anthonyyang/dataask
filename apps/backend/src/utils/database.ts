@@ -7,6 +7,23 @@ const { v4: uuidv4 } = require('uuid');
 import { logger } from './logger';
 import { sanitizeParams, limitQueryResult, validateQueryResult } from '../security/sanitize';
 
+/**
+ * Database Manager with SSL/TLS Security
+ * 
+ * SECURITY FEATURES:
+ * - SSL/TLS encryption for PostgreSQL and MySQL connections
+ * - Environment-based certificate configuration
+ * - Production-ready SSL validation
+ * - Development mode with optional SSL support
+ * 
+ * ENVIRONMENT VARIABLES:
+ * - DB_SSL_ENABLED: Enable SSL in development (default: false)
+ * - DB_SSL_REJECT_UNAUTHORIZED: Validate SSL certificates (default: true in production)
+ * - DB_SSL_CA: Certificate Authority certificate
+ * - DB_SSL_CERT: Client certificate (optional)
+ * - DB_SSL_KEY: Client private key (optional)
+ */
+
 // MySQL-specific error handling
 interface MySQLError extends Error {
   code?: string;
@@ -405,6 +422,15 @@ class DatabaseManager {
       user: config.config.username,
       password: config.config.password,
       connectionTimeoutMillis: DATABASE_CONFIG.connection.testTimeoutMs,
+      // SSL configuration for secure connections
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+        ca: process.env.DB_SSL_CA,
+        cert: process.env.DB_SSL_CERT,
+        key: process.env.DB_SSL_KEY
+      } : process.env.DB_SSL_ENABLED === 'true' ? {
+        rejectUnauthorized: false // Allow self-signed certs in development
+      } : false
     });
 
     try {
@@ -427,6 +453,15 @@ class DatabaseManager {
       max: DATABASE_CONFIG.connection.poolMaxConnections, // Maximum number of connections
       idleTimeoutMillis: DATABASE_CONFIG.connection.poolIdleTimeoutMs,
       connectionTimeoutMillis: DATABASE_CONFIG.connection.poolConnectionTimeoutMs,
+      // SSL configuration for secure connections
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+        ca: process.env.DB_SSL_CA,
+        cert: process.env.DB_SSL_CERT,
+        key: process.env.DB_SSL_KEY
+      } : process.env.DB_SSL_ENABLED === 'true' ? {
+        rejectUnauthorized: false // Allow self-signed certs in development
+      } : false
     });
 
     // Test the connection
@@ -869,10 +904,15 @@ class DatabaseManager {
       bigNumberStrings: false, // Return big numbers as numbers
       multipleStatements: false, // Security: prevent multiple statements
       
-      // Optional: SSL (uncomment if needed)
-      // ssl: {
-      //   rejectUnauthorized: process.env.NODE_ENV === 'production'
-      // }
+      // SSL configuration for secure connections
+      ssl: process.env.NODE_ENV === 'production' ? {
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+        ca: process.env.DB_SSL_CA,
+        cert: process.env.DB_SSL_CERT,
+        key: process.env.DB_SSL_KEY
+      } : process.env.DB_SSL_ENABLED === 'true' ? {
+        rejectUnauthorized: false // Allow self-signed certs in development
+      } : false
     });
 
     // Test the connection with enhanced retry logic
