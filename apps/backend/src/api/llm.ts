@@ -4,6 +4,12 @@ import OpenAI from 'openai';
 import { logger } from '../utils/logger';
 import { validateQuery } from '../security/sanitize';
 import { llmCache } from '../utils/cache';
+import { 
+  sanitizePromptInput, 
+  validateLLMResponse, 
+  createSafePrompt, 
+  logSecurityEvent 
+} from '../security/promptSanitize';
 
 const router = Router();
 
@@ -237,26 +243,50 @@ router.post('/nl-to-sql', async (req, res) => {
       });
     }
 
-    // Use AI to classify query and handle exploratory requests
-    const classification = await classifyQuery(request.query, request.schema);
-    
-    if (classification.isVague) {
-      return res.json({
-        isVague: true,
-        message: classification.message,
-        suggestions: classification.suggestions,
-        originalQuery: request.query
+    // Sanitize user input to prevent prompt injection
+    const sanitizationResult = sanitizePromptInput(request.query, {
+      maxLength: 1000,
+      strictMode: true
+    });
+
+    if (!sanitizationResult.isValid) {
+      logSecurityEvent('prompt_injection', {
+        input: request.query,
+        riskLevel: sanitizationResult.riskLevel,
+        patterns: sanitizationResult.errors,
+        endpoint: '/api/llm/nl-to-sql'
+      });
+
+      return res.status(400).json({
+        error: 'Invalid query input',
+        details: 'Query contains potentially unsafe content',
+        riskLevel: sanitizationResult.riskLevel
       });
     }
 
-    // Check cache first
-    const schemaHash = getOptimizedSchema(request.schema);
-    const cacheKey = llmCache.getCacheKey('sql', request.query, `${request.connectionType}-${schemaHash}`);
-    const cached = llmCache.get(cacheKey);
-    if (cached) {
-      logger.info('SQL generation cache hit', { query: request.query.substring(0, 50) });
-      return res.json(cached);
-    }
+    // Use sanitized input for further processing
+    const sanitizedQuery = sanitizationResult.sanitizedInput;
+
+    // Use AI to classify query and handle exploratory requests
+    const classification = await classifyQuery(sanitizedQuery, request.schema);
+    
+    if (classification.isVague) {
+              return res.json({
+          isVague: true,
+          message: classification.message,
+          suggestions: classification.suggestions,
+          originalQuery: sanitizedQuery
+        });
+      }
+
+      // Check cache first
+      const schemaHash = getOptimizedSchema(request.schema);
+      const cacheKey = llmCache.getCacheKey('sql', sanitizedQuery, `${request.connectionType}-${schemaHash}`);
+      const cached = llmCache.get(cacheKey);
+      if (cached) {
+        logger.info('SQL generation cache hit', { query: sanitizedQuery.substring(0, 50) });
+        return res.json(cached);
+      }
 
     // Database-specific SQL generation prompt
     const getDatabaseSpecificRules = (connectionType: string) => {
@@ -316,27 +346,14 @@ WINDOW FUNCTIONS:
       }
     };
 
-    const systemPrompt = `Generate a single ${request.connectionType.toUpperCase()} SQL query. Return ONLY the SQL query with no formatting, no markdown, no code blocks, no comments.
-
-Schema: ${schemaHash}
-Foreign keys: column_id->table means JOIN table ON column_id = table.id
-
-Rules:
-- Start with SELECT
-- Single statement only
-- Proper JOINs for relationships  
-- Include meaningful column aliases
-- End with semicolon
-${getDatabaseSpecificRules(request.connectionType)}
-
-Example response format:
-SELECT city, COUNT(*) AS customer_count FROM customers GROUP BY city LIMIT 100;`;
+    // Use safe prompt construction to prevent injection
+    const safePrompt = createSafePrompt('nlToSql', sanitizedQuery, schemaHash, request.connectionType);
 
     const completion = await openai.chat.completions.create({
       model: MODEL_CONFIG.nlToSql,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: request.query }
+        { role: 'system', content: safePrompt.system },
+        { role: 'user', content: safePrompt.user }
       ],
       temperature: 0.1,
       max_tokens: 500
@@ -349,6 +366,23 @@ SELECT city, COUNT(*) AS customer_count FROM customers GROUP BY city LIMIT 100;`
         error: 'Failed to generate SQL query' 
       });
     }
+
+    // Validate LLM response for potential injection content
+    const responseValidation = validateLLMResponse(generatedSQL);
+    if (!responseValidation.isValid) {
+      logSecurityEvent('response_validation', {
+        response: generatedSQL,
+        riskLevel: 'medium',
+        endpoint: '/api/llm/nl-to-sql'
+      });
+      logger.warn('LLM response validation failed', {
+        warnings: responseValidation.warnings,
+        response: generatedSQL.substring(0, 200)
+      });
+    }
+
+    // Use sanitized response
+    generatedSQL = responseValidation.sanitizedResponse;
 
     // Clean up any unwanted formatting
     generatedSQL = generatedSQL
@@ -378,13 +412,13 @@ SELECT city, COUNT(*) AS customer_count FROM customers GROUP BY city LIMIT 100;`
     }
 
     logger.info('NL-to-SQL conversion successful', { 
-      naturalLanguage: request.query.substring(0, 50),
+      naturalLanguage: sanitizedQuery.substring(0, 50),
       sql: generatedSQL.substring(0, 100)
     });
 
     const result = { 
       sql: generatedSQL,
-      explanation: `Generated SQL for: "${request.query}"`
+      explanation: `Generated SQL for: "${sanitizedQuery}"`
     };
 
     // Cache successful result
@@ -411,13 +445,36 @@ router.post('/analyze', async (req, res) => {
       });
     }
 
+    // Sanitize user query input to prevent prompt injection
+    const sanitizationResult = sanitizePromptInput(request.query, {
+      maxLength: 1000,
+      strictMode: true
+    });
+
+    if (!sanitizationResult.isValid) {
+      logSecurityEvent('prompt_injection', {
+        input: request.query,
+        riskLevel: sanitizationResult.riskLevel,
+        patterns: sanitizationResult.errors,
+        endpoint: '/api/llm/analyze'
+      });
+
+      return res.status(400).json({
+        error: 'Invalid query input',
+        details: 'Query contains potentially unsafe content',
+        riskLevel: sanitizationResult.riskLevel
+      });
+    }
+
+    const sanitizedQuery = sanitizationResult.sanitizedInput;
+
     // Check cache first
     const rowCount = request.data.length;
     const columns = request.data.length > 0 ? Object.keys(request.data[0]) : [];
-    const cacheKey = llmCache.getCacheKey('analysis', request.query, `${rowCount}-${columns.join(',')}`);
+    const cacheKey = llmCache.getCacheKey('analysis', sanitizedQuery, `${rowCount}-${columns.join(',')}`);
     const cached = llmCache.get(cacheKey);
     if (cached) {
-      logger.info('Analysis cache hit', { query: request.query.substring(0, 50) });
+      logger.info('Analysis cache hit', { query: sanitizedQuery.substring(0, 50) });
       return res.json(cached);
     }
 
@@ -427,21 +484,35 @@ router.post('/analyze', async (req, res) => {
       return acc;
     }, {} as Record<string, any[]>);
 
-    // Compressed prompt - 60% token reduction
-    const systemPrompt = `Analyze query results and generate business insights:
-1. Brief summary 2. Key patterns 3. Notable observations 4. Follow-up questions
-Keep concise and actionable.`;
+    // Sanitize data information to prevent context injection
+    const dataInfo = `Results: ${rowCount} rows, ${columns.length} columns. Columns: ${columns.join(', ')}. Sample values: ${JSON.stringify(sampleValues)}`;
+    const dataSanitization = sanitizePromptInput(dataInfo, {
+      maxLength: 2000,
+      strictMode: false // Less strict for data context
+    });
 
-    const userPrompt = `Query: ${request.query}
-Results: ${rowCount} rows, ${columns.length} columns
-Columns: ${columns.join(', ')}
-Sample values: ${JSON.stringify(sampleValues)}`;
+    if (!dataSanitization.isValid && dataSanitization.riskLevel === 'high') {
+      logSecurityEvent('suspicious_input', {
+        input: dataInfo,
+        riskLevel: dataSanitization.riskLevel,
+        patterns: dataSanitization.errors,
+        endpoint: '/api/llm/analyze'
+      });
+
+      return res.status(400).json({
+        error: 'Data contains potentially unsafe content',
+        details: 'Query results contain suspicious patterns'
+      });
+    }
+
+    // Use safe prompt construction
+    const safePrompt = createSafePrompt('analysis', sanitizedQuery, dataSanitization.sanitizedInput);
 
     const completion = await openai.chat.completions.create({
       model: MODEL_CONFIG.analysis,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'system', content: safePrompt.system },
+        { role: 'user', content: safePrompt.user }
       ],
       temperature: 0.3,
       max_tokens: 600
@@ -455,10 +526,26 @@ Sample values: ${JSON.stringify(sampleValues)}`;
       });
     }
 
+    // Validate LLM response for potential injection content
+    const responseValidation = validateLLMResponse(analysis);
+    if (!responseValidation.isValid) {
+      logSecurityEvent('response_validation', {
+        response: analysis,
+        riskLevel: 'medium',
+        endpoint: '/api/llm/analyze'
+      });
+      logger.warn('Analysis response validation failed', {
+        warnings: responseValidation.warnings,
+        response: analysis.substring(0, 200)
+      });
+    }
+
+    const sanitizedAnalysis = responseValidation.sanitizedResponse;
+
     logger.info('Data analysis generated successfully');
 
     const result = { 
-      analysis,
+      analysis: sanitizedAnalysis,
       metadata: {
         rowCount,
         columns,
@@ -490,28 +577,45 @@ router.post('/summarize', async (req, res) => {
       });
     }
 
+    // Sanitize user input to prevent prompt injection
+    const sanitizationResult = sanitizePromptInput(request.query, {
+      maxLength: 500,
+      strictMode: true
+    });
+
+    if (!sanitizationResult.isValid) {
+      logSecurityEvent('prompt_injection', {
+        input: request.query,
+        riskLevel: sanitizationResult.riskLevel,
+        patterns: sanitizationResult.errors,
+        endpoint: '/api/llm/summarize'
+      });
+
+      return res.status(400).json({
+        error: 'Invalid query input',
+        details: 'Query contains potentially unsafe content',
+        riskLevel: sanitizationResult.riskLevel
+      });
+    }
+
+    const sanitizedQuery = sanitizationResult.sanitizedInput;
+
     // Check cache first
-    const cacheKey = llmCache.getCacheKey('summary', request.query);
+    const cacheKey = llmCache.getCacheKey('summary', sanitizedQuery);
     const cached = llmCache.get(cacheKey);
     if (cached) {
-      logger.info('Summarization cache hit', { query: request.query.substring(0, 50) });
+      logger.info('Summarization cache hit', { query: sanitizedQuery.substring(0, 50) });
       return res.json(cached);
     }
 
-    // Detect query type and use compressed prompts - 75% token reduction
-    const isSqlQuery = /^\s*(SELECT|WITH|EXPLAIN|DESCRIBE)\s+/i.test(request.query.trim())
-
-    const systemPrompt = isSqlQuery 
-      ? `Create business title for SQL (max 50 chars). Focus on purpose, not technical details.`
-      : `Create descriptive title for data query (max 50 chars). Be specific and business-focused.`;
-
-    const userPrompt = `"${request.query}"`;
+    // Use safe prompt construction
+    const safePrompt = createSafePrompt('summarization', sanitizedQuery);
 
     const completion = await openai.chat.completions.create({
       model: MODEL_CONFIG.summarization,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'system', content: safePrompt.system },
+        { role: 'user', content: safePrompt.user }
       ],
       temperature: 0.0, // Deterministic for caching
       max_tokens: 15
@@ -520,10 +624,10 @@ router.post('/summarize', async (req, res) => {
     const title = completion.choices[0]?.message?.content?.trim();
     
     if (!title) {
-      // Fallback to truncation iffails
-      const fallbackTitle = request.query.length > 50 
-        ? request.query.substring(0, 47).trim() + '...'
-        : request.query;
+      // Fallback to truncation if fails
+      const fallbackTitle = sanitizedQuery.length > 50 
+        ? sanitizedQuery.substring(0, 47).trim() + '...'
+        : sanitizedQuery;
       
       return res.json({ 
         title: fallbackTitle,
@@ -531,14 +635,29 @@ router.post('/summarize', async (req, res) => {
       });
     }
 
+    // Validate LLM response for potential injection content
+    const responseValidation = validateLLMResponse(title);
+    if (!responseValidation.isValid) {
+      logSecurityEvent('response_validation', {
+        response: title,
+        riskLevel: 'medium',
+        endpoint: '/api/llm/summarize'
+      });
+      logger.warn('Summarization response validation failed', {
+        warnings: responseValidation.warnings,
+        response: title
+      });
+    }
+
+    const sanitizedTitle = responseValidation.sanitizedResponse;
+
     logger.info('Query summarization successful', { 
-      originalQuery: request.query.substring(0, 50),
-      generatedTitle: title,
-      queryType: isSqlQuery ? 'sql' : 'natural_language'
+      originalQuery: sanitizedQuery.substring(0, 50),
+      generatedTitle: sanitizedTitle
     });
 
     const result = { 
-      title: title,
+      title: sanitizedTitle,
       source: 'ai'
     };
 
@@ -551,10 +670,16 @@ router.post('/summarize', async (req, res) => {
     logger.error('Query summarization failed:', error);
     
     // Fallback to truncation on any error
-    const request = req.body;
-    const fallbackTitle = request.query && request.query.length > 50 
-      ? request.query.substring(0, 47).trim() + '...'
-      : request.query || 'Untitled Query';
+    const requestBody = req.body;
+    let fallbackQuery = requestBody.query || 'Untitled Query';
+    
+    // Sanitize even the fallback
+    const fallbackSanitization = sanitizePromptInput(fallbackQuery, { strictMode: false });
+    fallbackQuery = fallbackSanitization.sanitizedInput || 'Untitled Query';
+    
+    const fallbackTitle = fallbackQuery.length > 50 
+      ? fallbackQuery.substring(0, 47).trim() + '...'
+      : fallbackQuery;
     
     return res.json({ 
       title: fallbackTitle,
