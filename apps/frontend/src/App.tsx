@@ -194,7 +194,7 @@ function App() {
     setEditingConnection(null) // Clear editing state
   }
 
-  const handleConnectionUpdated = (connectionId: string) => {
+  const handleConnectionUpdated = (_connectionId: string) => {
     loadConnections() // Refresh connections when one is updated
     setShowConnectionModal(false) // Close the modal
     setEditingConnection(null) // Clear editing state

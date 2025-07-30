@@ -12,6 +12,7 @@
     "migrate": "tsx scripts/migrate.ts"
   },
   "dependencies": {
+    "@types/jest": "^30.0.0",
     "bcrypt": "^5.1.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -31,7 +32,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.0",
-    "@types/cookie-parser": "^1.4.6",
+    "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.0",
     "@types/express": "^4.17.0",
     "@types/express-rate-limit": "^5.1.3",
