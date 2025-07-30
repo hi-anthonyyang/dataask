@@ -17,6 +17,8 @@ The backend is built with Express. The entry point (`app.ts`) initializes the Ex
 
 #### Database API
 
+**Authentication (Optional)**: The system now includes optional user authentication with JWT tokens. Users can create accounts for cross-device sync while maintaining privacy-first principles. All existing localStorage functionality remains unchanged.
+
 Routes under `/api/db` are defined in `api/db.ts`. They expose operations to test a database connection, create/list/delete connections, retrieve a connection’s schema, run read‑only SQL queries and get table metadata/columns/preview data. The route for executing queries validates that generated SQL is read‑only and safe using the sanitization utilities.
 
 Database connections are handled by a `DatabaseManager` class in `utils/database.ts`. It creates, stores and removes connections for PostgreSQL, SQLite and MySQL, executes sanitized queries with timing and error mapping, and exposes methods to fetch schema information such as table metadata and columns.
@@ -44,6 +46,8 @@ The frontend is a React SPA written in TypeScript. The top‑level component (`A
 
 * **copyService.ts** – exposes functions to copy text to the clipboard with user feedback; includes helpers to copy tables as CSV/TSV, copy insights text, copy SQL queries and capture chart images.
 * **storage.ts** – simple client‑side persistence layer that stores connections (encrypting passwords), panel sizes, expanded tables and query history in `localStorage`, with helper methods to add/update connections and manage history.
+* **auth.ts** – authentication service for user accounts with JWT token management, registration/login flows, and automatic token refresh.
+* **userConnections.ts** – service for managing user connections stored server-side, with optional migration from localStorage for cross-device sync.
 
 ### Electron shell
 
