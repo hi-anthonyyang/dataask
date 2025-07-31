@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit, User, LogOut } from 'lucide-react'
-
-interface Connection {
-  id: string
-  name: string
-  type: string
-}
+import { Connection } from '../types'
 
 interface SchemaTable {
   name: string

@@ -4,23 +4,11 @@ import AnalysisPanel from './AnalysisPanel'
 import ChatPanel from './ChatPanel'
 import TableDetails from './TableDetails'
 import ConnectionModal from './ConnectionModal'
+import ConnectionStatus from './ConnectionStatus'
 import { Database, ChevronRight, LogOut, User, Plus } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-
-interface Connection {
-  id: string
-  name: string
-  type: string
-  config?: {
-    host?: string
-    port?: number
-    database?: string
-    username?: string
-    password?: string
-    filename?: string
-  }
-}
+import { Connection } from '../types'
 
 const DataAskApp: React.FC = () => {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
@@ -183,7 +171,10 @@ const DataAskApp: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* User profile moved to left panel */}
+          <ConnectionStatus 
+            selectedConnection={selectedConnection}
+            connections={connections}
+          />
         </div>
       </div>
 
