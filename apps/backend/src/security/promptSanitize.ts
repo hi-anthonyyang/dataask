@@ -142,21 +142,7 @@ function appearsToBeSQLQuery(input: string): boolean {
   return hasStrongSqlIndicator || (hasSqlSyntax && input.length > 20); // Longer queries with SQL syntax
 }
 
-/**
- * Check if input appears to contain structured data (JSON-like)
- * Used to allow JSON characters in data analysis contexts
- */
-function appearsToBeStructuredData(input: string): boolean {
-  // Look for patterns that indicate structured data like query results
-  const dataPatterns = [
-    /Results:\s*\d+\s+rows?,\s*\d+\s+columns?/i, // "Results: X rows, Y columns"
-    /Columns?:\s*[a-zA-Z_][a-zA-Z0-9_,\s]*\./i,  // "Columns: col1, col2, col3."
-    /Sample\s+values?:\s*\{/i,                     // "Sample values: {"
-    /\{\s*"[^"]+"\s*:\s*\[/                       // JSON object with array values
-  ];
-  
-  return dataPatterns.some(pattern => pattern.test(input));
-}
+
 
 // Database-specific rules for safe SQL generation
 const getDatabaseSpecificRules = (connectionType: string) => {
@@ -290,23 +276,13 @@ export function detectPromptInjection(input: string): {
     riskLevel = riskLevel === 'low' ? 'medium' : 'high';
   }
   
-  // Check for unusual character patterns with context-aware logic
-  let hasUnusualChars = false;
+  // Check for truly dangerous character patterns only
+  // Allow most common special characters to improve user experience
+  // Focus on characters that are specifically dangerous in prompt injection contexts
+  const dangerousChars = /[\u200B-\u200D\uFEFF\u2060-\u2069]/g; // Zero-width and invisible characters only
   
-  if (appearsToBeSQLQuery(input)) {
-    // Use SQL-safe character pattern for SQL-like queries
-    const sqlSafePattern = buildSQLSafeCharacterPattern();
-    hasUnusualChars = sqlSafePattern.test(input);
-  } else if (appearsToBeStructuredData(input)) {
-    // Allow JSON characters for structured data contexts
-    hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=\[\]{}]/g.test(input);
-  } else {
-    // Use original restrictive pattern for general content
-    hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=]/g.test(input);
-  }
-  
-  if (hasUnusualChars) {
-    detectedPatterns.push('unusual_characters');
+  if (dangerousChars.test(input)) {
+    detectedPatterns.push('dangerous_invisible_characters');
     riskLevel = riskLevel === 'low' ? 'medium' : riskLevel;
   }
   
