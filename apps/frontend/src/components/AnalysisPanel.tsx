@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react'
 import { TrendingUp, Download, BarChart3, Copy, Check } from 'lucide-react'
 import DataVisualizer from './DataVisualizer'
+import TableDetails from './TableDetails'
 import { copyInsightsText, copyTableAsCSV, copyTableAsTSV } from '../services/copyService'
 
 interface AnalysisPanelProps {
   queryResults: any
   currentQuery: string
+  selectedConnection?: string | null
+  selectedTable?: string | null
+  onTableClose?: () => void
 }
 
-export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPanelProps) {
+export default function AnalysisPanel({ queryResults, currentQuery, selectedConnection, selectedTable, onTableClose }: AnalysisPanelProps) {
   const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'visualize'>('insights')
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -80,6 +84,19 @@ export default function AnalysisPanel({ queryResults, currentQuery }: AnalysisPa
 
   // Check if data is suitable for visualization
   const isVisualizableData = queryResults?.data && queryResults.data.length > 0 && queryResults.fields
+
+  // Show table details if a table is selected
+  if (selectedTable && selectedConnection) {
+    return (
+      <div className="h-full flex flex-col">
+        <TableDetails
+          selectedConnection={selectedConnection}
+          selectedTable={selectedTable}
+          onClose={onTableClose}
+        />
+      </div>
+    )
+  }
 
   if (!queryResults) {
     return (

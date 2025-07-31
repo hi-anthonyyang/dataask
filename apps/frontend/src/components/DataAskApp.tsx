@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import SchemaBrowser from './SchemaBrowser'
 import AnalysisPanel from './AnalysisPanel'
 import ChatPanel from './ChatPanel'
-import TableDetails from './TableDetails'
 import ConnectionModal from './ConnectionModal'
 import ConnectionStatus from './ConnectionStatus'
 import { Database, ChevronRight, LogOut, User, Plus } from 'lucide-react'
@@ -283,6 +282,9 @@ const DataAskApp: React.FC = () => {
           <AnalysisPanel
             queryResults={queryResults}
             currentQuery={currentQuery}
+            selectedConnection={selectedConnection}
+            selectedTable={selectedTable}
+            onTableClose={() => setSelectedTable(null)}
           />
         </div>
 
@@ -311,14 +313,7 @@ const DataAskApp: React.FC = () => {
         </div>
       </div>
 
-      {/* Table Details Modal */}
-      {selectedTable && (
-        <TableDetails
-          selectedConnection={selectedConnection}
-          selectedTable={selectedTable}
-          onClose={() => setSelectedTable(null)}
-        />
-      )}
+
 
       {/* Connection Modal */}
       <ConnectionModal
