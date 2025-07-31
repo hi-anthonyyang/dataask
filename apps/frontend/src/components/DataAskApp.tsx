@@ -61,11 +61,17 @@ const DataAskApp: React.FC = () => {
   const handleLeftMouseDown = (e: React.MouseEvent) => {
     setIsDraggingLeft(true)
     e.preventDefault()
+    e.stopPropagation()
+    // Prevent text selection during drag
+    document.body.style.userSelect = 'none'
   }
 
   const handleRightMouseDown = (e: React.MouseEvent) => {
     setIsDraggingRight(true)
     e.preventDefault()
+    e.stopPropagation()
+    // Prevent text selection during drag
+    document.body.style.userSelect = 'none'
   }
 
   const handleLeftMouseMove = (e: MouseEvent) => {
@@ -83,10 +89,14 @@ const DataAskApp: React.FC = () => {
 
   const handleLeftMouseUp = () => {
     setIsDraggingLeft(false)
+    // Restore text selection
+    document.body.style.userSelect = ''
   }
 
   const handleRightMouseUp = () => {
     setIsDraggingRight(false)
+    // Restore text selection
+    document.body.style.userSelect = ''
   }
 
   // Add global mouse event listeners for left panel
@@ -155,7 +165,14 @@ const DataAskApp: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div 
+      className={`h-screen bg-gray-50 flex flex-col ${
+        isDraggingLeft || isDraggingRight ? 'cursor-col-resize' : ''
+      }`}
+      style={{
+        ...(isDraggingLeft || isDraggingRight ? { userSelect: 'none' } : {})
+      }}
+    >
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -174,9 +191,7 @@ const DataAskApp: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel */}
         <div
-          className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-200 ${
-            isLeftPanelMinimized ? 'w-12' : ''
-          }`}
+          className="bg-white border-r border-gray-200 flex flex-col transition-all duration-200 flex-shrink-0"
           style={{ width: isLeftPanelMinimized ? '48px' : `${leftPanelWidth}px` }}
         >
           {isLeftPanelMinimized ? (
@@ -261,31 +276,37 @@ const DataAskApp: React.FC = () => {
           )}
         </div>
 
-        {/* Resize Handle */}
-        <div
-          ref={leftDragRef}
-          className="w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors"
-          onMouseDown={handleLeftMouseDown}
-        />
+        {/* Resize Handle for Left Panel */}
+        {!isLeftPanelMinimized && (
+          <div
+            ref={leftDragRef}
+            className={`w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors flex-shrink-0 ${
+              isDraggingLeft ? 'bg-blue-500' : ''
+            }`}
+            onMouseDown={handleLeftMouseDown}
+          />
+        )}
 
         {/* Center Panel */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           <AnalysisPanel
             queryResults={queryResults}
             currentQuery={currentQuery}
           />
         </div>
 
-        {/* Resize Handle */}
+        {/* Resize Handle for Right Panel */}
         <div
           ref={rightDragRef}
-          className="w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors"
+          className={`w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors flex-shrink-0 ${
+            isDraggingRight ? 'bg-blue-500' : ''
+          }`}
           onMouseDown={handleRightMouseDown}
         />
 
         {/* Right Panel */}
         <div
-          className="bg-white border-l border-gray-200 flex flex-col"
+          className="bg-white border-l border-gray-200 flex flex-col flex-shrink-0"
           style={{ width: `${rightPanelWidth}px` }}
         >
           <div className="flex-1 overflow-y-auto">
