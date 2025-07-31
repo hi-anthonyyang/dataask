@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Database, Table, Columns, Plus, Trash2, Edit } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit } from 'lucide-react'
 
 interface Connection {
   id: string
@@ -27,9 +27,11 @@ interface SchemaBrowserProps {
   connections?: Connection[]
   onConnectionsChange?: () => void
   onEditConnection?: (connection: Connection) => void
+  onTogglePanel?: () => void
+  isPanelMinimized?: boolean
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange, onEditConnection }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange, onEditConnection, onTogglePanel, isPanelMinimized }: SchemaBrowserProps) {
   const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
@@ -144,13 +146,28 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-sm text-foreground">Database Explorer</h2>
-          <button 
-            onClick={() => setShowConnectionModal(true)}
-            className="p-1.5 hover:bg-muted rounded mr-8"
-            title="Add database connection"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => setShowConnectionModal(true)}
+              className="p-1.5 hover:bg-muted rounded"
+              title="Add database connection"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            {onTogglePanel && (
+              <button
+                onClick={onTogglePanel}
+                className="p-1.5 hover:bg-muted rounded"
+                title="Minimize panel"
+              >
+                {isPanelMinimized ? (
+                  <ChevronRight className="h-4 w-4" />
+                ) : (
+                  <ChevronLeft className="h-4 w-4" />
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

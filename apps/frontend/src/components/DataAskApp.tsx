@@ -189,22 +189,6 @@ const DataAskApp: React.FC = () => {
           }`}
           style={{ width: isLeftPanelMinimized ? '48px' : `${leftPanelWidth}px` }}
         >
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            {!isLeftPanelMinimized && (
-              <h2 className="text-lg font-medium text-gray-900">Connections</h2>
-            )}
-            <button
-              onClick={toggleLeftPanel}
-              className="p-1 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              {isLeftPanelMinimized ? (
-                <ChevronRight className="w-5 h-5 text-gray-600" />
-              ) : (
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              )}
-            </button>
-          </div>
-
           {!isLeftPanelMinimized && (
             <div className="flex-1 overflow-y-auto">
               <SchemaBrowser
@@ -217,6 +201,8 @@ const DataAskApp: React.FC = () => {
                 setShowConnectionModal={setShowConnectionModal}
                 onConnectionsChange={loadConnections}
                 onEditConnection={handleEditConnection}
+                onTogglePanel={toggleLeftPanel}
+                isPanelMinimized={isLeftPanelMinimized}
               />
             </div>
           )}
@@ -249,9 +235,6 @@ const DataAskApp: React.FC = () => {
           className="bg-white border-l border-gray-200 flex flex-col"
           style={{ width: `${rightPanelWidth}px` }}
         >
-          <div className="border-b border-gray-200 p-4">
-            <h2 className="text-lg font-medium text-gray-900">AI Assistant</h2>
-          </div>
           <div className="flex-1 overflow-y-auto">
             <ChatPanel
               selectedConnection={selectedConnection}
