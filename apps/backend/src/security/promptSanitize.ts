@@ -78,6 +78,70 @@ const SUSPICIOUS_KEYWORDS = [
   'execute', 'run', 'eval', 'script'
 ];
 
+/**
+ * Database-specific special characters that should be allowed in SQL queries
+ * This covers MySQL, PostgreSQL, SQLite, and common SQL standards
+ */
+const DATABASE_SAFE_CHARACTERS = {
+  // Core SQL characters (all databases) - includes basic math operators
+  core: '`%$[]@#|&~*/\\^+-',
+  
+  // MySQL specific
+  mysql: '`%',
+  
+  // PostgreSQL specific  
+  postgresql: '$::|~#',
+  
+  // SQLite specific
+  sqlite: '[]`',
+  
+  // SQL Server (for future expansion)
+  sqlserver: '[]@#'
+};
+
+/**
+ * Build a comprehensive regex pattern for allowed characters in SQL contexts
+ */
+function buildSQLSafeCharacterPattern(): RegExp {
+  // Base allowed characters (alphanumeric, whitespace, basic punctuation)
+  const baseChars = '\\w\\s.,!?;:()\\-"\'<>=';
+  
+  // Add all database-specific characters
+  const dbChars = Object.values(DATABASE_SAFE_CHARACTERS).join('');
+  
+  // Properly escape all regex metacharacters for use in character class
+  const escapedDbChars = dbChars.replace(/[\[\]\\^$.*+?{}()|/\-]/g, '\\$&');
+  
+  // Build the final pattern - anything NOT in this set is unusual
+  return new RegExp(`[^${baseChars}${escapedDbChars}]`, 'g');
+}
+
+/**
+ * Check if input appears to be SQL-like content
+ * Uses more precise detection to avoid false positives
+ */
+function appearsToBeSQLQuery(input: string): boolean {
+  // Primary SQL keywords that strongly indicate SQL
+  const primarySqlKeywords = /\b(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|FROM|WHERE|JOIN|GROUP\s+BY|ORDER\s+BY|HAVING|UNION)\b/i;
+  
+  // SQL functions that are unlikely to appear in casual text
+  const sqlFunctions = /\b(COUNT|SUM|AVG|MAX|MIN|DATE_FORMAT|SUBSTRING|CONCAT)\s*\(/i;
+  
+  // SQL-specific operators and syntax
+  const sqlSpecificSyntax = /:=|<>|\bLIKE\b|\bIN\s*\(|\bBETWEEN\b|\bIS\s+(NULL|NOT\s+NULL)\b/i;
+  
+  // Table/column reference patterns (backticks, square brackets with SQL context, or dot notation)
+  const sqlReferences = /`[^`]+`|\[[a-zA-Z_][a-zA-Z0-9_\s]*\]|\w+\.\w+/;
+  
+  // Must have at least one strong SQL indicator
+  const hasStrongSqlIndicator = primarySqlKeywords.test(input) || sqlFunctions.test(input);
+  
+  // Optional: additional SQL syntax can support the decision
+  const hasSqlSyntax = sqlSpecificSyntax.test(input) || sqlReferences.test(input);
+  
+  return hasStrongSqlIndicator || (hasSqlSyntax && input.length > 20); // Longer queries with SQL syntax
+}
+
 // Database-specific rules for safe SQL generation
 const getDatabaseSpecificRules = (connectionType: string) => {
   switch (connectionType.toLowerCase()) {
@@ -210,8 +274,18 @@ export function detectPromptInjection(input: string): {
     riskLevel = riskLevel === 'low' ? 'medium' : 'high';
   }
   
-  // Check for unusual character patterns (allowing database schema characters like -> and ?, SQL backticks, and % for date formatting)
-  const hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=`%]/g.test(input);
+  // Check for unusual character patterns with SQL-aware logic
+  let hasUnusualChars = false;
+  
+  if (appearsToBeSQLQuery(input)) {
+    // Use SQL-safe character pattern for SQL-like queries
+    const sqlSafePattern = buildSQLSafeCharacterPattern();
+    hasUnusualChars = sqlSafePattern.test(input);
+  } else {
+    // Use original restrictive pattern for non-SQL content
+    hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=]/g.test(input);
+  }
+  
   if (hasUnusualChars) {
     detectedPatterns.push('unusual_characters');
     riskLevel = riskLevel === 'low' ? 'medium' : riskLevel;
