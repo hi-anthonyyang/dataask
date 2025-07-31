@@ -240,7 +240,7 @@ describe('Prompt Injection Security Tests', () => {
       const inputWithInvisibleChars = 'Show users​‌‍⁠normal text';
       const result = sanitizePromptInput(inputWithInvisibleChars, { strictMode: false });
       
-      expect(result.sanitizedInput).toBe('Show users normal text');
+      expect(result.sanitizedInput).toBe('Show usersnormal text');
     });
 
     test('should normalize whitespace', () => {

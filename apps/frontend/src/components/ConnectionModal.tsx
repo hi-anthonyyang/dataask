@@ -104,7 +104,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
 
   if (!isOpen) return null
 
-  const handleInputChange = (field: keyof ConnectionFormData, value: string | number) => {
+  const handleInputChange = (field: keyof ConnectionFormData, value: string | number | boolean | undefined) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     setTestResult(null) // Clear test result when form changes
   }
