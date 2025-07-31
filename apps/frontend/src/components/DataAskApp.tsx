@@ -308,6 +308,7 @@ const DataAskApp: React.FC = () => {
               connectionType={getSelectedConnectionType()}
               onQueryUpdate={setCurrentQuery}
               onQueryExecute={setQueryResults}
+              onTableClose={() => setSelectedTable(null)}
             />
           </div>
         </div>
