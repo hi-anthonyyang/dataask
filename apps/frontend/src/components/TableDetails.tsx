@@ -152,7 +152,7 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
           <Table className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">No Table Selected</h3>
           <p className="text-sm text-muted-foreground">
-            Select a table from the database explorer to view its details, structure, and data preview.
+            Select a table from the database to view its details, structure, and data preview.
           </p>
         </div>
       </div>
@@ -224,7 +224,7 @@ export default function TableDetails({ selectedConnection, selectedTable, onClos
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto scrollbar-thin">
         {error && (
           <div className="p-4 border-b border-border bg-destructive/10 text-destructive text-sm">
             {error}

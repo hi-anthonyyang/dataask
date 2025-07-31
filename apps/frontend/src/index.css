@@ -62,7 +62,7 @@
 /* Custom scrollbars */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground)) hsl(var(--muted));
+  scrollbar-color: #94a3b8 #f1f5f9;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -71,17 +71,17 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
+  background: #f1f5f9;
   border-radius: 3px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground));
+  background: #94a3b8;
   border-radius: 3px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--foreground));
+  background: #64748b;
 }
 
 /* Monaco editor integration */

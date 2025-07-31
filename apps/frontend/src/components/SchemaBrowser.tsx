@@ -142,7 +142,7 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-sm text-foreground">Database Explorer</h2>
+          <h2 className="font-semibold text-foreground">Database</h2>
           <div className="flex items-center gap-1">
             <button 
               onClick={() => setShowConnectionModal(true)}
