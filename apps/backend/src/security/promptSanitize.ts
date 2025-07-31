@@ -210,8 +210,8 @@ export function detectPromptInjection(input: string): {
     riskLevel = riskLevel === 'low' ? 'medium' : 'high';
   }
   
-  // Check for unusual character patterns
-  const hasUnusualChars = /[^\w\s.,!?;:()\-"']/g.test(input);
+  // Check for unusual character patterns (allowing database schema characters like -> and ?)
+  const hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=]/g.test(input);
   if (hasUnusualChars) {
     detectedPatterns.push('unusual_characters');
     riskLevel = riskLevel === 'low' ? 'medium' : riskLevel;
