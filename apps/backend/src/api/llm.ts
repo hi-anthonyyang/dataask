@@ -35,6 +35,14 @@ const initializeOpenAI = () => {
 // Initialize on module load
 openai = initializeOpenAI();
 
+// Helper function to ensure OpenAI is available
+const ensureOpenAI = (): OpenAI => {
+  if (!openai) {
+    throw new Error('OpenAI client not initialized');
+  }
+  return openai;
+};
+
 // Optimized model configuration for cost reduction
 const MODEL_CONFIG = {
   classification: 'gpt-4o-mini',     // Simple JSON output - 95% cheaper
@@ -197,7 +205,11 @@ If EXPLORATORY, generate 3 practical data analysis questions based on the provid
 RESPONSE FORMAT:
 {"type": "specific|exploratory", "suggestions": ["meaningful question 1", "meaningful question 2", "meaningful question 3"]}`;
 
-    const completion = await openai.chat.completions.create({
+    if (!openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const completion = await ensureOpenAI().chat.completions.create({
       model: MODEL_CONFIG.classification,
       messages: [
         { role: 'system', content: classificationPrompt },
@@ -367,7 +379,7 @@ WINDOW FUNCTIONS:
     // Use safe prompt construction to prevent injection
     const safePrompt = createSafePrompt('nlToSql', sanitizedQuery, schemaHash, request.connectionType);
 
-    const completion = await openai.chat.completions.create({
+    const completion = await ensureOpenAI().chat.completions.create({
       model: MODEL_CONFIG.nlToSql,
       messages: [
         { role: 'system', content: safePrompt.system },
@@ -527,7 +539,7 @@ router.post('/analyze', async (req, res) => {
     // Use safe prompt construction
     const safePrompt = createSafePrompt('analysis', sanitizedQuery, dataSanitization.sanitizedInput);
 
-    const completion = await openai.chat.completions.create({
+    const completion = await ensureOpenAI().chat.completions.create({
       model: MODEL_CONFIG.analysis,
       messages: [
         { role: 'system', content: safePrompt.system },
@@ -631,7 +643,7 @@ router.post('/summarize', async (req, res) => {
     // Use safe prompt construction
     const safePrompt = createSafePrompt('summarization', sanitizedQuery);
 
-    const completion = await openai.chat.completions.create({
+    const completion = await ensureOpenAI().chat.completions.create({
       model: MODEL_CONFIG.summarization,
       messages: [
         { role: 'system', content: safePrompt.system },
