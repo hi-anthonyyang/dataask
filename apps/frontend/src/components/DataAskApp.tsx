@@ -4,7 +4,7 @@ import AnalysisPanel from './AnalysisPanel'
 import ChatPanel from './ChatPanel'
 import TableDetails from './TableDetails'
 import ConnectionModal from './ConnectionModal'
-import { Database, ChevronLeft, ChevronRight, LogOut, User } from 'lucide-react'
+import { Database, ChevronRight, LogOut, User, Plus } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
@@ -189,7 +189,51 @@ const DataAskApp: React.FC = () => {
           }`}
           style={{ width: isLeftPanelMinimized ? '48px' : `${leftPanelWidth}px` }}
         >
-          {!isLeftPanelMinimized && (
+          {isLeftPanelMinimized ? (
+            <div className="flex flex-col h-full">
+              {/* Minimized Header with Expand Button */}
+              <div className="p-2 border-b border-gray-200 flex justify-center">
+                <button
+                  onClick={toggleLeftPanel}
+                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Expand panel"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+              
+              {/* Database Icons */}
+              <div className="flex-1 overflow-y-auto py-2">
+                {connections.map((connection) => (
+                  <button
+                    key={connection.id}
+                    onClick={() => handleConnectionSelect(
+                      selectedConnection === connection.id ? null : connection.id
+                    )}
+                    className={`w-full p-2 mb-1 flex justify-center hover:bg-gray-100 transition-colors ${
+                      selectedConnection === connection.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                    }`}
+                    title={connection.name}
+                  >
+                    <Database className={`w-5 h-5 ${
+                      selectedConnection === connection.id ? 'text-blue-600' : 'text-gray-600'
+                    }`} />
+                  </button>
+                ))}
+              </div>
+              
+              {/* Add Connection Button */}
+              <div className="p-2 border-t border-gray-200 flex justify-center">
+                <button
+                  onClick={() => setShowConnectionModal(true)}
+                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Add database connection"
+                >
+                  <Plus className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+            </div>
+          ) : (
             <div className="flex-1 overflow-y-auto">
               <SchemaBrowser
                 connections={connections}
