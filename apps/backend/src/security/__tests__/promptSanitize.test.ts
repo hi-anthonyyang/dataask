@@ -129,6 +129,15 @@ describe('Prompt Injection Security Tests', () => {
       expect(result.detected).toBe(true);
       expect(result.patterns).toContain('unusual_characters');
     });
+
+    test('should allow SQL backticks and percent signs as valid characters', () => {
+      const sqlInput = "SELECT DATE_FORMAT(`month`, '%Y-%m') AS sales_month, SUM(total_quantity) AS total_sales FROM monthly_sales GROUP BY sales_month;";
+      const result = detectPromptInjection(sqlInput);
+      
+      expect(result.patterns).not.toContain('unusual_characters');
+      expect(result.detected).toBe(false);
+      expect(result.riskLevel).toBe('low');
+    });
   });
 
   describe('sanitizePromptInput', () => {

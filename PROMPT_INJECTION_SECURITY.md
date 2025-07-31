@@ -12,7 +12,7 @@ This document describes the comprehensive prompt injection protection system imp
 The first line of defense sanitizes all user input before it reaches the LLM:
 
 - **Pattern Detection**: Identifies known injection patterns using regex-based detection
-- **Content Filtering**: Removes malicious characters and instruction markers
+- **Content Filtering**: Removes malicious characters and instruction markers while allowing legitimate SQL syntax (backticks `, percent signs % for date formatting)
 - **Length Validation**: Enforces input size limits to prevent overflow attacks
 - **Risk Assessment**: Categorizes inputs as low, medium, or high risk
 

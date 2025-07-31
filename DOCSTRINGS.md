@@ -67,6 +67,19 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * descriptive error messages when validation fails.
      */
 
+### `apps/backend/src/security/promptSanitize.ts`
+
+    /**
+     * Prompt injection protection for LLM interactions.
+     *
+     * Provides functions to detect and prevent prompt injection attacks in user
+     * input before it reaches language models. Includes pattern detection for
+     * various injection techniques while allowing legitimate SQL syntax like
+     * backticks (`) and percent signs (%) used in database queries and date
+     * formatting. Categorizes inputs by risk level and provides sanitization
+     * with configurable strictness modes.
+     */
+
 ### `apps/backend/src/utils/logger.ts`
 
     /**
