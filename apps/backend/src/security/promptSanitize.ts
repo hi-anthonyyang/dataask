@@ -142,6 +142,22 @@ function appearsToBeSQLQuery(input: string): boolean {
   return hasStrongSqlIndicator || (hasSqlSyntax && input.length > 20); // Longer queries with SQL syntax
 }
 
+/**
+ * Check if input appears to contain structured data (JSON-like)
+ * Used to allow JSON characters in data analysis contexts
+ */
+function appearsToBeStructuredData(input: string): boolean {
+  // Look for patterns that indicate structured data like query results
+  const dataPatterns = [
+    /Results:\s*\d+\s+rows?,\s*\d+\s+columns?/i, // "Results: X rows, Y columns"
+    /Columns?:\s*[a-zA-Z_][a-zA-Z0-9_,\s]*\./i,  // "Columns: col1, col2, col3."
+    /Sample\s+values?:\s*\{/i,                     // "Sample values: {"
+    /\{\s*"[^"]+"\s*:\s*\[/                       // JSON object with array values
+  ];
+  
+  return dataPatterns.some(pattern => pattern.test(input));
+}
+
 // Database-specific rules for safe SQL generation
 const getDatabaseSpecificRules = (connectionType: string) => {
   switch (connectionType.toLowerCase()) {
@@ -274,15 +290,18 @@ export function detectPromptInjection(input: string): {
     riskLevel = riskLevel === 'low' ? 'medium' : 'high';
   }
   
-  // Check for unusual character patterns with SQL-aware logic
+  // Check for unusual character patterns with context-aware logic
   let hasUnusualChars = false;
   
   if (appearsToBeSQLQuery(input)) {
     // Use SQL-safe character pattern for SQL-like queries
     const sqlSafePattern = buildSQLSafeCharacterPattern();
     hasUnusualChars = sqlSafePattern.test(input);
+  } else if (appearsToBeStructuredData(input)) {
+    // Allow JSON characters for structured data contexts
+    hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=\[\]{}]/g.test(input);
   } else {
-    // Use original restrictive pattern for non-SQL content
+    // Use original restrictive pattern for general content
     hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=]/g.test(input);
   }
   

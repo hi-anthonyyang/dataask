@@ -130,6 +130,19 @@ describe('Prompt Injection Security Tests', () => {
       expect(result.patterns).toContain('unusual_characters');
     });
 
+    test('should allow JSON characters in structured data contexts', () => {
+      const structuredDataInputs = [
+        'Results: 8 rows, 2 columns. Columns: sales_month, total_sales. Sample values: {"sales_month":["2024-01-01"]}',
+        'Columns: id, name, value. Sample values: {"id":[1,2,3],"name":["Alice","Bob"],"value":[100,200]}',
+        'Data summary: {"users": [{"id": 1, "name": "John"}], "count": 1}'
+      ];
+      
+      structuredDataInputs.forEach(input => {
+        const result = detectPromptInjection(input);
+        expect(result.patterns).not.toContain('unusual_characters');
+      });
+    });
+
     test('should allow SQL backticks and percent signs as valid characters', () => {
       const sqlInput = "SELECT DATE_FORMAT(`month`, '%Y-%m') AS sales_month, SUM(total_quantity) AS total_sales FROM monthly_sales GROUP BY sales_month;";
       const result = detectPromptInjection(sqlInput);
@@ -199,6 +212,17 @@ describe('Prompt Injection Security Tests', () => {
       
       expect(result.isValid).toBe(true);
       expect(result.sanitizedInput).toBeTruthy();
+    });
+
+    test('should allow structured data with JSON characters', () => {
+      const structuredDataInput = 'Results: 8 rows, 2 columns. Columns: sales_month, total_sales. Sample values: {"sales_month":["2024-01-01","2024-02-01","2024-03-01"],"total_sales":["7","4","5"]}';
+      const result = sanitizePromptInput(structuredDataInput, { strictMode: false });
+      
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.riskLevel).toBe('low');
+      expect(result.sanitizedInput).toContain('{"sales_month"');
+      expect(result.sanitizedInput).toContain('["2024-01-01"');
     });
 
     test('should enforce length limits', () => {
