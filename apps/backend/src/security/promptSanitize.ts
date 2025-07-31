@@ -142,6 +142,8 @@ function appearsToBeSQLQuery(input: string): boolean {
   return hasStrongSqlIndicator || (hasSqlSyntax && input.length > 20); // Longer queries with SQL syntax
 }
 
+
+
 // Database-specific rules for safe SQL generation
 const getDatabaseSpecificRules = (connectionType: string) => {
   switch (connectionType.toLowerCase()) {
@@ -274,20 +276,13 @@ export function detectPromptInjection(input: string): {
     riskLevel = riskLevel === 'low' ? 'medium' : 'high';
   }
   
-  // Check for unusual character patterns with SQL-aware logic
-  let hasUnusualChars = false;
+  // Check for truly dangerous character patterns only
+  // Allow most common special characters to improve user experience
+  // Focus on characters that are specifically dangerous in prompt injection contexts
+  const dangerousChars = /[\u200B-\u200D\uFEFF\u2060-\u2069]/g; // Zero-width and invisible characters only
   
-  if (appearsToBeSQLQuery(input)) {
-    // Use SQL-safe character pattern for SQL-like queries
-    const sqlSafePattern = buildSQLSafeCharacterPattern();
-    hasUnusualChars = sqlSafePattern.test(input);
-  } else {
-    // Use original restrictive pattern for non-SQL content
-    hasUnusualChars = /[^\w\s.,!?;:()\-"'<>=]/g.test(input);
-  }
-  
-  if (hasUnusualChars) {
-    detectedPatterns.push('unusual_characters');
+  if (dangerousChars.test(input)) {
+    detectedPatterns.push('dangerous_invisible_characters');
     riskLevel = riskLevel === 'low' ? 'medium' : riskLevel;
   }
   

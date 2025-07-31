@@ -122,19 +122,36 @@ describe('Prompt Injection Security Tests', () => {
       expect(result.patterns).toContain('high_suspicious_keyword_density');
     });
 
-    test('should detect unusual characters', () => {
-      const unusualInput = 'Show users​‌‍⁠⁡⁢⁣⁤'; // Contains zero-width characters
-      const result = detectPromptInjection(unusualInput);
+    test('should detect dangerous invisible characters', () => {
+      const invisibleInput = 'Show users​‌‍⁠⁡⁢⁣⁤'; // Contains zero-width characters
+      const result = detectPromptInjection(invisibleInput);
       
       expect(result.detected).toBe(true);
-      expect(result.patterns).toContain('unusual_characters');
+      expect(result.patterns).toContain('dangerous_invisible_characters');
+    });
+
+    test('should allow common special characters for better user experience', () => {
+      const commonSpecialCharInputs = [
+        'Results: 8 rows, 2 columns. Sample values: {"sales_month":["2024-01-01"]}',
+        'Math expression: (x + y) * z = 100 & result > 50',
+        'Email: user@domain.com with symbols: #$%^&*()[]{}|\\',
+        'Code snippet: if (x > 5) { return x * 2; }',
+        'URL: https://api.example.com/data?param=value&other=123',
+        'Regex pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/',
+        'Currency: $1,234.56 €789.00 ¥12,345 £567.89'
+      ];
+      
+      commonSpecialCharInputs.forEach(input => {
+        const result = detectPromptInjection(input);
+        expect(result.patterns).not.toContain('unusual_characters');
+        expect(result.patterns).not.toContain('dangerous_invisible_characters');
+      });
     });
 
     test('should allow SQL backticks and percent signs as valid characters', () => {
       const sqlInput = "SELECT DATE_FORMAT(`month`, '%Y-%m') AS sales_month, SUM(total_quantity) AS total_sales FROM monthly_sales GROUP BY sales_month;";
       const result = detectPromptInjection(sqlInput);
       
-      expect(result.patterns).not.toContain('unusual_characters');
       expect(result.detected).toBe(false);
       expect(result.riskLevel).toBe('low');
     });
@@ -160,25 +177,24 @@ describe('Prompt Injection Security Tests', () => {
 
       testCases.forEach((sqlQuery, index) => {
         const result = detectPromptInjection(sqlQuery);
-        expect(result.patterns).not.toContain('unusual_characters');
         expect(result.riskLevel).toBe('low');
       });
     });
 
-    test('should still detect actual unusual characters in non-SQL contexts', () => {
-      const nonSqlWithUnusual = 'Show users​‌‍⁠⁡⁢⁣⁤ with special unicode'; // Contains zero-width characters
-      const result = detectPromptInjection(nonSqlWithUnusual);
+    test('should still detect dangerous invisible characters', () => {
+      const inputWithInvisible = 'Show users​‌‍⁠⁡⁢⁣⁤ with special unicode'; // Contains zero-width characters
+      const result = detectPromptInjection(inputWithInvisible);
       
       expect(result.detected).toBe(true);
-      expect(result.patterns).toContain('unusual_characters');
+      expect(result.patterns).toContain('dangerous_invisible_characters');
     });
 
-    test('should apply restrictive rules to non-SQL content', () => {
-      const nonSqlInput = 'Hello $world @user #hashtag [brackets]';
-      const result = detectPromptInjection(nonSqlInput);
+    test('should allow common special characters in all contexts', () => {
+      const commonSpecialInput = 'Hello $world @user #hashtag [brackets] {json: "value"}';
+      const result = detectPromptInjection(commonSpecialInput);
       
-      expect(result.patterns).toContain('unusual_characters');
-      expect(result.riskLevel).not.toBe('low');
+      expect(result.patterns).not.toContain('unusual_characters');
+      expect(result.patterns).not.toContain('dangerous_invisible_characters');
     });
   });
 
@@ -199,6 +215,17 @@ describe('Prompt Injection Security Tests', () => {
       
       expect(result.isValid).toBe(true);
       expect(result.sanitizedInput).toBeTruthy();
+    });
+
+    test('should allow common special characters including JSON', () => {
+      const specialCharInput = 'Results: 8 rows, 2 columns. Columns: sales_month, total_sales. Sample values: {"sales_month":["2024-01-01","2024-02-01","2024-03-01"],"total_sales":["7","4","5"]}';
+      const result = sanitizePromptInput(specialCharInput, { strictMode: false });
+      
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+      expect(result.riskLevel).toBe('low');
+      expect(result.sanitizedInput).toContain('{"sales_month"');
+      expect(result.sanitizedInput).toContain('["2024-01-01"');
     });
 
     test('should enforce length limits', () => {
