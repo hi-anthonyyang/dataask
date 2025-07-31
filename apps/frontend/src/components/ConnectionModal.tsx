@@ -1,19 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, Database, TestTube, Loader2 } from 'lucide-react'
-
-interface Connection {
-  id: string
-  name: string
-  type: string
-  config?: {
-    host?: string
-    port?: number
-    database?: string
-    username?: string
-    password?: string
-    filename?: string
-  }
-}
+import { Connection } from '../types'
 
 interface ConnectionModalProps {
   isOpen: boolean
