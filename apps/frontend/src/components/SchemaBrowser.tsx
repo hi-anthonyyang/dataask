@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit, User, LogOut } from 'lucide-react'
 
 interface Connection {
   id: string
@@ -29,9 +29,11 @@ interface SchemaBrowserProps {
   onEditConnection?: (connection: Connection) => void
   onTogglePanel?: () => void
   isPanelMinimized?: boolean
+  userEmail?: string
+  onLogout?: () => void
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange, onEditConnection, onTogglePanel, isPanelMinimized }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange, onEditConnection, onTogglePanel, isPanelMinimized, userEmail, onLogout }: SchemaBrowserProps) {
   const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
@@ -292,7 +294,24 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
         )}
       </div>
 
-
+      {/* User Profile Section */}
+      {userEmail && onLogout && (
+        <div className="p-4 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span className="truncate">{userEmail}</span>
+            </div>
+            <button
+              onClick={onLogout}
+              className="p-1.5 hover:bg-muted rounded"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 
