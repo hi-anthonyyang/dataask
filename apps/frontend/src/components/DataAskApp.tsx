@@ -210,7 +210,7 @@ const DataAskApp: React.FC = () => {
               </div>
               
               {/* Database Icons */}
-              <div className="flex-1 overflow-y-auto py-2">
+              <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
                 {connections.map((connection) => (
                   <button
                     key={connection.id}
@@ -247,7 +247,7 @@ const DataAskApp: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto scrollbar-thin">
               <SchemaBrowser
                 connections={connections}
                 selectedConnection={selectedConnection}
@@ -300,7 +300,7 @@ const DataAskApp: React.FC = () => {
           className="bg-white border-l border-gray-200 flex flex-col flex-shrink-0"
           style={{ width: `${rightPanelWidth}px` }}
         >
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto scrollbar-thin">
             <ChatPanel
               selectedConnection={selectedConnection}
               connectionType={getSelectedConnectionType()}

@@ -107,7 +107,7 @@ export default function MigrationModal({ isOpen, onClose, onComplete }: Migratio
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
+        <div className="p-6 overflow-y-auto scrollbar-thin max-h-[60vh]">
           {step === 'select' && (
             <>
               {localConnections.length === 0 ? (

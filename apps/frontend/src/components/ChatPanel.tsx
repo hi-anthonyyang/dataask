@@ -728,7 +728,7 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
                   ref={inputRef}
                   contentEditable
                   onKeyDown={handleKeyDown}
-                  className="w-full min-h-[36px] max-h-[120px] px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs overflow-y-auto resize-none"
+                  className="w-full min-h-[36px] max-h-[120px] px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 text-xs overflow-y-auto scrollbar-thin resize-none"
                   style={{ 
                     wordWrap: 'break-word',
                     whiteSpace: 'pre-wrap'
