@@ -13,10 +13,27 @@ import {
 
 const router = Router();
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI client with better error handling
+let openai: OpenAI | null = null;
+
+const initializeOpenAI = () => {
+  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'sk-placeholder-key-replace-with-real-key') {
+    logger.warn('OpenAI API key not configured or using placeholder key');
+    return null;
+  }
+  
+  try {
+    return new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  } catch (error) {
+    logger.error('Failed to initialize OpenAI client:', error);
+    return null;
+  }
+};
+
+// Initialize on module load
+openai = initializeOpenAI();
 
 // Optimized model configuration for cost reduction
 const MODEL_CONFIG = {
@@ -237,9 +254,10 @@ router.post('/nl-to-sql', async (req, res) => {
   try {
     const request = NLQuerySchema.parse(req.body);
     
-    if (!process.env.OPENAI_API_KEY) {
+    if (!openai) {
       return res.status(500).json({ 
-        error: 'OpenAI API key not configured' 
+        error: 'OpenAI API key not configured or invalid. Please set a valid OPENAI_API_KEY in your environment variables.',
+        details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate SQL queries.'
       });
     }
 
@@ -439,9 +457,10 @@ router.post('/analyze', async (req, res) => {
   try {
     const request = AnalysisSchema.parse(req.body);
     
-    if (!process.env.OPENAI_API_KEY) {
+    if (!openai) {
       return res.status(500).json({ 
-        error: 'OpenAI API key not configured' 
+        error: 'OpenAI API key not configured or invalid. Please set a valid OPENAI_API_KEY in your environment variables.',
+        details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate analysis.'
       });
     }
 
@@ -571,9 +590,10 @@ router.post('/summarize', async (req, res) => {
   try {
     const request = SummarizationSchema.parse(req.body);
     
-    if (!process.env.OPENAI_API_KEY) {
+    if (!openai) {
       return res.status(500).json({ 
-        error: 'OpenAI API key not configured' 
+        error: 'OpenAI API key not configured or invalid. Please set a valid OPENAI_API_KEY in your environment variables.',
+        details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate summaries.'
       });
     }
 
@@ -691,12 +711,15 @@ router.post('/summarize', async (req, res) => {
 // Health check for LLM service
 router.get('/health', async (req, res) => {
   try {
-    const hasApiKey = !!process.env.OPENAI_API_KEY;
+    const hasApiKey = !!openai;
+    const isPlaceholder = process.env.OPENAI_API_KEY === 'sk-placeholder-key-replace-with-real-key';
     
     return res.json({
-      status: hasApiKey ? 'OK' : 'No API key configured',
+      status: hasApiKey ? 'OK' : isPlaceholder ? 'Placeholder API key detected' : 'No API key configured',
       hasApiKey,
-      model: 'gpt-4'
+      isPlaceholder,
+      model: 'gpt-4',
+      message: hasApiKey ? 'OpenAI API is ready' : 'Please configure a valid OPENAI_API_KEY environment variable'
     });
   } catch (error) {
     logger.error('LLM health check failed:', error);
