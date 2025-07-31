@@ -1,4 +1,4 @@
-import React from 'react'
+// No React import needed with automatic JSX runtime
 import { Connection } from '../types'
 
 interface ConnectionStatusProps {

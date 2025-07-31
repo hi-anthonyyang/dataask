@@ -85,6 +85,14 @@ npm run dev:electron   # Desktop app
 
 # Build for production
 npm run build
+
+# Run tests
+npm run test --workspaces  # Run all tests
+cd apps/frontend && npm test  # Frontend tests with Vitest
+cd apps/backend && npm test   # Backend tests with Jest
+
+# Code quality
+cd apps/frontend && npm run lint  # ESLint for frontend
 ```
 
 ## Database Connection Features

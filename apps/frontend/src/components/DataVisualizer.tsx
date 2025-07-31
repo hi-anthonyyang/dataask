@@ -559,7 +559,7 @@ const CHART_COLORS = [
 
 export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(new Set())
-  const [_useLogScale, _setUseLogScale] = useState(false)
+  // const [_useLogScale, _setUseLogScale] = useState(false) // TODO: Implement log scale feature
   const chartRef = useRef<HTMLDivElement>(null)
   const [chartCopied, setChartCopied] = useState(false)
 
