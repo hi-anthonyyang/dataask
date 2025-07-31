@@ -19,6 +19,24 @@ interface ConnectionFormData {
   username?: string
   password?: string
   filename?: string
+  // SSL Configuration
+  sslEnabled?: boolean
+  sslMode?: 'require' | 'prefer' | 'allow' | 'disable'
+  sslCa?: string
+  sslCert?: string
+  sslKey?: string
+  sslRejectUnauthorized?: boolean
+  // Connection Timeouts
+  connectionTimeout?: number
+  queryTimeout?: number
+  // SSH Tunnel Configuration
+  sshEnabled?: boolean
+  sshHost?: string
+  sshPort?: number
+  sshUsername?: string
+  sshPassword?: string
+  sshPrivateKey?: string
+  sshPassphrase?: string
 }
 
 export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, editingConnection, onConnectionUpdated }: ConnectionModalProps) {
@@ -34,6 +52,9 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [isCreatingConnection, setIsCreatingConnection] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [showSSLConfig, setShowSSLConfig] = useState(false)
+  const [showSSHConfig, setShowSSHConfig] = useState(false)
+  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false)
 
   // Initialize form data when editing
   useEffect(() => {
@@ -46,7 +67,25 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
         database: editingConnection.config?.database || 'dataask_dev',
         username: editingConnection.config?.username || 'dataask_user',
         password: editingConnection.config?.password || 'dataask_dev_password',
-        filename: editingConnection.config?.filename || '/path/to/database.sqlite'
+        filename: editingConnection.config?.filename || '/path/to/database.sqlite',
+        // SSL Configuration
+        sslEnabled: editingConnection.config?.sslEnabled,
+        sslMode: editingConnection.config?.sslMode,
+        sslCa: editingConnection.config?.sslCa,
+        sslCert: editingConnection.config?.sslCert,
+        sslKey: editingConnection.config?.sslKey,
+        sslRejectUnauthorized: editingConnection.config?.sslRejectUnauthorized,
+        // Connection Timeouts
+        connectionTimeout: editingConnection.config?.connectionTimeout,
+        queryTimeout: editingConnection.config?.queryTimeout,
+        // SSH Tunnel Configuration
+        sshEnabled: editingConnection.config?.sshEnabled,
+        sshHost: editingConnection.config?.sshHost,
+        sshPort: editingConnection.config?.sshPort,
+        sshUsername: editingConnection.config?.sshUsername,
+        sshPassword: editingConnection.config?.sshPassword,
+        sshPrivateKey: editingConnection.config?.sshPrivateKey,
+        sshPassphrase: editingConnection.config?.sshPassphrase
       })
     } else {
       // Reset to defaults for new connection
@@ -97,6 +136,52 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
     setTestResult(null)
   }
 
+  const buildConnectionConfig = () => {
+    const config: any = {}
+    
+    // Basic database fields
+    if (formData.type === 'postgresql' || formData.type === 'mysql') {
+      config.host = formData.host
+      config.port = formData.port
+      config.database = formData.database
+      config.username = formData.username
+      config.password = formData.password
+    } else {
+      config.filename = formData.filename
+    }
+
+    // SSL Configuration
+    if (formData.sslEnabled) {
+      config.sslEnabled = formData.sslEnabled
+      config.sslMode = formData.sslMode
+      config.sslCa = formData.sslCa
+      config.sslCert = formData.sslCert
+      config.sslKey = formData.sslKey
+      config.sslRejectUnauthorized = formData.sslRejectUnauthorized
+    }
+
+    // Connection Timeouts
+    if (formData.connectionTimeout) {
+      config.connectionTimeout = formData.connectionTimeout
+    }
+    if (formData.queryTimeout) {
+      config.queryTimeout = formData.queryTimeout
+    }
+
+    // SSH Tunnel Configuration
+    if (formData.sshEnabled) {
+      config.sshEnabled = formData.sshEnabled
+      config.sshHost = formData.sshHost
+      config.sshPort = formData.sshPort
+      config.sshUsername = formData.sshUsername
+      config.sshPassword = formData.sshPassword
+      config.sshPrivateKey = formData.sshPrivateKey
+      config.sshPassphrase = formData.sshPassphrase
+    }
+
+    return config
+  }
+
   const testConnection = async () => {
     setIsTestingConnection(true)
     setTestResult(null)
@@ -108,17 +193,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
         body: JSON.stringify({
           type: formData.type,
           name: formData.name,
-          config: {
-            ...(formData.type === 'postgresql' || formData.type === 'mysql' ? {
-              host: formData.host,
-              port: formData.port,
-              database: formData.database,
-              username: formData.username,
-              password: formData.password
-            } : {
-              filename: formData.filename
-            })
-          }
+          config: buildConnectionConfig()
         })
       })
 
@@ -147,17 +222,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
         body: JSON.stringify({
           type: formData.type,
           name: formData.name,
-          config: {
-            ...(formData.type === 'postgresql' || formData.type === 'mysql' ? {
-              host: formData.host,
-              port: formData.port,
-              database: formData.database,
-              username: formData.username,
-              password: formData.password
-            } : {
-              filename: formData.filename
-            })
-          }
+          config: buildConnectionConfig()
         })
       })
 
@@ -193,17 +258,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
         body: JSON.stringify({
           type: formData.type,
           name: formData.name,
-          config: {
-            ...(formData.type === 'postgresql' || formData.type === 'mysql' ? {
-              host: formData.host,
-              port: formData.port,
-              database: formData.database,
-              username: formData.username,
-              password: formData.password
-            } : {
-              filename: formData.filename
-            })
-          }
+          config: buildConnectionConfig()
         })
       })
 
@@ -368,6 +423,231 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
               />
             </div>
           )}
+
+          {/* SSH Tunnel Configuration */}
+          {(formData.type === 'postgresql' || formData.type === 'mysql') && (
+            <div className="border border-border rounded-md">
+              <button
+                type="button"
+                onClick={() => setShowSSHConfig(!showSSHConfig)}
+                className="w-full flex items-center justify-between p-3 text-left hover:bg-muted rounded-t-md"
+              >
+                <span className="font-medium">SSH Tunnel</span>
+                <span className={`transform transition-transform ${showSSHConfig ? 'rotate-180' : ''}`}>▼</span>
+              </button>
+              {showSSHConfig && (
+                <div className="p-3 border-t border-border space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="sshEnabled"
+                      checked={formData.sshEnabled || false}
+                      onChange={(e) => handleInputChange('sshEnabled', e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="sshEnabled" className="text-sm font-medium">Enable SSH Tunnel</label>
+                  </div>
+                  {formData.sshEnabled && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">SSH Host</label>
+                          <input
+                            type="text"
+                            value={formData.sshHost || ''}
+                            onChange={(e) => handleInputChange('sshHost', e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="ssh.example.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">SSH Port</label>
+                          <input
+                            type="number"
+                            value={formData.sshPort || 22}
+                            onChange={(e) => handleInputChange('sshPort', parseInt(e.target.value))}
+                            className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">SSH Username</label>
+                        <input
+                          type="text"
+                          value={formData.sshUsername || ''}
+                          onChange={(e) => handleInputChange('sshUsername', e.target.value)}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">SSH Password</label>
+                          <input
+                            type="password"
+                            value={formData.sshPassword || ''}
+                            onChange={(e) => handleInputChange('sshPassword', e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="Leave empty if using private key"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Private Key Path</label>
+                          <input
+                            type="text"
+                            value={formData.sshPrivateKey || ''}
+                            onChange={(e) => handleInputChange('sshPrivateKey', e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="~/.ssh/id_rsa"
+                          />
+                        </div>
+                      </div>
+                      {formData.sshPrivateKey && (
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Private Key Passphrase</label>
+                          <input
+                            type="password"
+                            value={formData.sshPassphrase || ''}
+                            onChange={(e) => handleInputChange('sshPassphrase', e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="Leave empty if key has no passphrase"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SSL Configuration */}
+          {(formData.type === 'postgresql' || formData.type === 'mysql') && (
+            <div className="border border-border rounded-md">
+              <button
+                type="button"
+                onClick={() => setShowSSLConfig(!showSSLConfig)}
+                className="w-full flex items-center justify-between p-3 text-left hover:bg-muted rounded-t-md"
+              >
+                <span className="font-medium">SSL Configuration</span>
+                <span className={`transform transition-transform ${showSSLConfig ? 'rotate-180' : ''}`}>▼</span>
+              </button>
+              {showSSLConfig && (
+                <div className="p-3 border-t border-border space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="sslEnabledCheckbox"
+                      checked={formData.sslEnabled || false}
+                      onChange={(e) => handleInputChange('sslEnabled', e.target.checked)}
+                      className="rounded"
+                    />
+                    <label htmlFor="sslEnabledCheckbox" className="text-sm font-medium">Enable SSL</label>
+                  </div>
+                  {formData.sslEnabled && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">SSL Mode</label>
+                        <select
+                          value={formData.sslMode || 'prefer'}
+                          onChange={(e) => handleInputChange('sslMode', e.target.value)}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        >
+                          <option value="disable">Disable</option>
+                          <option value="allow">Allow</option>
+                          <option value="prefer">Prefer</option>
+                          <option value="require">Require</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">CA Certificate Path</label>
+                        <input
+                          type="text"
+                          value={formData.sslCa || ''}
+                          onChange={(e) => handleInputChange('sslCa', e.target.value)}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="/path/to/ca-certificate.crt"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Client Certificate</label>
+                          <input
+                            type="text"
+                            value={formData.sslCert || ''}
+                            onChange={(e) => handleInputChange('sslCert', e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="/path/to/client.crt"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Client Key</label>
+                          <input
+                            type="text"
+                            value={formData.sslKey || ''}
+                            onChange={(e) => handleInputChange('sslKey', e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                            placeholder="/path/to/client.key"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="sslRejectUnauthorized"
+                          checked={formData.sslRejectUnauthorized !== false}
+                          onChange={(e) => handleInputChange('sslRejectUnauthorized', e.target.checked)}
+                          className="rounded"
+                        />
+                        <label htmlFor="sslRejectUnauthorized" className="text-sm font-medium">Reject Unauthorized Certificates</label>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Advanced Settings */}
+          <div className="border border-border rounded-md">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
+              className="w-full flex items-center justify-between p-3 text-left hover:bg-muted rounded-t-md"
+            >
+              <span className="font-medium">Advanced Settings</span>
+              <span className={`transform transition-transform ${showAdvancedConfig ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+            {showAdvancedConfig && (
+              <div className="p-3 border-t border-border space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Connection Timeout (ms)</label>
+                    <input
+                      type="number"
+                      value={formData.connectionTimeout || ''}
+                      onChange={(e) => handleInputChange('connectionTimeout', parseInt(e.target.value) || undefined)}
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="10000"
+                      min="1000"
+                      max="300000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Query Timeout (ms)</label>
+                    <input
+                      type="number"
+                      value={formData.queryTimeout || ''}
+                      onChange={(e) => handleInputChange('queryTimeout', parseInt(e.target.value) || undefined)}
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="30000"
+                      min="1000"
+                      max="3600000"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Test Result */}
           {testResult && (

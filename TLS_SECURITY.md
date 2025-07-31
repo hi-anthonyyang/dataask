@@ -87,3 +87,19 @@ For development with SSL:
 DB_SSL_ENABLED=true
 DB_SSL_REJECT_UNAUTHORIZED=false  # Allow self-signed certs
 ```
+
+## Per-Connection SSL Configuration
+
+In addition to global SSL settings, DataAsk now supports per-connection SSL configuration through the connection modal:
+
+### SSL Configuration Options
+- **SSL Mode**: Choose from disable, allow, prefer, or require
+- **Custom Certificates**: Specify CA certificate, client certificate, and private key paths per connection
+- **Certificate Validation**: Control whether to reject unauthorized certificates per connection
+
+### Benefits
+- **Flexibility**: Different SSL settings for different database servers
+- **Security**: Granular control over SSL behavior per connection
+- **Compatibility**: Support for various SSL certificate setups across different environments
+
+This allows you to have some connections with strict SSL requirements while others use more relaxed settings, all configured through the intuitive connection modal interface.

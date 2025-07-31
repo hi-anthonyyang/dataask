@@ -160,11 +160,16 @@ The following docstrings describe the purpose of each module in the DataAsk repo
     /**
      * Modal dialog used to add new database connections.
      *
-     * Presents a form for connection parameters (name, type, host, port,
-     * database, username, password or filename), tests connectivity by calling
-     * the backend and, on success, creates a persistent connection. Provides
-     * feedback for connection tests and gracefully handles errors. Supports
-     * multiple database types with conditional fields.
+     * Presents a form for connection parameters including:
+     * - Basic settings: name, type, host, port, database, username, password, or filename
+     * - SSH Tunnel configuration: host, port, username, password/private key authentication
+     * - SSL/TLS configuration: SSL mode, certificates, and security settings
+     * - Advanced settings: connection and query timeouts
+     * 
+     * Tests connectivity by calling the backend and, on success, creates a 
+     * persistent connection. Provides feedback for connection tests and gracefully 
+     * handles errors. Supports multiple database types with conditional fields and
+     * collapsible advanced configuration sections for better UX.
      */
 
 ### `apps/frontend/src/components/TableDetails.tsx`

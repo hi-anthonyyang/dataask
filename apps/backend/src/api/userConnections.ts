@@ -23,6 +23,24 @@ const CreateConnectionSchema = z.object({
     password: z.string().optional(),
     // SQLite
     filename: z.string().optional(),
+    // SSL Configuration
+    sslEnabled: z.boolean().optional(),
+    sslMode: z.enum(['require', 'prefer', 'allow', 'disable']).optional(),
+    sslCa: z.string().optional(),
+    sslCert: z.string().optional(),
+    sslKey: z.string().optional(),
+    sslRejectUnauthorized: z.boolean().optional(),
+    // Connection Timeouts
+    connectionTimeout: z.number().min(1000).max(300000).optional(), // 1s to 5min
+    queryTimeout: z.number().min(1000).max(3600000).optional(), // 1s to 1hour
+    // SSH Tunnel Configuration
+    sshEnabled: z.boolean().optional(),
+    sshHost: z.string().optional(),
+    sshPort: z.number().min(1).max(65535).optional(),
+    sshUsername: z.string().optional(),
+    sshPassword: z.string().optional(),
+    sshPrivateKey: z.string().optional(),
+    sshPassphrase: z.string().optional(),
   })
 });
 

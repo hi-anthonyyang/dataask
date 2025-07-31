@@ -6,6 +6,7 @@ import { promisify } from 'util';
 const { v4: uuidv4 } = require('uuid');
 import { logger } from './logger';
 import { sanitizeParams, limitQueryResult, validateQueryResult } from '../security/sanitize';
+import { SSHTunnelManager, SSHTunnelConfig, TunnelConnection } from './sshTunnel';
 
 /**
  * Database Manager with SSL/TLS Security
@@ -163,6 +164,24 @@ interface ConnectionConfig {
     password?: string;
     // SQLite
     filename?: string;
+    // SSL Configuration
+    sslEnabled?: boolean;
+    sslMode?: 'require' | 'prefer' | 'allow' | 'disable';
+    sslCa?: string;
+    sslCert?: string;
+    sslKey?: string;
+    sslRejectUnauthorized?: boolean;
+    // Connection Timeouts
+    connectionTimeout?: number;
+    queryTimeout?: number;
+    // SSH Tunnel Configuration
+    sshEnabled?: boolean;
+    sshHost?: string;
+    sshPort?: number;
+    sshUsername?: string;
+    sshPassword?: string;
+    sshPrivateKey?: string;
+    sshPassphrase?: string;
   };
 }
 
@@ -201,6 +220,80 @@ class DatabaseManager {
   }
 
   private constructor() {} // Private constructor for singleton
+
+  /**
+   * Create SSH tunnel if configured
+   */
+  private async createSSHTunnelIfNeeded(config: ConnectionConfig): Promise<{ host: string; port: number; tunnel?: TunnelConnection }> {
+    if (!config.config.sshEnabled || !config.config.sshHost) {
+      return { host: config.config.host || 'localhost', port: config.config.port || 5432 };
+    }
+
+    const sshManager = SSHTunnelManager.getInstance();
+    const sshConfig: SSHTunnelConfig = {
+      host: config.config.sshHost,
+      port: config.config.sshPort || 22,
+      username: config.config.sshUsername || '',
+      password: config.config.sshPassword,
+      privateKey: config.config.sshPrivateKey,
+      passphrase: config.config.sshPassphrase,
+    };
+
+    try {
+      const tunnel = await sshManager.createTunnel(
+        sshConfig,
+        config.config.host || 'localhost',
+        config.config.port || 5432
+      );
+
+      logger.info(`SSH tunnel established for ${config.name}: localhost:${tunnel.localPort}`);
+      return { host: 'localhost', port: tunnel.localPort, tunnel };
+    } catch (error) {
+      logger.error(`Failed to create SSH tunnel for ${config.name}:`, error);
+      throw new Error(`SSH tunnel connection failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Get SSL configuration from connection config
+   */
+  private getSSLConfig(config: ConnectionConfig): any {
+    if (!config.config.sslEnabled) {
+      return false;
+    }
+
+    const sslConfig: any = {};
+
+    // Use connection-specific SSL settings if provided
+    if (config.config.sslMode) {
+      sslConfig.rejectUnauthorized = config.config.sslMode === 'require';
+    } else {
+      sslConfig.rejectUnauthorized = config.config.sslRejectUnauthorized !== false;
+    }
+
+    if (config.config.sslCa) {
+      sslConfig.ca = config.config.sslCa;
+    }
+    if (config.config.sslCert) {
+      sslConfig.cert = config.config.sslCert;
+    }
+    if (config.config.sslKey) {
+      sslConfig.key = config.config.sslKey;
+    }
+
+    // Fallback to environment variables if not specified in config
+    if (!sslConfig.ca && process.env.DB_SSL_CA) {
+      sslConfig.ca = process.env.DB_SSL_CA;
+    }
+    if (!sslConfig.cert && process.env.DB_SSL_CERT) {
+      sslConfig.cert = process.env.DB_SSL_CERT;
+    }
+    if (!sslConfig.key && process.env.DB_SSL_KEY) {
+      sslConfig.key = process.env.DB_SSL_KEY;
+    }
+
+    return sslConfig;
+  }
 
   /**
    * Test a database connection without storing it
@@ -415,53 +508,54 @@ class DatabaseManager {
 
   // Private methods for PostgreSQL
   private async testPostgreSQLConnection(config: ConnectionConfig): Promise<boolean> {
-    const client = new Client({
-      host: config.config.host,
-      port: config.config.port,
-      database: config.config.database,
-      user: config.config.username,
-      password: config.config.password,
-      connectionTimeoutMillis: DATABASE_CONFIG.connection.testTimeoutMs,
-      // SSL configuration for secure connections
-      ssl: process.env.NODE_ENV === 'production' ? {
-        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-        ca: process.env.DB_SSL_CA,
-        cert: process.env.DB_SSL_CERT,
-        key: process.env.DB_SSL_KEY
-      } : process.env.DB_SSL_ENABLED === 'true' ? {
-        rejectUnauthorized: false // Allow self-signed certs in development
-      } : false
-    });
-
+    let tunnel: TunnelConnection | undefined;
+    
     try {
+      // Create SSH tunnel if needed
+      const connectionInfo = await this.createSSHTunnelIfNeeded(config);
+      tunnel = connectionInfo.tunnel;
+
+      const client = new Client({
+        host: connectionInfo.host,
+        port: connectionInfo.port,
+        database: config.config.database,
+        user: config.config.username,
+        password: config.config.password,
+        connectionTimeoutMillis: config.config.connectionTimeout || DATABASE_CONFIG.connection.testTimeoutMs,
+        // Use new SSL configuration helper
+        ssl: this.getSSLConfig(config)
+      });
+
       await client.connect();
       await client.query('SELECT 1');
       await client.end();
       return true;
     } catch (error) {
+      logger.error('PostgreSQL test connection failed:', error);
       return false;
+    } finally {
+      // Clean up tunnel if created for test
+      if (tunnel) {
+        tunnel.close();
+      }
     }
   }
 
   private async createPostgreSQLConnection(config: ConnectionConfig): Promise<Pool> {
+    // Create SSH tunnel if needed
+    const connectionInfo = await this.createSSHTunnelIfNeeded(config);
+
     const pool = new Pool({
-      host: config.config.host,
-      port: config.config.port,
+      host: connectionInfo.host,
+      port: connectionInfo.port,
       database: config.config.database,
       user: config.config.username,
       password: config.config.password,
       max: DATABASE_CONFIG.connection.poolMaxConnections, // Maximum number of connections
       idleTimeoutMillis: DATABASE_CONFIG.connection.poolIdleTimeoutMs,
-      connectionTimeoutMillis: DATABASE_CONFIG.connection.poolConnectionTimeoutMs,
-      // SSL configuration for secure connections
-      ssl: process.env.NODE_ENV === 'production' ? {
-        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-        ca: process.env.DB_SSL_CA,
-        cert: process.env.DB_SSL_CERT,
-        key: process.env.DB_SSL_KEY
-      } : process.env.DB_SSL_ENABLED === 'true' ? {
-        rejectUnauthorized: false // Allow self-signed certs in development
-      } : false
+      connectionTimeoutMillis: config.config.connectionTimeout || DATABASE_CONFIG.connection.poolConnectionTimeoutMs,
+      // Use new SSL configuration helper
+      ssl: this.getSSLConfig(config)
     });
 
     // Test the connection
@@ -854,14 +948,22 @@ class DatabaseManager {
 
   // Private methods for MySQL
   private async testMySQLConnection(config: ConnectionConfig): Promise<boolean> {
+    let tunnel: TunnelConnection | undefined;
+    
     try {
+      // Create SSH tunnel if needed
+      const connectionInfo = await this.createSSHTunnelIfNeeded(config);
+      tunnel = connectionInfo.tunnel;
+
       const connection = await mysql.createConnection({
-        host: config.config.host,
-        port: config.config.port,
+        host: connectionInfo.host,
+        port: connectionInfo.port,
         database: config.config.database,
         user: config.config.username,
         password: config.config.password,
-        connectTimeout: DATABASE_CONFIG.connection.testTimeoutMs,
+        connectTimeout: config.config.connectionTimeout || DATABASE_CONFIG.connection.testTimeoutMs,
+        // Use new SSL configuration helper
+        ssl: this.getSSLConfig(config) || undefined
       });
 
       await connection.execute('SELECT 1');
@@ -883,22 +985,21 @@ class DatabaseManager {
       });
       
       return false;
+    } finally {
+      // Clean up tunnel if created for test
+      if (tunnel) {
+        tunnel.close();
+      }
     }
   }
 
   private async createMySQLConnection(config: ConnectionConfig): Promise<mysql.Pool> {
-    const sslConfig = process.env.NODE_ENV === 'production' ? {
-      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-      ca: process.env.DB_SSL_CA,
-      cert: process.env.DB_SSL_CERT,
-      key: process.env.DB_SSL_KEY
-    } : process.env.DB_SSL_ENABLED === 'true' ? {
-      rejectUnauthorized: false // Allow self-signed certs in development
-    } : undefined;
+    // Create SSH tunnel if needed
+    const connectionInfo = await this.createSSHTunnelIfNeeded(config);
 
     const pool = mysql.createPool({
-      host: config.config.host,
-      port: config.config.port,
+      host: connectionInfo.host,
+      port: connectionInfo.port,
       database: config.config.database,
       user: config.config.username,
       password: config.config.password,
@@ -913,8 +1014,8 @@ class DatabaseManager {
       bigNumberStrings: false, // Return big numbers as numbers
       multipleStatements: false, // Security: prevent multiple statements
       
-      // SSL configuration for secure connections
-      ssl: sslConfig
+      // Use new SSL configuration helper
+      ssl: this.getSSLConfig(config) || undefined
     });
 
     // Test the connection with enhanced retry logic
