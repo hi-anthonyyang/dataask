@@ -166,17 +166,7 @@ const DataAskApp: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <User className="w-4 h-4" />
-            <span>{user?.email}</span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center space-x-2 px-3 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </button>
+          {/* User profile moved to left panel */}
         </div>
       </div>
 
@@ -202,6 +192,17 @@ const DataAskApp: React.FC = () => {
                 </button>
               </div>
               
+              {/* Add Connection Button */}
+              <div className="p-2 border-b border-gray-200 flex justify-center">
+                <button
+                  onClick={() => setShowConnectionModal(true)}
+                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Add database connection"
+                >
+                  <Plus className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+              
               {/* Database Icons */}
               <div className="flex-1 overflow-y-auto py-2">
                 {connections.map((connection) => (
@@ -222,14 +223,20 @@ const DataAskApp: React.FC = () => {
                 ))}
               </div>
               
-              {/* Add Connection Button */}
-              <div className="p-2 border-t border-gray-200 flex justify-center">
+              {/* User Profile */}
+              <div className="p-2 border-t border-gray-200 flex flex-col items-center space-y-2">
                 <button
-                  onClick={() => setShowConnectionModal(true)}
+                  title={user?.email}
                   className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Add database connection"
                 >
-                  <Plus className="w-4 h-4 text-gray-600" />
+                  <User className="w-4 h-4 text-gray-600" />
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4 text-gray-600" />
                 </button>
               </div>
             </div>
@@ -247,6 +254,8 @@ const DataAskApp: React.FC = () => {
                 onEditConnection={handleEditConnection}
                 onTogglePanel={toggleLeftPanel}
                 isPanelMinimized={isLeftPanelMinimized}
+                userEmail={user?.email}
+                onLogout={handleLogout}
               />
             </div>
           )}
