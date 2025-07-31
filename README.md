@@ -87,6 +87,30 @@ npm run dev:electron   # Desktop app
 npm run build
 ```
 
+## Database Connection Features
+
+DataAsk provides enterprise-grade database connectivity options:
+
+### Connection Types
+- **PostgreSQL**: Full support with connection pooling
+- **MySQL**: Complete compatibility with performance optimizations  
+- **SQLite**: Embedded database support for local files
+
+### Security & Tunneling
+- **SSH Tunneling**: Secure connections through SSH servers with password or private key authentication
+- **SSL/TLS Encryption**: Configurable SSL modes (disable, allow, prefer, require) with custom certificates
+- **Certificate Management**: Support for CA certificates, client certificates, and private keys
+
+### Advanced Configuration
+- **Connection Timeouts**: Configurable connection and query timeout settings
+- **Connection Pooling**: Automatic connection pool management for optimal performance
+- **Multiple Authentication**: Support for various authentication methods per database type
+
+### Connection Management
+- **Test Connections**: Built-in connection testing before saving
+- **Connection Persistence**: Secure storage of connection configurations with encryption
+- **Easy Management**: Intuitive UI for creating, editing, and managing database connections
+
 ## Security
 
 DataAsk implements multiple security layers:
