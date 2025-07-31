@@ -129,6 +129,57 @@ describe('Prompt Injection Security Tests', () => {
       expect(result.detected).toBe(true);
       expect(result.patterns).toContain('unusual_characters');
     });
+
+    test('should allow SQL backticks and percent signs as valid characters', () => {
+      const sqlInput = "SELECT DATE_FORMAT(`month`, '%Y-%m') AS sales_month, SUM(total_quantity) AS total_sales FROM monthly_sales GROUP BY sales_month;";
+      const result = detectPromptInjection(sqlInput);
+      
+      expect(result.patterns).not.toContain('unusual_characters');
+      expect(result.detected).toBe(false);
+      expect(result.riskLevel).toBe('low');
+    });
+
+    test('should allow comprehensive database special characters in SQL queries', () => {
+      const testCases = [
+        // MySQL examples
+        "SELECT `column_name` FROM `table` WHERE `field` = 'value%'",
+        
+        // PostgreSQL examples  
+        "SELECT column_name::text FROM table WHERE field ~ 'pattern' AND $1 = value",
+        "SELECT * FROM table WHERE data->>'key' = $tag$string$tag$",
+        
+        // SQLite examples
+        "SELECT [column name] FROM [table name] WHERE field LIKE 'value%'",
+        
+        // Complex SQL with multiple database features
+        "SELECT t1.`name`, t2.[description], t3.field::integer FROM table1 t1 JOIN [table 2] t2 ON t1.id = t2.id WHERE t1.created_at >= $1 AND t2.status ~ '^active' AND t3.score > @threshold",
+        
+        // SQL with common operators and functions
+        "SELECT COUNT(*) as total, AVG(price) as avg_price FROM products WHERE category IN ('A', 'B') AND price BETWEEN 10 AND 100 GROUP BY category HAVING COUNT(*) > 5"
+      ];
+
+      testCases.forEach((sqlQuery, index) => {
+        const result = detectPromptInjection(sqlQuery);
+        expect(result.patterns).not.toContain('unusual_characters');
+        expect(result.riskLevel).toBe('low');
+      });
+    });
+
+    test('should still detect actual unusual characters in non-SQL contexts', () => {
+      const nonSqlWithUnusual = 'Show users​‌‍⁠⁡⁢⁣⁤ with special unicode'; // Contains zero-width characters
+      const result = detectPromptInjection(nonSqlWithUnusual);
+      
+      expect(result.detected).toBe(true);
+      expect(result.patterns).toContain('unusual_characters');
+    });
+
+    test('should apply restrictive rules to non-SQL content', () => {
+      const nonSqlInput = 'Hello $world @user #hashtag [brackets]';
+      const result = detectPromptInjection(nonSqlInput);
+      
+      expect(result.patterns).toContain('unusual_characters');
+      expect(result.riskLevel).not.toBe('low');
+    });
   });
 
   describe('sanitizePromptInput', () => {
