@@ -310,7 +310,7 @@ class DatabaseManager {
       return false;
     } catch (error) {
       logger.error('Connection test failed:', error);
-      return false;
+      throw error; // Re-throw to allow API to return specific error message
     }
   }
 
@@ -645,16 +645,53 @@ class DatabaseManager {
   // Private methods for SQLite
   private async testSQLiteConnection(config: ConnectionConfig): Promise<boolean> {
     if (!config.config.filename) {
-      return false;
+      throw new Error('SQLite filename is required');
     }
 
-    return new Promise((resolve) => {
-      const db = new sqlite3.Database(config.config.filename!, sqlite3.OPEN_READONLY, (err) => {
+    // Check if the directory exists and is writable
+    const path = require('path');
+    const fs = require('fs');
+    
+    // Convert relative paths to absolute paths from the backend directory
+    let filename = config.config.filename;
+    if (!path.isAbsolute(filename)) {
+      filename = path.resolve(process.cwd(), filename);
+      logger.info(`Converting relative path to absolute: ${config.config.filename} -> ${filename}`);
+    }
+    
+    const dirname = path.dirname(filename);
+    
+    try {
+      // Check if directory exists
+      if (!fs.existsSync(dirname)) {
+        throw new Error(`Directory does not exist: ${dirname}`);
+      }
+      
+      // Check if directory is writable
+      fs.accessSync(dirname, fs.constants.W_OK);
+    } catch (err) {
+      throw new Error(`Directory access error for ${dirname}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      // Use OPEN_READWRITE | OPEN_CREATE to allow creating new databases and testing existing ones
+      const db = new sqlite3.Database(filename, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
         if (err) {
-          resolve(false);
+          logger.error(`SQLite connection test failed for ${filename}:`, err);
+          reject(new Error(`SQLite connection failed: ${err.message}`));
         } else {
-          db.close((closeErr) => {
-            resolve(!closeErr);
+          // Test with a simple query to ensure the database is working
+          db.get('SELECT 1 as test', (queryErr) => {
+            db.close((closeErr) => {
+              if (queryErr || closeErr) {
+                const error = queryErr || closeErr;
+                logger.error('SQLite test query failed:', error);
+                reject(new Error(`SQLite test query failed: ${error instanceof Error ? error.message : String(error)}`));
+              } else {
+                logger.info(`SQLite connection test successful for ${filename}`);
+                resolve(true);
+              }
+            });
           });
         }
       });
@@ -667,8 +704,10 @@ class DatabaseManager {
     }
 
     return new Promise((resolve, reject) => {
-      const db = new sqlite3.Database(config.config.filename!, sqlite3.OPEN_READONLY, (err) => {
+      // Use OPEN_READWRITE | OPEN_CREATE to allow creating new databases
+      const db = new sqlite3.Database(config.config.filename!, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
         if (err) {
+          logger.error('SQLite connection creation failed:', err);
           reject(err);
         } else {
           resolve(db);
