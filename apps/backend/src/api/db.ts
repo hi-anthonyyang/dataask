@@ -53,8 +53,19 @@ router.post('/test-connection', async (req, res) => {
     });
   } catch (error) {
     logger.error('Connection test failed:', error);
-    res.status(400).json({ 
-      error: error instanceof z.ZodError ? 'Invalid connection parameters' : 'Connection test failed'
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid connection parameters'
+      });
+    }
+    
+    // Return specific error message for database connection issues
+    const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
+    res.json({ 
+      success: false,
+      message: errorMessage
     });
   }
 });

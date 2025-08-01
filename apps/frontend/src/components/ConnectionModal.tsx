@@ -197,12 +197,22 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
         })
       })
 
+      if (!response.ok) {
+        const errorResult = await response.json().catch(() => ({ error: 'Unknown error' }))
+        setTestResult({
+          success: false,
+          message: errorResult.error || `Server error (${response.status}): ${response.statusText}`
+        })
+        return
+      }
+
       const result = await response.json()
       setTestResult({
         success: result.success,
         message: result.message || (result.success ? 'Connection successful!' : 'Connection failed')
       })
     } catch (error) {
+      console.error('Connection test error:', error)
       setTestResult({
         success: false,
         message: 'Failed to test connection. Please check your backend is running.'
@@ -233,10 +243,11 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
       } else {
         setTestResult({
           success: false,
-          message: result.error || 'Failed to create connection'
+          message: result.error || `Failed to create connection (${response.status}): ${response.statusText}`
         })
       }
     } catch (error) {
+      console.error('Connection creation error:', error)
       setTestResult({
         success: false,
         message: 'Failed to create connection. Please check your backend is running.'
