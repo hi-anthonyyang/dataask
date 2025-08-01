@@ -28,7 +28,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-dataask_root_password}
       MYSQL_DATABASE: dataask_dev
       MYSQL_USER: dataask_user
-              MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dataask_dev_password}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-dataask_dev_password}
     ports:
       - "3306:3306"
     volumes:
