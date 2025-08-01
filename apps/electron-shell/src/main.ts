@@ -16,6 +16,8 @@ function createWindow(): void {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
     titleBarStyle: 'default',
     show: false, // Don't show until ready

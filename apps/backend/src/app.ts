@@ -13,7 +13,12 @@ import { MigrationRunner } from './utils/migrations';
 import { optionalAuth } from './utils/auth';
 
 // Create database pool for user management
-const createDatabasePool = (): Pool => {
+const createDatabasePool = (): Pool | null => {
+  if (!process.env.POSTGRES_HOST && process.env.SKIP_MIGRATIONS === 'true') {
+    logger.info('Skipping database pool creation (no POSTGRES_HOST and SKIP_MIGRATIONS=true)');
+    return null;
+  }
+  
   const pool = new Pool({
     host: process.env.POSTGRES_HOST || 'localhost',
     port: parseInt(process.env.POSTGRES_PORT || '5432'),
@@ -42,6 +47,11 @@ const dbPool = createDatabasePool();
 
 // Run migrations on startup
 const runMigrations = async (): Promise<void> => {
+  if (process.env.SKIP_MIGRATIONS === 'true') {
+    logger.info('Skipping database migrations (SKIP_MIGRATIONS=true)');
+    return;
+  }
+  
   try {
     const migrationRunner = new MigrationRunner(dbPool);
     await migrationRunner.runMigrations();

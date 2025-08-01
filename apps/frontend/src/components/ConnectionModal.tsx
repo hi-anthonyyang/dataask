@@ -45,9 +45,13 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
     name: '',
     host: 'localhost',
     port: 5432,
-    database: 'dataask_dev',
-    username: 'dataask_user',
-    password: 'dataask_dev_password'
+    database: '',
+    username: '',
+    password: '',
+    // Enable SSL by default for cloud database compatibility
+    sslEnabled: true,
+    sslMode: 'prefer',
+    sslRejectUnauthorized: false
   })
   const [isTestingConnection, setIsTestingConnection] = useState(false)
   const [isCreatingConnection, setIsCreatingConnection] = useState(false)
@@ -94,9 +98,13 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
         name: '',
         host: 'localhost',
         port: 5432,
-        database: 'dataask_dev',
-        username: 'dataask_user',
-        password: 'dataask_dev_password'
+        database: '',
+        username: '',
+        password: '',
+        // Enable SSL by default for cloud database compatibility
+        sslEnabled: true,
+        sslMode: 'prefer',
+        sslRejectUnauthorized: false
       })
     }
     setTestResult(null)
@@ -120,15 +128,23 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
       ...(type === 'postgresql' ? {
         host: 'localhost',
         port: 5432,
-        database: 'dataask_dev',
-        username: 'dataask_user',
-        password: 'dataask_dev_password'
+        database: '',
+        username: '',
+        password: '',
+        // PostgreSQL defaults optimized for cloud databases
+        sslEnabled: true,
+        sslMode: 'prefer',
+        sslRejectUnauthorized: false
       } : type === 'mysql' ? {
         host: 'localhost',
         port: 3306,
-        database: 'dataask_dev',
-        username: 'dataask_user',
-        password: 'dataask_dev_password'
+        database: '',
+        username: '',
+        password: '',
+        // MySQL defaults optimized for cloud databases
+        sslEnabled: true,
+        sslMode: 'prefer',
+        sslRejectUnauthorized: false
       } : {
         filename: '/path/to/database.sqlite'
       })
