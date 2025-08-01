@@ -3,8 +3,9 @@ import SchemaBrowser from './SchemaBrowser'
 import AnalysisPanel from './AnalysisPanel'
 import ChatPanel from './ChatPanel'
 import ConnectionModal from './ConnectionModal'
+import FileImportModal from './FileImportModal'
 import ConnectionStatus from './ConnectionStatus'
-import { Database, ChevronRight, LogOut, User, Plus } from 'lucide-react'
+import { Database, ChevronRight, LogOut, User, Plus, Upload } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Connection } from '../types'
@@ -15,6 +16,7 @@ const DataAskApp: React.FC = () => {
   const [currentQuery, setCurrentQuery] = useState<string>('')
   const [queryResults, setQueryResults] = useState<any>(null)
   const [showConnectionModal, setShowConnectionModal] = useState(false)
+  const [showFileImportModal, setShowFileImportModal] = useState(false)
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null)
   const [leftPanelWidth, setLeftPanelWidth] = useState(320) // 25% of ~1280px
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
@@ -22,6 +24,7 @@ const DataAskApp: React.FC = () => {
   const [isDraggingLeft, setIsDraggingLeft] = useState(false)
   const [isDraggingRight, setIsDraggingRight] = useState(false)
   const [connections, setConnections] = useState<Connection[]>([])
+  const [isDragOverCenter, setIsDragOverCenter] = useState(false)
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
 
@@ -123,6 +126,12 @@ const DataAskApp: React.FC = () => {
 
   const handleConnectionAdded = (connectionId: string) => {
     setShowConnectionModal(false)
+    loadConnections()
+    setSelectedConnection(connectionId)
+  }
+
+  const handleFileImported = (connectionId: string) => {
+    setShowFileImportModal(false)
     loadConnections()
     setSelectedConnection(connectionId)
   }
@@ -255,6 +264,8 @@ const DataAskApp: React.FC = () => {
                 onTableSelect={setSelectedTable}
                 showConnectionModal={showConnectionModal}
                 setShowConnectionModal={setShowConnectionModal}
+                showFileImportModal={showFileImportModal}
+                setShowFileImportModal={setShowFileImportModal}
                 onConnectionsChange={loadConnections}
                 onEditConnection={handleEditConnection}
                 onTogglePanel={toggleLeftPanel}
@@ -278,7 +289,34 @@ const DataAskApp: React.FC = () => {
         )}
 
         {/* Center Panel */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div 
+          className={`flex-1 flex flex-col min-w-0 relative transition-colors ${
+            isDragOverCenter ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'copy'
+            setIsDragOverCenter(true)
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            setIsDragOverCenter(false)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            setIsDragOverCenter(false)
+            const files = Array.from(e.dataTransfer.files)
+            if (files.length > 0) {
+              const file = files[0]
+              const allowedTypes = ['.csv', '.xlsx', '.xls']
+              const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
+              
+              if (allowedTypes.includes(fileExtension)) {
+                setShowFileImportModal(true)
+              }
+            }
+          }}
+        >
           <AnalysisPanel
             queryResults={queryResults}
             currentQuery={currentQuery}
@@ -286,6 +324,19 @@ const DataAskApp: React.FC = () => {
             selectedTable={selectedTable}
             onTableClose={() => setSelectedTable(null)}
           />
+          
+          {/* Drag and Drop Overlay */}
+          {isDragOverCenter && (
+            <div className="absolute inset-0 flex items-center justify-center bg-blue-50/90 z-10">
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Upload className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">Drop CSV or Excel file here</h3>
+                <p className="text-sm text-blue-700">Supported formats: .csv, .xlsx, .xls</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Resize Handle for Right Panel */}
@@ -326,6 +377,13 @@ const DataAskApp: React.FC = () => {
         onConnectionAdded={handleConnectionAdded}
         onConnectionUpdated={handleConnectionUpdated}
         editingConnection={editingConnection}
+      />
+
+      {/* File Import Modal */}
+      <FileImportModal
+        isOpen={showFileImportModal}
+        onClose={() => setShowFileImportModal(false)}
+        onConnectionAdded={handleFileImported}
       />
     </div>
   )

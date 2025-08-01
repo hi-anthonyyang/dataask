@@ -65,7 +65,7 @@ router.post('/test-connection', async (req, res) => {
     const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
     
     // Provide helpful guidance for common connection errors
-    let guidance = [];
+    let guidance: string[] = [];
     if (errorMessage.includes('ENOTFOUND')) {
       guidance = [
         'The hostname could not be resolved. Please check:',

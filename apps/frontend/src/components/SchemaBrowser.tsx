@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit, User, LogOut } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit, User, LogOut, Upload } from 'lucide-react'
 import { Connection } from '../types'
 
 interface SchemaTable {
@@ -19,6 +19,8 @@ interface SchemaBrowserProps {
   onTableSelect: (tableName: string | null) => void
   showConnectionModal: boolean
   setShowConnectionModal: (show: boolean) => void
+  showFileImportModal?: boolean
+  setShowFileImportModal?: (show: boolean) => void
   connections?: Connection[]
   onConnectionsChange?: () => void
   onEditConnection?: (connection: Connection) => void
@@ -28,7 +30,7 @@ interface SchemaBrowserProps {
   onLogout?: () => void
 }
 
-export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, connections: propConnections, onConnectionsChange, onEditConnection, onTogglePanel, isPanelMinimized, userEmail, onLogout }: SchemaBrowserProps) {
+export default function SchemaBrowser({ selectedConnection, onConnectionSelect, selectedTable, onTableSelect, setShowConnectionModal, setShowFileImportModal, connections: propConnections, onConnectionsChange, onEditConnection, onTogglePanel, isPanelMinimized, userEmail, onLogout }: SchemaBrowserProps) {
   const [internalConnections, setInternalConnections] = useState<Connection[]>([])
   const [schema, setSchema] = useState<{ tables: SchemaTable[] } | null>(null)
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set())
@@ -144,13 +146,32 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-foreground">Database</h2>
           <div className="flex items-center gap-1">
-            <button 
-              onClick={() => setShowConnectionModal(true)}
-              className="p-1.5 hover:bg-muted rounded"
-              title="Add database connection"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+            <div className="relative group">
+              <button 
+                className="p-1.5 hover:bg-muted rounded flex items-center gap-1"
+                title="Add connection or import file"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              <div className="absolute right-0 top-full mt-1 bg-background border border-border rounded-md shadow-lg z-50 min-w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <button 
+                  onClick={() => setShowConnectionModal(true)}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 rounded-t-md"
+                >
+                  <Database className="h-4 w-4" />
+                  Add Database Connection
+                </button>
+                {setShowFileImportModal && (
+                  <button 
+                    onClick={() => setShowFileImportModal(true)}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2 rounded-b-md"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Import File
+                  </button>
+                )}
+              </div>
+            </div>
             {onTogglePanel && (
               <button
                 onClick={onTogglePanel}
@@ -174,12 +195,22 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
           <div className="p-4 text-center text-muted-foreground text-sm">
             <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>No database connections</p>
-            <button 
-              onClick={() => setShowConnectionModal(true)}
-              className="mt-2 text-primary hover:underline text-xs"
-            >
-              Add Connection
-            </button>
+            <div className="mt-3 space-y-1">
+              <button 
+                onClick={() => setShowConnectionModal(true)}
+                className="block w-full text-primary hover:underline text-xs"
+              >
+                Add Database Connection
+              </button>
+              {setShowFileImportModal && (
+                <button 
+                  onClick={() => setShowFileImportModal(true)}
+                  className="block w-full text-primary hover:underline text-xs"
+                >
+                  Import CSV/Excel File
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="p-2">

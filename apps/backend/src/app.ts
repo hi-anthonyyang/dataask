@@ -7,6 +7,7 @@ import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
 import { createAuthRouter } from './api/auth';
 import { createUserConnectionsRouter } from './api/userConnections';
+import filesRouter from './api/files';
 import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';
 import { MigrationRunner } from './utils/migrations';
@@ -100,6 +101,7 @@ app.use('/api/auth', createAuthRouter(dbPool));
 app.use('/api/user/connections', createUserConnectionsRouter(dbPool));
 app.use('/api/db', optionalAuth, dbRouter); // Make db routes optionally authenticated
 app.use('/api/llm', optionalAuth, llmRouter); // Make llm routes optionally authenticated
+app.use('/api/files', optionalAuth, filesRouter); // File import routes
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -120,7 +122,8 @@ app.get('/', (req, res) => {
       auth: '/api/auth/*',
       userConnections: '/api/user/connections/*',
       database: '/api/db/*',
-      llm: '/api/llm/*'
+      llm: '/api/llm/*',
+      files: '/api/files/*'
     }
   });
 });

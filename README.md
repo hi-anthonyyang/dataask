@@ -103,6 +103,15 @@ DataAsk provides enterprise-grade database connectivity options:
 - **PostgreSQL**: Full support with connection pooling
 - **MySQL**: Complete compatibility with performance optimizations  
 - **SQLite**: Embedded database support for local files
+- **File Import**: CSV and Excel file import with automatic schema detection
+
+### File Import Capabilities
+- **Supported Formats**: CSV, XLS, and XLSX files
+- **Drag & Drop**: Drop files directly into the main panel or use the import dialog
+- **Auto-Detection**: Automatic column type detection (Text, Integer, Number, Date)
+- **Schema Configuration**: Review and adjust column names and types before import
+- **Data Preview**: See sample data and statistics before importing
+- **Instant Querying**: Imported files become immediately queryable like database tables
 
 ### Security & Tunneling
 - **SSH Tunneling**: Secure connections through SSH servers with password or private key authentication

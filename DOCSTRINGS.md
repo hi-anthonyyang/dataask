@@ -40,6 +40,22 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * validated to ensure they are safe and read‑only.
      */
 
+### `apps/backend/src/api/files.ts`
+
+    /**
+     * API router for file import operations.
+     *
+     * Provides endpoints for uploading CSV/Excel files, parsing and previewing
+     * their contents, and importing them as SQLite tables. Features include:
+     * - POST /upload: Handles multipart file uploads with validation
+     * - POST /import: Creates SQLite tables from parsed file data
+     * 
+     * Supports automatic column type detection, data validation, and proper
+     * error handling. Uses multer for file handling and xlsx library for
+     * Excel parsing. Creates temporary SQLite databases that integrate
+     * seamlessly with the existing connection management system.
+     */
+
 ### `apps/backend/src/api/llm.ts`
 
     /**
@@ -170,6 +186,54 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * persistent connection. Provides feedback for connection tests and gracefully 
      * handles errors. Supports multiple database types with conditional fields and
      * collapsible advanced configuration sections for better UX.
+     */
+
+### `apps/frontend/src/components/FileImportModal.tsx`
+
+    /**
+     * Modal dialog for importing CSV and Excel files as queryable tables.
+     *
+     * Provides a multi-step workflow:
+     * - Upload: Drag & drop or file selection with validation
+     * - Preview: Display parsed data with auto-detected column types
+     * - Configure: Edit table name and adjust column types before import
+     * 
+     * Integrates with FileDropZone, DataPreview, and ColumnTypeEditor components.
+     * Handles file upload, parsing, type detection, and table creation via the
+     * backend API. Creates SQLite tables that appear as regular connections.
+     */
+
+### `apps/frontend/src/components/FileDropZone.tsx`
+
+    /**
+     * Drag and drop zone component for file uploads.
+     *
+     * Provides visual feedback for drag operations and validates file types
+     * and sizes. Supports both drag & drop and click-to-browse interactions.
+     * Displays appropriate icons for different file types and shows error
+     * messages for invalid files. Integrates with the file import workflow.
+     */
+
+### `apps/frontend/src/components/DataPreview.tsx`
+
+    /**
+     * Component for previewing imported file data before table creation.
+     *
+     * Displays file metadata (name, row count, column count), shows detected
+     * column types with color coding, and renders a scrollable table preview
+     * of the first 10 rows. Provides visual feedback for data quality and
+     * structure to help users verify their import before proceeding.
+     */
+
+### `apps/frontend/src/components/ColumnTypeEditor.tsx`
+
+    /**
+     * Component for editing column names and types during file import.
+     *
+     * Allows users to modify auto-detected column names and types before
+     * table creation. Provides dropdowns for type selection (Text, Integer,
+     * Number, Date) with visual indicators and sample values. Includes
+     * explanatory information about each data type.
      */
 
 ### `apps/frontend/src/components/TableDetails.tsx`
