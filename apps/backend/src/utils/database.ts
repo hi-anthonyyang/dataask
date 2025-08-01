@@ -532,7 +532,7 @@ class DatabaseManager {
       return true;
     } catch (error) {
       logger.error('PostgreSQL test connection failed:', error);
-      return false;
+      throw error; // Re-throw to provide detailed error information
     } finally {
       // Clean up tunnel if created for test
       if (tunnel) {

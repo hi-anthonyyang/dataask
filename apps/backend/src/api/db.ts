@@ -63,9 +63,39 @@ router.post('/test-connection', async (req, res) => {
     
     // Return specific error message for database connection issues
     const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
+    
+    // Provide helpful guidance for common connection errors
+    let guidance = [];
+    if (errorMessage.includes('ENOTFOUND')) {
+      guidance = [
+        'The hostname could not be resolved. Please check:',
+        '• Verify the hostname spelling in your DBeaver connection',
+        '• Confirm the RDS cluster exists in AWS Console',
+        '• Check if you\'re using the correct AWS region',
+        '• Ensure it\'s the correct endpoint type (cluster vs instance)'
+      ];
+    } else if (errorMessage.includes('ECONNREFUSED')) {
+      guidance = [
+        'Connection was refused. Please check:',
+        '• Security groups allow inbound connections on port 5432',
+        '• RDS instance is in "Available" state',
+        '• Network ACLs allow the connection'
+      ];
+    } else if (errorMessage.includes('timeout')) {
+      guidance = [
+        'Connection timed out. Please check:',
+        '• Security groups and network ACLs',
+        '• RDS instance is running and accessible',
+        '• Network connectivity from this environment to AWS'
+      ];
+    }
+    
     res.json({ 
       success: false,
-      message: errorMessage
+      message: errorMessage,
+      error: errorMessage,
+      type: 'connection_test_error',
+      guidance: guidance.length > 0 ? guidance : undefined
     });
   }
 });
@@ -99,7 +129,13 @@ router.post('/connections', async (req, res) => {
       });
     }
     
-    return res.status(400).json({ error: 'Failed to create connection' });
+    // Return the actual error message for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return res.status(400).json({ 
+      error: errorMessage,
+      type: 'connection_error',
+      details: 'Check server logs for more information'
+    });
   }
 });
 
