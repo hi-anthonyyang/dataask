@@ -1,9 +1,33 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import * as path from 'path'
 
 const isDev = process.env.NODE_ENV === 'development'
 
 console.log('🔧 Electron starting...', { isDev, NODE_ENV: process.env.NODE_ENV })
+
+// IPC Handlers for file system operations
+function setupIpcHandlers(): void {
+  // Handle file dialog for opening SQLite databases
+  ipcMain.handle('dialog:openDatabase', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select SQLite Database',
+      filters: [
+        { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    
+    if (result.canceled) {
+      return { canceled: true }
+    }
+    
+    return {
+      canceled: false,
+      filePath: result.filePaths[0]
+    }
+  })
+}
 
 function createWindow(): void {
   // Create the browser window
@@ -57,7 +81,8 @@ function createWindow(): void {
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
-  console.log('🚀 Electron app ready, creating window...')
+  console.log('🚀 Electron app ready, setting up IPC handlers...')
+  setupIpcHandlers()
   createWindow()
 
   app.on('activate', () => {

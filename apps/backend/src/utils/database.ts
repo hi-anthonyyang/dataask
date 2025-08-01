@@ -651,9 +651,25 @@ class DatabaseManager {
     // Check if the directory exists and is writable
     const path = require('path');
     const fs = require('fs');
+    const os = require('os');
+    
+    // Enhanced path resolution for cross-platform compatibility
+    let filename = config.config.filename;
+    
+    // Handle platform-specific path formats
+    if (process.platform === 'win32') {
+      // Windows: Handle both forward and back slashes
+      filename = filename.replace(/\//g, '\\');
+    }
+    
+    // Expand home directory shortcuts
+    if (filename.startsWith('~/')) {
+      filename = path.join(os.homedir(), filename.slice(2));
+    } else if (filename.startsWith('~\\')) {
+      filename = path.join(os.homedir(), filename.slice(2));
+    }
     
     // Convert relative paths to absolute paths from the backend directory
-    let filename = config.config.filename;
     if (!path.isAbsolute(filename)) {
       filename = path.resolve(process.cwd(), filename);
       logger.info(`Converting relative path to absolute: ${config.config.filename} -> ${filename}`);
@@ -662,20 +678,62 @@ class DatabaseManager {
     const dirname = path.dirname(filename);
     
     try {
-      // Check if directory exists
+      // First check if the file exists
+      if (!fs.existsSync(filename)) {
+        // Provide helpful error message based on platform
+        const platform = process.platform === 'darwin' ? 'macOS' : 
+                         process.platform === 'win32' ? 'Windows' : 'Linux';
+        throw new Error(`SQLite file not found: ${filename}
+        
+Platform: ${platform}
+Suggestions:
+• Verify the file path is correct for your operating system
+• On ${platform}, use the "Browse..." button to select the file
+• Ensure the file has a .db, .sqlite, or .sqlite3 extension
+• Check that the file is not in a restricted directory`);
+      }
+      
+      // Check if it's actually a file (not a directory)
+      const stats = fs.statSync(filename);
+      if (!stats.isFile()) {
+        throw new Error(`Path exists but is not a file: ${filename}`);
+      }
+      
+      // Check if directory is accessible
       if (!fs.existsSync(dirname)) {
         throw new Error(`Directory does not exist: ${dirname}`);
       }
       
-      // Check if directory is writable
-      fs.accessSync(dirname, fs.constants.W_OK);
+      // Try to access the file for reading
+      fs.accessSync(filename, fs.constants.R_OK);
+      
+      // For new databases, check if directory is writable
+      try {
+        fs.accessSync(dirname, fs.constants.W_OK);
+      } catch (writeErr) {
+        logger.warn(`Directory is not writable: ${dirname}. Database will be read-only.`);
+      }
+      
     } catch (err) {
-      throw new Error(`Directory access error for ${dirname}: ${err instanceof Error ? err.message : String(err)}`);
+      if (err instanceof Error && err.message.includes('SQLite file not found')) {
+        throw err; // Re-throw our custom error message
+      }
+      throw new Error(`File access error for ${filename}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     return new Promise((resolve, reject) => {
-      // Use OPEN_READWRITE | OPEN_CREATE to allow creating new databases and testing existing ones
-      const db = new sqlite3.Database(filename, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+      // Use OPEN_READONLY first to test, then OPEN_READWRITE if that works
+      let openFlags = sqlite3.OPEN_READONLY;
+      
+      // Try read-write first, fall back to read-only
+      try {
+        fs.accessSync(dirname, fs.constants.W_OK);
+        openFlags = sqlite3.OPEN_READWRITE;
+      } catch {
+        logger.info(`Opening SQLite database in read-only mode: ${filename}`);
+      }
+
+      const db = new sqlite3.Database(filename, openFlags, (err) => {
         if (err) {
           logger.error(`SQLite connection test failed for ${filename}:`, err);
           reject(new Error(`SQLite connection failed: ${err.message}`));
