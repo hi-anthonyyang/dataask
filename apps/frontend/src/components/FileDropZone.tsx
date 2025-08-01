@@ -83,13 +83,7 @@ export default function FileDropZone({
     e.target.value = ''
   }, [handleFile])
 
-  const getFileIcon = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase()
-    if (extension === 'csv') {
-      return <FileText className="h-8 w-8 text-muted-foreground" />
-    }
-    return <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
-  }
+
 
   return (
     <div className={`space-y-2 ${className}`}>
