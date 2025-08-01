@@ -137,6 +137,7 @@ DataAsk implements multiple security layers:
 - Prompt injection protection
 - Rate limiting
 - Secure database connections
+- File upload validation and size limits
 
 See `AUTHENTICATION.md`, `PROMPT_INJECTION_SECURITY.md`, and `TLS_SECURITY.md` for detailed security documentation.
 

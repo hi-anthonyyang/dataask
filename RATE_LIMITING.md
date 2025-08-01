@@ -29,6 +29,7 @@ RATE_LIMIT_GENERAL=100  # General endpoints (health, root, etc.)
 
 - **AI Endpoints** (`/api/llm/*`): 20 requests per 15 minutes
 - **Database Endpoints** (`/api/db/*`): 60 requests per 15 minutes
+- **File Upload Endpoints** (`/api/files/*`): 60 requests per 15 minutes (same as database)
 - **General Endpoints** (health, root, etc.): 100 requests per 15 minutes
 
 ## Deployment
@@ -117,7 +118,11 @@ The implementation is production-ready and will immediately start protecting you
    - Protects database resources
    - Moderate limits for data operations
 
-3. **General Rate Limiter**: Applied to all other endpoints
+3. **File Upload Rate Limiter**: Applied to `/api/files/*` endpoints
+   - Protects against file upload abuse
+   - Same limits as database operations (file imports create database tables)
+
+4. **General Rate Limiter**: Applied to all other endpoints
    - Health checks, root endpoint, etc.
    - More lenient limits for basic operations
 
