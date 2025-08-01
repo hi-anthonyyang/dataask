@@ -153,7 +153,7 @@ const DATABASE_CONFIG = {
 };
 
 interface ConnectionConfig {
-  type: 'postgresql' | 'sqlite' | 'mysql';
+  type: 'postgresql' | 'sqlite' | 'mysql' | 'file-import';
   name: string;
   config: {
     // PostgreSQL & MySQL

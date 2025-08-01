@@ -2,6 +2,33 @@
 
 This document outlines the fixes and improvements made to the DataAsk development environment.
 
+## Recent Updates
+
+### File Import System ✅ (NEW)
+
+1. **CSV/Excel Import Functionality (MAJOR)**
+   - Added comprehensive file import system supporting CSV, XLS, and XLSX formats
+   - Implemented multi-step import wizard with upload, preview, and configuration steps
+   - Added automatic column type detection with 80% accuracy threshold
+   - Created drag & drop interface for seamless file handling
+
+2. **New Frontend Components (HIGH)**
+   - FileImportModal.tsx - Main import workflow component
+   - FileDropZone.tsx - Drag & drop file upload component
+   - DataPreview.tsx - File data preview with column type indicators
+   - ColumnTypeEditor.tsx - Column name and type configuration component
+
+3. **Backend API Extensions (HIGH)**
+   - Added /api/files/* endpoints for file upload and import
+   - Integrated multer for multipart file uploads
+   - Added xlsx library for Excel file parsing
+   - Extended database manager to support file-import connection type
+
+4. **UI/UX Enhancements (MEDIUM)**
+   - Enhanced SchemaBrowser with dropdown for connection types
+   - Added drag & drop visual feedback in main panel
+   - Integrated file import with existing connection management system
+
 ## Issues Fixed
 
 ### Frontend Issues ✅

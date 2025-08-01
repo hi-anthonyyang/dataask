@@ -13,6 +13,7 @@
 - [x] **Input Validation**: Comprehensive Zod schemas on all endpoints
 - [x] **Error Handling**: No sensitive data leaked in error responses
 - [x] **Rate Limiting**: Protection against brute force attacks
+- [x] **File Upload Security**: Validated file types, size limits (50MB), secure storage
 
 ## 🔧 Environment Configuration
 
@@ -163,6 +164,11 @@ curl https://yourdomain.com/api/auth/health
 curl -X POST https://yourdomain.com/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@yourdomain.com","password":"TestPass123!"}'
+
+# File upload endpoint (requires authentication)
+curl -X POST https://yourdomain.com/api/files/upload \
+  -F "file=@test_data.csv" \
+  -H "Cookie: token=your-jwt-token"
 ```
 
 ### **Load Testing** (Optional)
@@ -187,6 +193,8 @@ pg_dump dataask_prod > /backups/dataask_${DATE}.sql
 ### **Application Backups**
 - [ ] **Code Repository**: Latest code pushed to git
 - [ ] **Environment Config**: Secure backup of environment variables
+- [ ] **File Storage**: Backup imported files in `data/` and `uploads/` directories
+- [ ] **Storage Monitoring**: Monitor disk usage for uploaded files (50MB limit per file)
 - [ ] **SSL Certificates**: Certificates backed up securely
 
 ## 🚨 Rollback Plan
