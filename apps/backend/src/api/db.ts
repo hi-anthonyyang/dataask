@@ -65,7 +65,9 @@ router.post('/test-connection', async (req, res) => {
     const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
     res.json({ 
       success: false,
-      message: errorMessage
+      message: errorMessage,
+      error: errorMessage,
+      type: 'connection_test_error'
     });
   }
 });
@@ -99,7 +101,13 @@ router.post('/connections', async (req, res) => {
       });
     }
     
-    return res.status(400).json({ error: 'Failed to create connection' });
+    // Return the actual error message for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return res.status(400).json({ 
+      error: errorMessage,
+      type: 'connection_error',
+      details: 'Check server logs for more information'
+    });
   }
 });
 
