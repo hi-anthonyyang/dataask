@@ -228,13 +228,9 @@ class AuthFlowTester {
     try {
       const updateData = {
         name: 'Updated Test Connection',
-        type: 'postgresql',
+        type: 'sqlite',
         config: {
-          host: 'updated-host',
-          port: 5432,
-          database: 'updated_db',
-          username: 'updated_user',
-          password: 'updated_pass123',
+          filename: '/tmp/test-updated.db',
         },
       };
 

@@ -21,34 +21,10 @@ import {
 } from './utils/constants';
 
 // Create database pool for user management
-const createDatabasePool = (): Pool | null => {
-  // Skip database pool creation if migrations are disabled and no host is configured
-  if (!process.env.POSTGRES_HOST && process.env.SKIP_MIGRATIONS === 'true') {
-    logger.info('Skipping database pool creation (no POSTGRES_HOST and SKIP_MIGRATIONS=true)');
-    return null;
-  }
-  
-  const pool = new Pool({
-    host: process.env.POSTGRES_HOST || DB_CONSTANTS.DEFAULT_HOST,
-    port: parseInt(process.env.POSTGRES_PORT || String(DB_CONSTANTS.DEFAULT_PORT.POSTGRESQL)),
-    database: process.env.POSTGRES_DB || DB_CONSTANTS.DEFAULT_DATABASE,
-    user: process.env.POSTGRES_USER || DB_CONSTANTS.DEFAULT_USER,
-    password: process.env.POSTGRES_PASSWORD || DB_CONSTANTS.DEFAULT_PASSWORD,
-    max: DB_CONSTANTS.POOL.MAX_CONNECTIONS,
-    idleTimeoutMillis: DB_CONSTANTS.POOL.IDLE_TIMEOUT_MS,
-    connectionTimeoutMillis: DB_CONSTANTS.POOL.CONNECTION_TIMEOUT_MS,
-    // SSL configuration for production
-    ssl: process.env.NODE_ENV === APP_INFO.ENVIRONMENT.PRODUCTION ? {
-      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-      ca: process.env.DB_SSL_CA,
-      cert: process.env.DB_SSL_CERT,
-      key: process.env.DB_SSL_KEY
-    } : process.env.DB_SSL_ENABLED === 'true' ? {
-      rejectUnauthorized: false // Allow self-signed certs in development
-    } : false
-  });
-
-  return pool;
+const createDatabasePool = (): any | null => {
+  // PostgreSQL support has been removed - user authentication is disabled
+  logger.info('PostgreSQL support has been removed - user authentication is disabled');
+  return null;
 };
 
 // Initialize database pool
