@@ -21,6 +21,14 @@
 
 ### File Import Issues
 
+#### File Import Modal Not Opening
+**Symptoms**: Clicking the "+" button doesn't open the import modal
+**Solutions**:
+- Ensure the frontend is properly compiled and running
+- Check browser console for JavaScript errors
+- Clear browser cache and reload the page
+- Verify all React components are properly imported
+
 #### File Upload Fails
 **Symptoms**: "Upload failed" error or file not accepted
 **Solutions**:

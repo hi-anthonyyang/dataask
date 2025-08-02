@@ -385,45 +385,29 @@ router.post('/import-old', async (req, res) => {
     const createTableSQL = `CREATE TABLE "${tableName}" (${columnDefinitions})`;
     await dbManager.executeQuery(connectionId, createTableSQL, []);
 
-    // Insert data using batch insertion for better performance
+    // Insert data using optimized bulk insertion for better performance
     const placeholders = columns.map(() => '?').join(', ');
     const insertSQL = `INSERT INTO "${tableName}" (${columns.map(col => `"${col.name}"`).join(', ')}) VALUES (${placeholders})`;
     
-    // Process data in batches to improve performance and memory usage
-    const batchSize = 1000; // Insert 1000 rows at a time
-    const totalRows = dataRows.length;
+    // Prepare data rows for bulk insert
+    const preparedRows = dataRows.map(row => {
+      return columns.map((col, index) => {
+        const value = (row as any[])[index];
+        return convertValueToType(value, col.type);
+      });
+    });
     
-    // Begin transaction for better performance
-    await dbManager.executeQuery(connectionId, 'BEGIN TRANSACTION', []);
+    // Use optimized bulk insert with progress tracking
+    logger.info(`Starting bulk import of ${preparedRows.length} rows into ${tableName}`);
     
-    try {
-      for (let i = 0; i < totalRows; i += batchSize) {
-        const batch = dataRows.slice(i, i + batchSize);
-        
-        // Process batch rows
-        for (const row of batch) {
-          const values = columns.map((col, index) => {
-            const value = (row as any[])[index];
-            return convertValueToType(value, col.type);
-          });
-          
-          await dbManager.executeQuery(connectionId, insertSQL, values);
-        }
-        
-        // Log progress for large imports
-        if (totalRows > 5000) {
-          const progress = Math.min(i + batchSize, totalRows);
-          logger.info(`Import progress: ${progress}/${totalRows} rows (${Math.round(progress / totalRows * 100)}%)`);
-        }
+    await dbManager.executeSQLiteBulkInsert(
+      connectionId, 
+      insertSQL, 
+      preparedRows,
+      (progress) => {
+        logger.info(`Import progress: ${progress}%`);
       }
-      
-      // Commit transaction
-      await dbManager.executeQuery(connectionId, 'COMMIT', []);
-    } catch (error) {
-      // Rollback on error
-      await dbManager.executeQuery(connectionId, 'ROLLBACK', []);
-      throw error;
-    }
+    );
 
     // Clean up temporary file
     fs.unlinkSync(tempFilePath);

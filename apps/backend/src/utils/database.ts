@@ -815,6 +815,103 @@ Suggestions:
     }
   }
 
+  // Optimized bulk insert method for SQLite
+  public async executeSQLiteBulkInsert(
+    connectionId: string, 
+    sql: string, 
+    dataRows: any[][], 
+    onProgress?: (progress: number) => void
+  ): Promise<void> {
+    const connection = this.connections.get(connectionId);
+    if (!connection || !(connection instanceof sqlite3.Database)) {
+      throw new DatabaseError('SQLite connection not found', 'CONNECTION_NOT_FOUND');
+    }
+
+    const db = connection as sqlite3.Database;
+    const totalRows = dataRows.length;
+    let completed = 0;
+
+    return new Promise((resolve, reject) => {
+      // Use serialize to ensure operations run sequentially
+      db.serialize(() => {
+        // Begin transaction
+        db.run('BEGIN IMMEDIATE TRANSACTION', (err) => {
+          if (err) {
+            reject(new DatabaseError('Failed to begin transaction', 'TRANSACTION_ERROR', err));
+            return;
+          }
+
+          // Prepare statement for reuse
+          const stmt = db.prepare(sql, (err) => {
+            if (err) {
+              db.run('ROLLBACK');
+              reject(new DatabaseError('Failed to prepare statement', 'PREPARE_ERROR', err));
+              return;
+            }
+
+            // Function to process a batch of rows
+            const processBatch = (startIdx: number) => {
+              const batchSize = 1000;
+              const endIdx = Math.min(startIdx + batchSize, totalRows);
+              let batchCompleted = startIdx;
+
+              const processNext = () => {
+                if (batchCompleted >= endIdx) {
+                  // Batch complete, report progress
+                  completed = batchCompleted;
+                  if (onProgress) {
+                    onProgress(Math.round((completed / totalRows) * 100));
+                  }
+
+                  if (endIdx < totalRows) {
+                    // Process next batch
+                    setImmediate(() => processBatch(endIdx));
+                  } else {
+                    // All rows processed, finalize
+                    stmt.finalize((err) => {
+                      if (err) {
+                        db.run('ROLLBACK');
+                        reject(new DatabaseError('Failed to finalize statement', 'FINALIZE_ERROR', err));
+                        return;
+                      }
+
+                      // Commit transaction
+                      db.run('COMMIT', (err) => {
+                        if (err) {
+                          reject(new DatabaseError('Failed to commit transaction', 'COMMIT_ERROR', err));
+                        } else {
+                          resolve();
+                        }
+                      });
+                    });
+                  }
+                  return;
+                }
+
+                // Process single row
+                const row = dataRows[batchCompleted];
+                stmt.run(row, (err) => {
+                  if (err) {
+                    db.run('ROLLBACK');
+                    reject(new DatabaseError(`Failed to insert row ${batchCompleted + 1}`, 'INSERT_ERROR', err));
+                    return;
+                  }
+                  batchCompleted++;
+                  processNext();
+                });
+              };
+
+              processNext();
+            };
+
+            // Start processing
+            processBatch(0);
+          });
+        });
+      });
+    });
+  }
+
   private async getSQLiteSchema(db: sqlite3.Database): Promise<DatabaseSchema> {
     const allAsync = promisify(db.all.bind(db));
     

@@ -192,6 +192,8 @@ const DataAskApp: React.FC = () => {
                   onConnectionSelect={handleConnectionSelect}
                   onTableSelect={setSelectedTable}
                   selectedTable={selectedTable}
+                  showAddDataModal={showAddDataModal}
+                  setShowAddDataModal={setShowAddDataModal}
                   connections={connections}
                   onConnectionsChange={loadConnections}
                   onEditConnection={handleEditConnection}
