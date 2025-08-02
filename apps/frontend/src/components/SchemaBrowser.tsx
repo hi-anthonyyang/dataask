@@ -66,9 +66,14 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
   const loadSchema = async (connectionId: string) => {
     setIsLoading(true)
     try {
+      console.log('Loading schema for connection:', connectionId)
       const data = await databaseService.getSchema(connectionId)
+      console.log('Schema data received:', data)
       if (data.schema) {
+        console.log('Setting schema with tables:', data.schema.tables.map(t => t.name))
         setSchema(data.schema)
+      } else {
+        console.warn('No schema data received for connection:', connectionId)
       }
     } catch (error) {
       console.error('Failed to load schema:', error)

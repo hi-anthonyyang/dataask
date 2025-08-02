@@ -72,6 +72,9 @@ const DataAskApp: React.FC = () => {
     setShowAddDataModal(false)
     
     try {
+      // Add a small delay to ensure the backend has fully registered the connection
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       // Load the updated connections list
       const data = await databaseService.listConnections()
       console.log('New connections after import:', data.connections)
@@ -82,18 +85,21 @@ const DataAskApp: React.FC = () => {
       // Find and save the new connection to localStorage
       const connection = data.connections.find(c => c.id === connectionId)
       if (connection) {
+        console.log('Found new connection:', connection)
         StorageService.saveConnection(connection)
         
         // Set the new connection as selected after state update
         // Using setTimeout to ensure the connections list renders first
         setTimeout(() => {
+          console.log('Setting selected connection to:', connectionId)
           setSelectedConnection(connectionId)
         }, 100)
       } else {
         console.error('New connection not found in list:', connectionId)
+        console.error('Available connections:', data.connections.map(c => ({ id: c.id, name: c.name })))
       }
     } catch (error) {
-      console.error('Failed to handle new connection:', error)
+      console.error('Failed to handle connection added:', error)
     }
   }
 

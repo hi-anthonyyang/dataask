@@ -334,6 +334,21 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     
     // Log the successful import
     logger.info(`Import response sent: connectionId=${connectionId}, table=${cleanTableName}, rows=${totalRows}`);
+    
+    // Verify the connection is accessible
+    try {
+      const dbManager = DatabaseManager.getInstance();
+      const connections = await dbManager.listConnections();
+      const importedConnection = connections.find(c => c.id === connectionId);
+      if (importedConnection) {
+        logger.info(`Verified imported connection is accessible: ${JSON.stringify(importedConnection)}`);
+      } else {
+        logger.error(`WARNING: Imported connection ${connectionId} not found in connections list!`);
+        logger.error(`Available connections: ${connections.map(c => c.id).join(', ')}`);
+      }
+    } catch (verifyError) {
+      logger.error('Failed to verify imported connection:', verifyError);
+    }
 
   } catch (error) {
     logger.error('File import failed:', error);
