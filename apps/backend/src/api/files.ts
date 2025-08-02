@@ -29,7 +29,8 @@ const upload = multer({
     if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV and Excel files are allowed'));
+      const detectedExt = fileExtension || 'unknown';
+      cb(new Error(`Invalid file type '${detectedExt}'. Please use CSV, XLS, or XLSX files.`));
     }
   }
 });
@@ -47,11 +48,28 @@ const ImportRequestSchema = z.object({
   columns: z.array(ColumnSchema)
 });
 
+// Error handling middleware for multer
+const handleMulterError = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      const maxSize = Math.round((50 * 1024 * 1024) / (1024 * 1024)); // Convert to MB
+      return res.status(400).json({ 
+        error: `File too large. Maximum size is ${maxSize}MB. Please compress your file or split it into smaller parts.` 
+      });
+    }
+    if (err.message.includes('Invalid file type')) {
+      return res.status(400).json({ error: err.message });
+    }
+    return res.status(400).json({ error: err.message || 'File upload failed' });
+  }
+  next();
+};
+
 // File upload and preview endpoint
-router.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'No file uploaded. Please select a file and try again.' });
     }
 
     const filePath = req.file.path;
@@ -71,7 +89,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       // Clean up uploaded file
       fs.unlinkSync(filePath);
       logger.error('File parsing failed:', error);
-      return res.status(400).json({ error: 'Failed to parse file. Please ensure it\'s a valid CSV or Excel file.' });
+      return res.status(400).json({ 
+        error: 'File appears to be corrupted or in an unsupported format. Please try re-saving and uploading again, or ensure it\'s a valid CSV or Excel file.' 
+      });
     }
 
     // Get the first worksheet
@@ -80,7 +100,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     
     if (!worksheet) {
       fs.unlinkSync(filePath);
-      return res.status(400).json({ error: 'No data found in file' });
+      return res.status(400).json({ error: 'No data found in file. Please ensure your file contains data in the first worksheet.' });
     }
 
     // Convert to JSON with header row
@@ -88,7 +108,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     
     if (jsonData.length < 2) {
       fs.unlinkSync(filePath);
-      return res.status(400).json({ error: 'File must contain at least a header row and one data row' });
+      return res.status(400).json({ 
+        error: `File contains only ${jsonData.length} row(s). Please ensure your file has a header row and at least one data row.` 
+      });
     }
 
     const headers = jsonData[0] as string[];
@@ -96,7 +118,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     
     if (!headers || headers.length === 0) {
       fs.unlinkSync(filePath);
-      return res.status(400).json({ error: 'No headers found in file' });
+      return res.status(400).json({ error: 'No column headers found. Please ensure your file has column headers in the first row.' });
     }
 
     // Auto-detect column types
@@ -139,7 +161,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       }
     }
     
-    res.status(500).json({ error: 'File upload failed' });
+    res.status(500).json({ error: 'File upload failed. Please try again or contact support if the problem persists.' });
   }
 });
 
@@ -151,7 +173,7 @@ router.post('/import', async (req, res) => {
     }).parse(req.body);
 
     if (!fs.existsSync(tempFilePath)) {
-      return res.status(400).json({ error: 'File not found. Please upload again.' });
+      return res.status(400).json({ error: 'Temporary file not found. Please upload your file again.' });
     }
 
     const fileExtension = path.extname(filename).toLowerCase();
@@ -246,7 +268,7 @@ router.post('/import', async (req, res) => {
       });
     }
 
-    res.status(500).json({ error: 'File import failed' });
+    res.status(500).json({ error: 'File import failed. Please try again or contact support if the problem persists.' });
   }
 });
 
@@ -276,7 +298,9 @@ function detectColumnType(values: any[]): 'TEXT' | 'INTEGER' | 'REAL' | 'DATE' {
   }
 
   const total = values.length;
-  const threshold = 0.8; // 80% of values must match type
+  // For small datasets, require 100% consistency to prevent edge cases with mixed types
+  // This prevents cases like ['1', '2', '3', '4', 'five'] being detected as INTEGER
+  const threshold = values.length < 5 ? 1.0 : 0.8;
 
   if (dateCount / total >= threshold) return 'DATE';
   if (integerCount / total >= threshold) return 'INTEGER';
