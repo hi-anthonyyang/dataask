@@ -9,6 +9,7 @@ import { Database, ChevronRight, LogOut, User, Plus, Upload } from 'lucide-react
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Connection } from '../types'
+import { databaseService } from '../services/databaseService'
 
 const DataAskApp: React.FC = () => {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
@@ -38,11 +39,8 @@ const DataAskApp: React.FC = () => {
 
   const loadConnections = async () => {
     try {
-      const response = await fetch('/api/db/connections')
-      if (response.ok) {
-        const data = await response.json()
-        setConnections(data.connections)
-      }
+      const data = await databaseService.listConnections()
+      setConnections(data.connections)
     } catch (error) {
       console.error('Failed to load connections:', error)
     }

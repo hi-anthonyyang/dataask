@@ -721,7 +721,8 @@ Suggestions:
       throw new Error(`File access error for ${filename}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    return new Promise((resolve, reject) => {
+    // Create connection test promise with timeout protection
+    const connectionPromise = new Promise<boolean>((resolve, reject) => {
       // Use OPEN_READONLY first to test, then OPEN_READWRITE if that works
       let openFlags = sqlite3.OPEN_READONLY;
       
@@ -754,6 +755,13 @@ Suggestions:
         }
       });
     });
+
+    // Add timeout protection
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('SQLite connection test timed out')), DATABASE_CONFIG.connection.testTimeoutMs);
+    });
+
+    return await Promise.race([connectionPromise, timeoutPromise]);
   }
 
   private async createSQLiteConnection(config: ConnectionConfig): Promise<sqlite3.Database> {

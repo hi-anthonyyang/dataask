@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Database, TestTube, Loader2 } from 'lucide-react'
 import { Connection } from '../types'
+import { databaseService } from '../services/databaseService'
 import '../types/electron.d.ts'
 
 // File validation component for SQLite files
@@ -244,26 +245,12 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
     setTestResult(null)
 
     try {
-      const response = await fetch('/api/db/test-connection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: formData.type,
-          name: formData.name,
-          config: buildConnectionConfig()
-        })
+      const result = await databaseService.testConnection({
+        type: formData.type,
+        name: formData.name,
+        config: buildConnectionConfig()
       })
-
-      if (!response.ok) {
-        const errorResult = await response.json().catch(() => ({ error: 'Unknown error' }))
-        setTestResult({
-          success: false,
-          message: errorResult.error || `Server error (${response.status}): ${response.statusText}`
-        })
-        return
-      }
-
-      const result = await response.json()
+      
       setTestResult({
         success: result.success,
         message: result.message || (result.success ? 'Connection successful!' : 'Connection failed')
@@ -272,7 +259,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
       console.error('Connection test error:', error)
       setTestResult({
         success: false,
-        message: 'Failed to test connection. Please check your backend is running.'
+        message: 'Failed to test connection. Please check your setup.'
       })
     }
 
@@ -283,31 +270,26 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
     setIsCreatingConnection(true)
 
     try {
-      const response = await fetch('/api/db/connections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: formData.type,
-          name: formData.name,
-          config: buildConnectionConfig()
-        })
+      const result = await databaseService.createConnection({
+        type: formData.type,
+        name: formData.name,
+        config: buildConnectionConfig()
       })
 
-      const result = await response.json()
-      if (response.ok) {
+      if (result.connectionId) {
         onConnectionAdded(result.connectionId)
         onClose()
       } else {
         setTestResult({
           success: false,
-          message: result.error || `Failed to create connection (${response.status}): ${response.statusText}`
+          message: result.error || 'Failed to create connection'
         })
       }
     } catch (error) {
       console.error('Connection creation error:', error)
       setTestResult({
         success: false,
-        message: 'Failed to create connection. Please check your backend is running.'
+        message: 'Failed to create connection. Please check your setup.'
       })
     }
 

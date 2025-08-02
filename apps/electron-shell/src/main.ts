@@ -1,11 +1,66 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import * as path from 'path'
+import * as sqlite3 from 'sqlite3'
+import * as fs from 'fs'
 
 const isDev = process.env.NODE_ENV === 'development'
 
 console.log('🔧 Electron starting...', { isDev, NODE_ENV: process.env.NODE_ENV })
 
-// IPC Handlers for file system operations
+// Simple SQLite operations - no connection management needed
+function validateSQLiteFile(filePath: string): { valid: boolean; error?: string } {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { valid: false, error: 'File does not exist' }
+    }
+    
+    const stats = fs.statSync(filePath)
+    if (!stats.isFile()) {
+      return { valid: false, error: 'Path is not a file' }
+    }
+    
+    // Try to access the file for reading
+    fs.accessSync(filePath, fs.constants.R_OK)
+    return { valid: true }
+  } catch (error) {
+    return { valid: false, error: `Cannot access file: ${error instanceof Error ? error.message : 'Unknown error'}` }
+  }
+}
+
+function executeSQLiteQuery(filePath: string, sql: string, params: any[] = []): Promise<any> {
+  return new Promise((resolve) => {
+    const db = new sqlite3.Database(filePath, sqlite3.OPEN_READONLY, (err) => {
+      if (err) {
+        resolve({ error: `Failed to open database: ${err.message}` })
+        return
+      }
+
+      const startTime = Date.now()
+      db.all(sql, params, (queryErr, rows) => {
+        const executionTime = Date.now() - startTime
+        
+        db.close() // Always close immediately after query
+        
+        if (queryErr) {
+          resolve({ error: queryErr.message })
+        } else {
+          const fields = rows.length > 0 ? 
+            Object.keys(rows[0] as Record<string, any>).map(name => ({ name, type: 'unknown' })) : 
+            []
+
+          resolve({
+            data: rows,
+            rowCount: rows.length,
+            fields,
+            executionTime
+          })
+        }
+      })
+    })
+  })
+}
+
+// IPC Handlers for file system operations and simple SQLite access
 function setupIpcHandlers(): void {
   // Handle file dialog for opening SQLite databases
   ipcMain.handle('dialog:openDatabase', async () => {
@@ -26,6 +81,57 @@ function setupIpcHandlers(): void {
       canceled: false,
       filePath: result.filePaths[0]
     }
+  })
+
+  // Simple SQLite file validation
+  ipcMain.handle('sqlite:validateFile', async (event, filePath) => {
+    return validateSQLiteFile(filePath)
+  })
+
+  // Get SQLite database schema
+  ipcMain.handle('sqlite:getSchema', async (event, filePath) => {
+    const validation = validateSQLiteFile(filePath)
+    if (!validation.valid) {
+      return { error: validation.error }
+    }
+
+    // Get tables
+    const tablesResult = await executeSQLiteQuery(filePath, `
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name NOT LIKE 'sqlite_%'
+      ORDER BY name
+    `)
+
+    if (tablesResult.error) {
+      return { error: tablesResult.error }
+    }
+
+    // Get columns for each table
+    const tables = []
+    for (const table of tablesResult.data) {
+      const columnsResult = await executeSQLiteQuery(filePath, `PRAGMA table_info(${table.name})`)
+      
+      const columns = columnsResult.error ? [] : columnsResult.data.map((col: any) => ({
+        name: col.name,
+        type: col.type,
+        nullable: !col.notnull,
+        primaryKey: !!col.pk
+      }))
+
+      tables.push({ name: table.name, columns })
+    }
+
+    return { schema: { tables } }
+  })
+
+  // Execute SQLite query
+  ipcMain.handle('sqlite:executeQuery', async (event, filePath, sql, params = []) => {
+    const validation = validateSQLiteFile(filePath)
+    if (!validation.valid) {
+      return { error: validation.error }
+    }
+
+    return await executeSQLiteQuery(filePath, sql, params)
   })
 }
 

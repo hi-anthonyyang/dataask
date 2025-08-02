@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit, User, LogOut, Upload } from 'lucide-react'
 import { Connection } from '../types'
+import { databaseService } from '../services/databaseService'
 
 interface SchemaTable {
   name: string
@@ -57,11 +58,8 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
 
   const loadConnections = async () => {
     try {
-      const response = await fetch('/api/db/connections')
-      if (response.ok) {
-        const data = await response.json()
-        setInternalConnections(data.connections)
-      }
+      const data = await databaseService.listConnections()
+      setInternalConnections(data.connections)
     } catch (error) {
       console.error('Failed to load connections:', error)
     }
@@ -70,9 +68,8 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
   const loadSchema = async (connectionId: string) => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/db/connections/${connectionId}/schema`)
-      if (response.ok) {
-        const data = await response.json()
+      const data = await databaseService.getSchema(connectionId)
+      if (data.schema) {
         setSchema(data.schema)
       }
     } catch (error) {
@@ -108,11 +105,9 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
     }
 
     try {
-      const response = await fetch(`/api/db/connections/${connectionId}`, {
-        method: 'DELETE'
-      })
+      const result = await databaseService.deleteConnection(connectionId)
       
-      if (response.ok) {
+      if (!result.error) {
         // If the deleted connection was selected, clear all related state safely
         if (selectedConnection === connectionId) {
           onConnectionSelect(null)
@@ -132,7 +127,7 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
         }
       } else {
         // Show error feedback
-        console.error('Failed to delete connection:', response.statusText)
+        console.error('Failed to delete connection:', result.error)
       }
     } catch (error) {
       console.error('Failed to delete connection:', error)

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Play, Bot, User, Code, MessageCircle, History, Copy, Trash2, ChevronDown, ChevronRight, Check } from 'lucide-react'
 import { copySQLQuery } from '../services/copyService'
+import { databaseService } from '../services/databaseService'
 
 // Configuration constants
 const CHAT_CONFIG = {
@@ -245,13 +246,8 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
 
     try {
       // Get current database schema first
-      const schemaResponse = await fetch(`/api/db/connections/${selectedConnection}/schema`)
-      let schema = { tables: [] }
-      
-      if (schemaResponse.ok) {
-        const result = await schemaResponse.json()
-        schema = result.schema || { tables: [] }
-      }
+      const schemaResult = await databaseService.getSchema(selectedConnection)
+      let schema = schemaResult.schema || { tables: [] }
 
       // Convert natural language to SQL with real schema context
       const response = await fetch('/api/llm/nl-to-sql', {
@@ -335,17 +331,17 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
     setIsLoading(true)
     
     try {
-      const response = await fetch('/api/db/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          connectionId: selectedConnection,
-          sql: currentSql
-        })
-      })
+      const results = await databaseService.executeQuery(selectedConnection, currentSql)
 
-      if (response.ok) {
-        const results = await response.json()
+      if (results.error) {
+        const errorMessageObj: Message = {
+          id: Date.now().toString(),
+          type: 'assistant',
+          content: `❌ Query failed: ${results.error}`,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, errorMessageObj])
+      } else {
         onQueryExecute(results)
         
         // Close table overview/preview when query is executed
@@ -360,18 +356,6 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
           timestamp: new Date()
         }
         setMessages(prev => [...prev, successMessage])
-      } else {
-        // Handle HTTP error responses (400, 500, etc.)
-        const errorData = await response.json()
-        const errorMessage = errorData.error || 'Query execution failed'
-        
-        const errorMessageObj: Message = {
-          id: Date.now().toString(),
-          type: 'assistant',
-          content: `❌ Query failed: ${errorMessage}`,
-          timestamp: new Date()
-        }
-        setMessages(prev => [...prev, errorMessageObj])
       }
     } catch (error) {
       const errorMessage: Message = {
@@ -536,32 +520,26 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
     setIsLoading(true)
     
     try {
-      const response = await fetch('/api/db/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          connectionId: selectedConnection,
-          sql: sql
-        })
-      })
+      const results = await databaseService.executeQuery(selectedConnection, sql)
 
-      if (response.ok) {
-        const results = await response.json()
-        onQueryExecute(results)
-        
-        // Close table overview/preview when query is executed
-        if (onTableClose) {
-          onTableClose()
-        }
-        
-        const successMessage: Message = {
-          id: Date.now().toString(),
-          type: 'assistant',
-          content: `Query executed successfully! Found ${results.rowCount} records. Check the analysis panel for detailed results and insights.`,
-          timestamp: new Date()
-        }
-        setMessages(prev => [...prev, successMessage])
+      if (results.error) {
+        throw new Error(results.error)
       }
+
+      onQueryExecute(results)
+      
+      // Close table overview/preview when query is executed
+      if (onTableClose) {
+        onTableClose()
+      }
+      
+      const successMessage: Message = {
+        id: Date.now().toString(),
+        type: 'assistant',
+        content: `Query executed successfully! Found ${results.rowCount} records. Check the analysis panel for detailed results and insights.`,
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, successMessage])
     } catch (error) {
       const errorMessage: Message = {
         id: Date.now().toString(),

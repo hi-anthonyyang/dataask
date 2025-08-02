@@ -25,6 +25,24 @@ interface ElectronAPI {
       filePath?: string
     }>
   }
+
+  sqlite: {
+    validateFile: (filePath: string) => Promise<{
+      valid: boolean
+      error?: string
+    }>
+    getSchema: (filePath: string) => Promise<{
+      schema?: { tables: any[] }
+      error?: string
+    }>
+    executeQuery: (filePath: string, sql: string, params?: any[]) => Promise<{
+      data?: any[]
+      rowCount?: number
+      fields?: any[]
+      executionTime?: number
+      error?: string
+    }>
+  }
 }
 
 declare global {

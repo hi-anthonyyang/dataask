@@ -59,6 +59,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openDatabase: () => {
       return ipcRenderer.invoke('dialog:openDatabase')
     }
+  },
+
+  // Simple SQLite operations - no connection management
+  sqlite: {
+    // Validate SQLite file
+    validateFile: (filePath) => {
+      return ipcRenderer.invoke('sqlite:validateFile', filePath)
+    },
+    
+    // Get database schema
+    getSchema: (filePath) => {
+      return ipcRenderer.invoke('sqlite:getSchema', filePath)
+    },
+    
+    // Execute SQL query
+    executeQuery: (filePath, sql, params) => {
+      return ipcRenderer.invoke('sqlite:executeQuery', filePath, sql, params)
+    }
   }
 })
 

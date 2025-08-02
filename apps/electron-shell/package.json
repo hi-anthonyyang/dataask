@@ -12,7 +12,8 @@
     "package": "electron-builder"
   },
   "dependencies": {
-    "electron": "^28.3.2"
+    "electron": "^28.3.2",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
