@@ -48,6 +48,10 @@ AI-native, minimal SQL data analysis tool
 
 #### Backend Connection Errors (500 errors)
 
+**Note:** As of the latest update, the Electron app now automatically manages the backend server process. The backend will start automatically when you launch the Electron app and stop when you close it.
+
+If you still encounter connection errors:
+
 If you see 500 errors when trying to connect to databases or import files:
 
 1. **Ensure the backend is running:**
@@ -201,6 +205,19 @@ DataAsk implements multiple security layers:
 - File upload validation and size limits
 
 See `AUTHENTICATION.md`, `PROMPT_INJECTION_SECURITY.md`, and `TLS_SECURITY.md` for detailed security documentation.
+
+## Recent Updates
+
+### Backend Server Management
+- The Electron app now automatically manages the backend server process
+- Backend starts automatically when launching the app
+- Backend stops gracefully when closing the app
+- No need to manually run separate backend server in development
+
+### UI Improvements
+- Merged redundant "Connections" and "Database" sections into a single "Database" panel
+- Streamlined left sidebar with unified database management
+- User profile and logout functionality integrated into the Database panel
 
 ## License
 

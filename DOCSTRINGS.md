@@ -192,6 +192,8 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * Renders a collapsible tree of tables and columns, tracks which tables
      * are expanded and supports dragging items into the chat panel for query
      * generation. Handles loading states and propagates selection events.
+     * Includes integrated connection management UI with add/edit/delete actions,
+     * panel minimization controls, and user profile/logout functionality.
      */
 
 ### `apps/frontend/src/components/ConnectionModal.tsx`
@@ -371,13 +373,18 @@ The following docstrings describe the purpose of each module in the DataAsk repo
     /**
      * Main process script for the Electron desktop application.
      *
-     * Creates a browser window with specific dimensions and configuration,
-     * sets Content Security Policy headers to prevent security warnings,
-     * loads the React development server during development or the built
-     * frontend in production. Handles SQLite file operations through IPC,
-     * shows the window when ready, logs errors on failed loads and prevents
-     * untrusted navigation. Manages application lifecycle events and restricts
-     * external link handling for security.
+     * Manages the complete lifecycle of the DataAsk desktop application including:
+     * - Automatic backend server process management (starts/stops with app)
+     * - Creates a browser window with specific dimensions and configuration
+     * - Sets Content Security Policy headers to prevent security warnings
+     * - Loads the React development server during development or the built
+     *   frontend in production
+     * - Handles SQLite file operations through IPC channels
+     * - Shows the window when ready, logs errors on failed loads and prevents
+     *   untrusted navigation
+     * - Manages application lifecycle events and restricts external link handling
+     *   for security
+     * - Gracefully shuts down backend server on app termination
      */
 
 ### `apps/electron-shell/src/preload.js`
