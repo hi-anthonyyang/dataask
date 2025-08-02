@@ -10,6 +10,29 @@ import { DatabaseManager } from '../utils/database';
 
 const router = express.Router();
 
+// Import progress tracking
+interface ImportProgress {
+  importId: string;
+  status: 'uploading' | 'processing' | 'importing' | 'completed' | 'failed';
+  progress: number;
+  totalRows?: number;
+  processedRows?: number;
+  message?: string;
+  error?: string;
+}
+
+const importProgressMap = new Map<string, ImportProgress>();
+
+// Clean up old progress entries after 5 minutes
+setInterval(() => {
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+  for (const [id, progress] of importProgressMap.entries()) {
+    if (progress.status === 'completed' || progress.status === 'failed') {
+      importProgressMap.delete(id);
+    }
+  }
+}, 60 * 1000); // Run every minute
+
 // Configure multer for file uploads
 const upload = multer({
   dest: 'uploads/',
@@ -170,23 +193,69 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
   }
 });
 
-// Combined upload and import endpoint
+// Progress tracking endpoint
+router.get('/import-progress/:importId', (req, res) => {
+  const { importId } = req.params;
+  const progress = importProgressMap.get(importId);
+  
+  if (!progress) {
+    return res.status(404).json({ error: 'Import not found' });
+  }
+  
+  res.json(progress);
+});
+
+// Combined upload and import endpoint (NEW - single step import)
 router.post('/import', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   let tempFilePath: string | undefined;
+  const importId = uuidv4();
+  
+  // Initialize progress tracking
+  importProgressMap.set(importId, {
+    importId,
+    status: 'uploading',
+    progress: 0
+  });
   
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      importProgressMap.set(importId, {
+        importId,
+        status: 'failed',
+        progress: 0,
+        error: 'No file uploaded'
+      });
+      return res.status(400).json({ error: 'No file uploaded. Please select a file and try again.' });
     }
 
     const { tableName } = req.body;
     if (!tableName || typeof tableName !== 'string') {
+      importProgressMap.set(importId, {
+        importId,
+        status: 'failed',
+        progress: 0,
+        error: 'Table name is required'
+      });
       return res.status(400).json({ error: 'Table name is required' });
     }
+
+    // Update progress - file uploaded
+    importProgressMap.set(importId, {
+      importId,
+      status: 'processing',
+      progress: 10,
+      message: 'File uploaded, parsing data...'
+    });
 
     // Validate table name
     const cleanTableName = tableName.trim().replace(/[^a-zA-Z0-9_]/g, '_');
     if (!cleanTableName) {
+      importProgressMap.set(importId, {
+        importId,
+        status: 'failed',
+        progress: 0,
+        error: 'Invalid table name'
+      });
       return res.status(400).json({ error: 'Invalid table name' });
     }
 
@@ -194,8 +263,22 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     const fileExtension = path.extname(req.file.originalname).toLowerCase();
     
     if (!['.csv', '.xlsx', '.xls'].includes(fileExtension)) {
+      importProgressMap.set(importId, {
+        importId,
+        status: 'failed',
+        progress: 0,
+        error: 'Unsupported file format. Please upload a CSV, XLS, or XLSX file.'
+      });
       return res.status(400).json({ error: 'Unsupported file format. Please upload a CSV, XLS, or XLSX file.' });
     }
+
+    // Update progress - file parsed
+    importProgressMap.set(importId, {
+      importId,
+      status: 'importing',
+      progress: 20,
+      message: 'File parsed, preparing for import...'
+    });
 
     // Read and parse file
     let workbook: XLSX.WorkBook;
@@ -211,6 +294,12 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
     if (!jsonData || jsonData.length < 2) {
+      importProgressMap.set(importId, {
+        importId,
+        status: 'failed',
+        progress: 0,
+        error: 'File is empty or contains no data rows'
+      });
       return res.status(400).json({ error: 'File is empty or contains no data rows' });
     }
 
@@ -226,6 +315,14 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
         nullable: true,
         primaryKey: false
       };
+    });
+
+    // Update progress - database file created
+    importProgressMap.set(importId, {
+      importId,
+      status: 'importing',
+      progress: 30,
+      message: 'Database file created, preparing for import...'
     });
 
     // Create SQLite database file for this import
@@ -246,6 +343,14 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       config: { filename: dbPath }
     });
 
+    // Update progress - table created
+    importProgressMap.set(importId, {
+      importId,
+      status: 'importing',
+      progress: 40,
+      message: 'Table created, preparing for data insertion...'
+    });
+
     // Create table with proper column types
     const columnDefinitions = columns.map(col => 
       `"${col.name}" ${col.type}${col.nullable ? '' : ' NOT NULL'}`
@@ -253,6 +358,14 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     
     const createTableSQL = `CREATE TABLE "${cleanTableName}" (${columnDefinitions})`;
     await dbManager.executeQuery(connectionId, createTableSQL, []);
+
+    // Update progress - data insertion started
+    importProgressMap.set(importId, {
+      importId,
+      status: 'importing',
+      progress: 50,
+      message: 'Data insertion started...'
+    });
 
     // Insert data using batch insertion
     const placeholders = columns.map(() => '?').join(', ');
@@ -266,16 +379,49 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     await dbManager.executeQuery(connectionId, 'BEGIN TRANSACTION', []);
     
     try {
-      for (let i = 0; i < totalRows; i += batchSize) {
-        const batch = dataRows.slice(i, i + batchSize);
+      // Use bulk insert for much better performance
+      const ROWS_PER_INSERT = 100; // SQLite handles multi-row inserts well up to ~100 rows
+      
+      for (let i = 0; i < totalRows; i += ROWS_PER_INSERT) {
+        const batchRows = dataRows.slice(i, Math.min(i + ROWS_PER_INSERT, totalRows));
         
-        for (const row of batch) {
+        if (batchRows.length === 0) continue;
+        
+        // Build multi-row INSERT statement
+        const valuesClauses = batchRows.map(() => `(${placeholders})`).join(', ');
+        const bulkInsertSQL = `INSERT INTO "${cleanTableName}" (${columns.map(col => `"${col.name}"`).join(', ')}) VALUES ${valuesClauses}`;
+        
+        // Flatten all values for this batch
+        const allValues: any[] = [];
+        for (const row of batchRows) {
           const values = columns.map((col, index) => {
             const value = (row as any[])[index];
             return convertValueToType(value, col.type);
           });
-          
-          await dbManager.executeQuery(connectionId, insertSQL, values);
+          allValues.push(...values);
+        }
+        
+        await dbManager.executeQuery(connectionId, bulkInsertSQL, allValues);
+        
+        // Update progress tracking
+        const processedRows = Math.min(i + ROWS_PER_INSERT, totalRows);
+        const percentage = Math.round(processedRows / totalRows * 100);
+        const importProgress = 50 + Math.round(percentage * 0.5); // 50-100% range for data insertion
+        
+        importProgressMap.set(importId, {
+          importId,
+          status: 'importing',
+          progress: importProgress,
+          totalRows,
+          processedRows,
+          message: `Importing data: ${processedRows}/${totalRows} rows (${percentage}%)`
+        });
+        
+        // Log progress for large imports (every 10% or 5000 rows)
+        if (totalRows > 1000) {
+          if (percentage % 10 === 0 || processedRows % 5000 === 0) {
+            logger.info(`Import progress: ${processedRows}/${totalRows} rows (${percentage}%)`);
+          }
         }
       }
       
@@ -287,6 +433,14 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       throw error;
     }
 
+    // Update progress - import completed
+    importProgressMap.set(importId, {
+      importId,
+      status: 'completed',
+      progress: 100,
+      message: 'Import completed successfully!'
+    });
+
     // Clean up temp file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
@@ -296,12 +450,21 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       connectionId,
       tableName: cleanTableName,
       rowCount: totalRows,
-      columns: columns.length
+      columns: columns.length,
+      importId // Include importId for progress tracking
     });
 
   } catch (error) {
     logger.error('File import failed:', error);
     
+    // Update progress - import failed
+    importProgressMap.set(importId, {
+      importId,
+      status: 'failed',
+      progress: 0,
+      error: error instanceof Error ? error.message : 'File import failed. Please try again.'
+    });
+
     // Clean up temp file on error
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       try {
@@ -312,7 +475,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     }
     
     res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'File import failed. Please try again.' 
+      error: error instanceof Error ? error.message : 'File import failed. Please try again or contact support if the problem persists.' 
     });
   }
 });
@@ -397,23 +560,37 @@ router.post('/import-old', async (req, res) => {
     await dbManager.executeQuery(connectionId, 'BEGIN TRANSACTION', []);
     
     try {
-      for (let i = 0; i < totalRows; i += batchSize) {
-        const batch = dataRows.slice(i, i + batchSize);
+      // Use bulk insert for much better performance
+      const ROWS_PER_INSERT = 100; // SQLite handles multi-row inserts well up to ~100 rows
+      
+      for (let i = 0; i < totalRows; i += ROWS_PER_INSERT) {
+        const batchRows = dataRows.slice(i, Math.min(i + ROWS_PER_INSERT, totalRows));
         
-        // Process batch rows
-        for (const row of batch) {
+        if (batchRows.length === 0) continue;
+        
+        // Build multi-row INSERT statement
+        const valuesClauses = batchRows.map(() => `(${placeholders})`).join(', ');
+        const bulkInsertSQL = `INSERT INTO "${tableName}" (${columns.map(col => `"${col.name}"`).join(', ')}) VALUES ${valuesClauses}`;
+        
+        // Flatten all values for this batch
+        const allValues: any[] = [];
+        for (const row of batchRows) {
           const values = columns.map((col, index) => {
             const value = (row as any[])[index];
             return convertValueToType(value, col.type);
           });
-          
-          await dbManager.executeQuery(connectionId, insertSQL, values);
+          allValues.push(...values);
         }
+        
+        await dbManager.executeQuery(connectionId, bulkInsertSQL, allValues);
         
         // Log progress for large imports
         if (totalRows > 5000) {
-          const progress = Math.min(i + batchSize, totalRows);
-          logger.info(`Import progress: ${progress}/${totalRows} rows (${Math.round(progress / totalRows * 100)}%)`);
+          const progress = Math.min(i + ROWS_PER_INSERT, totalRows);
+          const percentage = Math.round(progress / totalRows * 100);
+          if (percentage % 10 === 0) {
+            logger.info(`Import progress: ${progress}/${totalRows} rows (${percentage}%)`);
+          }
         }
       }
       
