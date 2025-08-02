@@ -1,11 +1,12 @@
 // Local storage service for persisting app state (DBeaver-style)
 import CryptoJS from 'crypto-js'
+import { STORAGE_KEYS, DATABASE_TYPES } from '../utils/constants'
 
 // Secure encryption key derivation
 const getEncryptionKey = (): string => {
   // Use environment variable if available, otherwise derive from domain
   const envKey = (window as any).__DATAASK_ENCRYPTION_KEY__ || 
-                 localStorage.getItem('dataask_app_key');
+                 localStorage.getItem(STORAGE_KEYS.ENCRYPTION_KEY);
   
   if (envKey) return envKey;
   
@@ -15,16 +16,19 @@ const getEncryptionKey = (): string => {
   const derivedKey = CryptoJS.SHA256(`dataask-${domain}-${appVersion}`).toString();
   
   // Cache the derived key
-  localStorage.setItem('dataask_app_key', derivedKey);
+  localStorage.setItem(STORAGE_KEYS.ENCRYPTION_KEY, derivedKey);
   return derivedKey;
 };
 
 const ENCRYPTION_KEY = getEncryptionKey();
 
+// Type definitions
+type DatabaseType = typeof DATABASE_TYPES[keyof typeof DATABASE_TYPES];
+
 interface SavedConnection {
   id: string
   name: string
-  type: 'postgresql' | 'sqlite'
+  type: DatabaseType
   config: {
     host?: string
     port?: number
@@ -45,42 +49,10 @@ interface AppState {
 }
 
 class StorageService {
-  private static readonly CONNECTIONS_KEY = 'dataask_connections'
-  private static readonly APP_STATE_KEY = 'dataask_app_state'
-  
-  // Connection Management
-  static saveConnection(connection: SavedConnection): void {
-    try {
-      const connections = this.getConnections()
-      const existingIndex = connections.findIndex(c => c.id === connection.id)
-      
-      // Encrypt sensitive data (AES encryption)
-      const encryptedConnection = {
-        ...connection,
-        config: {
-          ...connection.config,
-          host: connection.config.host ? CryptoJS.AES.encrypt(connection.config.host, ENCRYPTION_KEY).toString() : undefined,
-          database: connection.config.database ? CryptoJS.AES.encrypt(connection.config.database, ENCRYPTION_KEY).toString() : undefined,
-          username: connection.config.username ? CryptoJS.AES.encrypt(connection.config.username, ENCRYPTION_KEY).toString() : undefined,
-          password: connection.config.password ? CryptoJS.AES.encrypt(connection.config.password, ENCRYPTION_KEY).toString() : undefined
-        }
-      }
-      
-      if (existingIndex >= 0) {
-        connections[existingIndex] = encryptedConnection
-      } else {
-        connections.push(encryptedConnection)
-      }
-      
-      localStorage.setItem(this.CONNECTIONS_KEY, JSON.stringify(connections))
-    } catch (error) {
-      console.warn('Failed to save connection:', error)
-    }
-  }
-  
+  // Get all saved connections
   static getConnections(): SavedConnection[] {
     try {
-      const data = localStorage.getItem(this.CONNECTIONS_KEY)
+      const data = localStorage.getItem(STORAGE_KEYS.CONNECTIONS)
       if (!data) return []
       
       const connections = JSON.parse(data) as SavedConnection[]
@@ -136,10 +108,39 @@ class StorageService {
     }
   }
   
+  static saveConnection(connection: SavedConnection): void {
+    try {
+      const connections = this.getConnections()
+      const existingIndex = connections.findIndex(c => c.id === connection.id)
+      
+      // Encrypt sensitive data (AES encryption)
+      const encryptedConnection = {
+        ...connection,
+        config: {
+          ...connection.config,
+          host: connection.config.host ? CryptoJS.AES.encrypt(connection.config.host, ENCRYPTION_KEY).toString() : undefined,
+          database: connection.config.database ? CryptoJS.AES.encrypt(connection.config.database, ENCRYPTION_KEY).toString() : undefined,
+          username: connection.config.username ? CryptoJS.AES.encrypt(connection.config.username, ENCRYPTION_KEY).toString() : undefined,
+          password: connection.config.password ? CryptoJS.AES.encrypt(connection.config.password, ENCRYPTION_KEY).toString() : undefined
+        }
+      }
+      
+      if (existingIndex >= 0) {
+        connections[existingIndex] = encryptedConnection
+      } else {
+        connections.push(encryptedConnection)
+      }
+      
+      localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections))
+    } catch (error) {
+      console.warn('Failed to save connection:', error)
+    }
+  }
+  
   static removeConnection(connectionId: string): void {
     try {
       const connections = this.getConnections().filter(c => c.id !== connectionId)
-      localStorage.setItem(this.CONNECTIONS_KEY, JSON.stringify(connections))
+      localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections))
     } catch (error) {
       console.warn('Failed to remove connection:', error)
     }
@@ -163,7 +164,7 @@ class StorageService {
     try {
       const currentState = this.getAppState()
       const newState = { ...currentState, ...state }
-      localStorage.setItem(this.APP_STATE_KEY, JSON.stringify(newState))
+      localStorage.setItem(STORAGE_KEYS.APP_STATE, JSON.stringify(newState))
     } catch (error) {
       console.warn('Failed to save app state:', error)
     }
@@ -171,7 +172,7 @@ class StorageService {
   
   static getAppState(): AppState {
     try {
-      const data = localStorage.getItem(this.APP_STATE_KEY)
+      const data = localStorage.getItem(STORAGE_KEYS.APP_STATE)
       if (!data) {
         return this.getDefaultAppState()
       }
@@ -240,8 +241,8 @@ class StorageService {
   // Utility Methods
   static clearAllData(): void {
     try {
-      localStorage.removeItem(this.CONNECTIONS_KEY)
-      localStorage.removeItem(this.APP_STATE_KEY)
+      localStorage.removeItem(STORAGE_KEYS.CONNECTIONS)
+      localStorage.removeItem(STORAGE_KEYS.APP_STATE)
     } catch (error) {
       console.warn('Failed to clear storage:', error)
     }

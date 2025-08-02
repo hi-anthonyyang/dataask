@@ -247,7 +247,7 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
     try {
       // Get current database schema first
       const schemaResult = await databaseService.getSchema(selectedConnection)
-      let schema = schemaResult.schema || { tables: [] }
+      const schema = schemaResult.schema || { tables: [] }
 
       // Convert natural language to SQL with real schema context
       const response = await fetch('/api/llm/nl-to-sql', {

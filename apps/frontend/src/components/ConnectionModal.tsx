@@ -16,7 +16,7 @@ const FileValidationStatus: React.FC<{ filePath: string }> = ({ filePath }) => {
 
     const validateFile = async () => {
       try {
-        const fileStats = await window.electronAPI.fileSystem.getFileStats(filePath)
+        const fileStats = await window.electronAPI!.fileSystem.getFileStats(filePath)
         setStatus(fileStats)
       } catch (error) {
         setStatus({ exists: false, error: 'Failed to check file' })

@@ -125,11 +125,7 @@ const DataAskApp: React.FC = () => {
     setSelectedConnection(connectionId)
   }
 
-  const handleFileImported = (connectionId: string) => {
-    setShowAddDataModal(false)
-    loadConnections()
-    setSelectedConnection(connectionId)
-  }
+
 
   const handleConnectionUpdated = (connectionId: string) => {
     setShowAddDataModal(false)
