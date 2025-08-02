@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Connection, QueryResult } from '../types'
 import { databaseService } from '../services/database'
-import { StorageService } from '../services/storage'
+import StorageService from '../services/storage'
 import { useResizablePanel } from '../hooks/useResizablePanel'
 
 const DataAskApp: React.FC = () => {

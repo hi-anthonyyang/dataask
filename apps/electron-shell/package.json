@@ -4,9 +4,9 @@
   "description": "DataAsk Electron desktop application",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "NODE_ENV=development tsc && wait-on http://localhost:3000 && NODE_ENV=development electron dist/main.js",
+    "dev": "NODE_ENV=development tsc && cp src/preload.js dist/ && wait-on http://localhost:3000 && NODE_ENV=development electron dist/main.js",
     "dev:watch": "tsc --watch & electron dist/main.js",
-    "build": "tsc",
+    "build": "tsc && cp src/preload.js dist/",
     "start": "electron dist/main.js",
     "clean": "rm -rf dist/",
     "package": "electron-builder"
