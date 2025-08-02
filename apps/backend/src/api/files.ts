@@ -116,6 +116,11 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
     const headers = jsonData[0] as string[];
     const dataRows = jsonData.slice(1);
     
+    // Performance warning for very large files
+    if (dataRows.length > 100000) {
+      logger.warn(`Large file detected: ${dataRows.length} rows. Consider splitting into smaller files for better performance.`);
+    }
+    
     if (!headers || headers.length === 0) {
       fs.unlinkSync(filePath);
       return res.status(400).json({ error: 'No column headers found. Please ensure your file has column headers in the first row.' });
@@ -233,17 +238,44 @@ router.post('/import', async (req, res) => {
     const createTableSQL = `CREATE TABLE "${tableName}" (${columnDefinitions})`;
     await dbManager.executeQuery(connectionId, createTableSQL, []);
 
-    // Insert data
+    // Insert data using batch insertion for better performance
     const placeholders = columns.map(() => '?').join(', ');
     const insertSQL = `INSERT INTO "${tableName}" (${columns.map(col => `"${col.name}"`).join(', ')}) VALUES (${placeholders})`;
     
-    for (const row of dataRows) {
-      const values = columns.map((col, index) => {
-        const value = (row as any[])[index];
-        return convertValueToType(value, col.type);
-      });
+    // Process data in batches to improve performance and memory usage
+    const batchSize = 1000; // Insert 1000 rows at a time
+    const totalRows = dataRows.length;
+    
+    // Begin transaction for better performance
+    await dbManager.executeQuery(connectionId, 'BEGIN TRANSACTION', []);
+    
+    try {
+      for (let i = 0; i < totalRows; i += batchSize) {
+        const batch = dataRows.slice(i, i + batchSize);
+        
+        // Process batch rows
+        for (const row of batch) {
+          const values = columns.map((col, index) => {
+            const value = (row as any[])[index];
+            return convertValueToType(value, col.type);
+          });
+          
+          await dbManager.executeQuery(connectionId, insertSQL, values);
+        }
+        
+        // Log progress for large imports
+        if (totalRows > 5000) {
+          const progress = Math.min(i + batchSize, totalRows);
+          logger.info(`Import progress: ${progress}/${totalRows} rows (${Math.round(progress / totalRows * 100)}%)`);
+        }
+      }
       
-      await dbManager.executeQuery(connectionId, insertSQL, values);
+      // Commit transaction
+      await dbManager.executeQuery(connectionId, 'COMMIT', []);
+    } catch (error) {
+      // Rollback on error
+      await dbManager.executeQuery(connectionId, 'ROLLBACK', []);
+      throw error;
     }
 
     // Clean up temporary file
