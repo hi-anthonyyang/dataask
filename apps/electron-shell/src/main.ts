@@ -159,6 +159,18 @@ function createWindow(): void {
     console.log('✅ Electron window ready and shown')
   })
 
+  // Set Content Security Policy to remove the warning
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': isDev 
+          ? ["default-src 'self' http://localhost:* ws://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:*"]
+          : ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"]
+      }
+    })
+  })
+
   // Load the React app
   if (isDev) {
     console.log('🌐 Loading development server: http://localhost:3000')

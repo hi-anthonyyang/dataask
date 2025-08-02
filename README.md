@@ -46,6 +46,44 @@ AI-native, minimal SQL data analysis tool
 
 ### Troubleshooting
 
+#### Backend Connection Errors (500 errors)
+
+If you see 500 errors when trying to connect to databases or import files:
+
+1. **Ensure the backend is running:**
+   ```bash
+   # Check if all services are running
+   ps aux | grep node
+   
+   # If not, restart the development environment
+   npm run dev
+   ```
+
+2. **Check the backend logs:**
+   - Backend runs on port 3001
+   - Frontend proxies API requests from port 3000 to 3001
+   - Look for error messages in the terminal where you ran `npm run dev`
+
+3. **Verify the .env file exists:**
+   ```bash
+   # The backend needs a .env file
+   cp env.example apps/backend/.env
+   ```
+
+#### SQLite Connection Issues
+
+When connecting to SQLite files:
+- Use absolute paths (e.g., `/Users/username/database.db`)
+- Ensure the file exists and is readable
+- The file should have a `.db`, `.sqlite`, or `.sqlite3` extension
+
+#### File Import Hanging
+
+If CSV/Excel import appears stuck:
+- Ensure the backend is running (see above)
+- Check file size - large files may take time to process
+- Verify the file format is CSV, XLS, or XLSX
+
 #### "Failed to generate SQL" Error
 
 If you see this error when asking questions, it means the OpenAI API key is not configured properly:

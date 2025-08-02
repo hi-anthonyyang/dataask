@@ -50,6 +50,7 @@ interface ConnectionModalProps {
   onConnectionAdded: (connectionId: string) => void
   editingConnection?: Connection | null
   onConnectionUpdated?: (connectionId: string) => void
+  isEmbedded?: boolean
 }
 
 interface ConnectionFormData {
@@ -81,7 +82,7 @@ interface ConnectionFormData {
   sshPassphrase?: string
 }
 
-export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, editingConnection, onConnectionUpdated }: ConnectionModalProps) {
+export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, editingConnection, onConnectionUpdated, isEmbedded = false }: ConnectionModalProps) {
   const [formData, setFormData] = useState<ConnectionFormData>({
     type: 'postgresql',
     name: '',
@@ -152,7 +153,7 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
     setTestResult(null)
   }, [editingConnection])
 
-  if (!isOpen) return null
+  if (!isOpen && !isEmbedded) return null
 
   const handleInputChange = (field: keyof ConnectionFormData, value: string | number | boolean | undefined) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -334,22 +335,9 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
     setIsCreatingConnection(false)
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            {editingConnection ? 'Edit Database Connection' : 'Add Database Connection'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-muted rounded transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+  const content = (
+    <>
+        {/* Content */}
 
         {/* Content */}
         <div className="p-4 space-y-4 overflow-y-auto flex-1">
@@ -787,6 +775,30 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
             {isCreatingConnection ? (editingConnection ? 'Updating...' : 'Creating...') : (editingConnection ? 'Update Connection' : 'Add Connection')}
           </button>
         </div>
+    </>
+  )
+
+  if (isEmbedded) {
+    return content
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            {editingConnection ? 'Edit Database Connection' : 'Add Database Connection'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-muted rounded transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {content}
       </div>
     </div>
   )

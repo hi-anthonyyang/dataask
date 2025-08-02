@@ -1,40 +1,28 @@
 import { useState } from 'react'
-import { X, FileText, Loader2, Upload } from 'lucide-react'
-import { FilePreview, FileColumn } from '../types'
+import { X, FileText, Loader2 } from 'lucide-react'
 import FileDropZone from './FileDropZone'
-import DataPreview from './DataPreview'
-import ColumnTypeEditor from './ColumnTypeEditor'
 
 interface FileImportModalProps {
   isOpen: boolean
   onClose: () => void
   onConnectionAdded: (connectionId: string) => void
+  isEmbedded?: boolean
 }
 
-type ImportStep = 'upload' | 'preview' | 'configure' | 'importing'
-
-export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: FileImportModalProps) {
-  const [currentStep, setCurrentStep] = useState<ImportStep>('upload')
+export default function FileImportModal({ isOpen, onClose, onConnectionAdded, isEmbedded = false }: FileImportModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<FilePreview | null>(null)
-  const [columns, setColumns] = useState<FileColumn[]>([])
   const [tableName, setTableName] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tempFilePath, setTempFilePath] = useState<string | null>(null)
 
-  if (!isOpen) return null
+  if (!isOpen && !isEmbedded) return null
 
   const resetModal = () => {
-    setCurrentStep('upload')
     setSelectedFile(null)
-    setPreview(null)
-    setColumns([])
     setTableName('')
     setError(null)
-    setTempFilePath(null)
     setIsUploading(false)
     setUploadProgress(0)
     setIsImporting(false)
@@ -48,12 +36,30 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file)
     setError(null)
-    setIsUploading(true)
+    
+    // Auto-generate table name from filename
+    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
+    const cleanName = nameWithoutExt
+      .replace(/[^a-zA-Z0-9_]/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase()
+    setTableName(cleanName || 'imported_data')
+  }
+
+  const handleImport = async () => {
+    if (!selectedFile || !tableName.trim()) {
+      setError('Please select a file and provide a table name')
+      return
+    }
+
+    setIsImporting(true)
+    setError(null)
     setUploadProgress(0)
 
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', selectedFile)
+      formData.append('tableName', tableName.trim())
 
       // Use XMLHttpRequest for progress tracking
       const response = await new Promise<Response>((resolve, reject) => {
@@ -68,7 +74,6 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
 
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
-            // Create a Response-like object for compatibility
             resolve(new Response(xhr.responseText, {
               status: xhr.status,
               statusText: xhr.statusText,
@@ -77,61 +82,15 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
               })
             }))
           } else {
-            reject(new Error(`Upload failed (${xhr.status})`))
+            reject(new Error(`Import failed (${xhr.status})`))
           }
         }
 
-        xhr.onerror = () => reject(new Error('Network error during upload'))
-        xhr.ontimeout = () => reject(new Error('Upload timed out'))
+        xhr.onerror = () => reject(new Error('Network error during import'))
+        xhr.ontimeout = () => reject(new Error('Import timed out'))
 
-        xhr.open('POST', '/api/files/upload')
+        xhr.open('POST', '/api/files/import')
         xhr.send(formData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }))
-        throw new Error(errorData.error || `Upload failed (${response.status})`)
-      }
-
-      const previewData = await response.json()
-      setPreview(previewData)
-      setColumns(previewData.columns)
-      setTempFilePath(previewData.tempFilePath)
-      
-      // Generate default table name from filename
-      const nameWithoutExtension = file.name.replace(/\.[^/.]+$/, '')
-      const sanitizedName = nameWithoutExtension
-        .replace(/[^a-zA-Z0-9_]/g, '_')
-        .replace(/^[^a-zA-Z_]/, '_')
-        .substring(0, 50)
-      setTableName(sanitizedName || 'imported_data')
-      
-      setCurrentStep('preview')
-    } catch (error) {
-      console.error('File upload failed:', error)
-      setError(error instanceof Error ? error.message : 'Failed to upload file')
-    } finally {
-      setIsUploading(false)
-      setUploadProgress(0)
-    }
-  }
-
-  const handleImport = async () => {
-    if (!preview || !tempFilePath || !tableName.trim()) return
-
-    setIsImporting(true)
-    setError(null)
-
-    try {
-      const response = await fetch('/api/files/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: preview.filename,
-          tableName: tableName.trim(),
-          columns,
-          tempFilePath
-        })
       })
 
       if (!response.ok) {
@@ -140,174 +99,50 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
       }
 
       const result = await response.json()
-      onConnectionAdded(result.connectionId)
-      handleClose()
+      
+      if (result.connectionId) {
+        onConnectionAdded(result.connectionId)
+        resetModal()
+      } else {
+        throw new Error('No connection ID returned')
+      }
     } catch (error) {
-      console.error('File import failed:', error)
+      console.error('Import error:', error)
       setError(error instanceof Error ? error.message : 'Failed to import file')
     } finally {
       setIsImporting(false)
     }
   }
 
-  const canProceed = () => {
-    switch (currentStep) {
-      case 'upload':
-        return selectedFile && preview && !isUploading
-      case 'preview':
-        return true
-      case 'configure':
-        return tableName.trim().length > 0 && columns.length > 0
-      default:
-        return false
-    }
-  }
-
-  const getStepTitle = () => {
-    switch (currentStep) {
-      case 'upload':
-        return 'Import File'
-      case 'preview':
-        return 'Preview Data'
-      case 'configure':
-        return 'Configure Import'
-      case 'importing':
-        return 'Importing...'
-      default:
-        return 'Import File'
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card border border-border rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            {getStepTitle()}
-          </h2>
-          <button
-            onClick={handleClose}
-            className="p-1 hover:bg-muted rounded transition-colors"
-            disabled={isImporting}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="px-4 py-3 border-b border-border bg-muted/30">
-          <div className="flex items-center gap-4">
-            {[
-              { step: 'upload', label: 'Upload', icon: Upload },
-              { step: 'preview', label: 'Preview', icon: FileText },
-              { step: 'configure', label: 'Configure', icon: FileText }
-            ].map(({ step, label, icon: Icon }, index) => {
-              const isActive = currentStep === step
-              const isCompleted = ['upload', 'preview', 'configure'].indexOf(currentStep) > index
-              const isClickable = isCompleted || (index === 1 && currentStep === 'preview')
-
-              return (
-                <button
-                  key={step}
-                  onClick={() => isClickable && setCurrentStep(step as ImportStep)}
-                  disabled={!isClickable}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm transition-colors ${
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : isCompleted
-                      ? 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      : 'text-muted-foreground'
-                  } ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </button>
-              )
-            })}
+  const content = (
+    <>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-4">
+          <div className="text-center space-y-2 mb-6">
+            <h3 className="text-lg font-medium">Import CSV or Excel File</h3>
+            <p className="text-sm text-muted-foreground">
+              Upload your data file to create a queryable table. Supports CSV, XLS, and XLSX formats.
+            </p>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {currentStep === 'upload' && (
+          <FileDropZone
+            onFileSelect={handleFileSelect}
+            disabled={isUploading || isImporting}
+          />
+
+          {selectedFile && (
             <div className="space-y-4">
-              <div className="text-center space-y-2 mb-6">
-                <h3 className="text-lg font-medium">Import CSV or Excel File</h3>
-                <p className="text-sm text-muted-foreground">
-                  Upload your data file to create a queryable table. Supports CSV, XLS, and XLSX formats.
-                </p>
-              </div>
-
-              <FileDropZone
-                onFileSelect={handleFileSelect}
-                disabled={isUploading}
-              />
-
-              {isUploading && (
-                <div className="space-y-3 py-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">
-                      {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing file...'}
-                    </span>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
-                  </div>
-                  
-                  {uploadProgress === 100 && (
-                    <div className="text-center">
-                      <p className="text-xs text-muted-foreground">
-                        Upload complete. Analyzing file structure...
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {selectedFile && (
-                <div className="bg-muted/50 rounded-lg p-3">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-8 w-8 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-sm">{selectedFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-sm">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
-
-          {currentStep === 'preview' && preview && (
-            <div className="space-y-4">
-              <div className="text-center space-y-2 mb-6">
-                <h3 className="text-lg font-medium">Data Preview</h3>
-                <p className="text-sm text-muted-foreground">
-                  Review your data and the automatically detected column types.
-                </p>
-              </div>
-
-              <DataPreview preview={preview} />
-            </div>
-          )}
-
-          {currentStep === 'configure' && (
-            <div className="space-y-4">
-              <div className="text-center space-y-2 mb-6">
-                <h3 className="text-lg font-medium">Configure Import</h3>
-                <p className="text-sm text-muted-foreground">
-                  Customize the table name and column types before importing.
-                </p>
               </div>
 
               {/* Table Name */}
@@ -325,65 +160,74 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
                   This will be the name of your queryable table.
                 </p>
               </div>
+            </div>
+          )}
 
-              <ColumnTypeEditor
-                columns={columns}
-                onColumnsChange={setColumns}
-              />
+          {isImporting && (
+            <div className="space-y-3 py-4">
+              <div className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">
+                  {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing file...'}
+                </span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
             </div>
           )}
 
           {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
               {error}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="flex gap-2 p-4 border-t border-border flex-shrink-0">
-          {currentStep !== 'upload' && (
-            <button
-              onClick={() => {
-                if (currentStep === 'preview') setCurrentStep('upload')
-                else if (currentStep === 'configure') setCurrentStep('preview')
-              }}
-              disabled={isImporting}
-              className="px-4 py-2 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Back
-            </button>
+      {/* Footer */}
+      <div className="p-4 border-t border-border flex-shrink-0">
+        <button
+          onClick={handleImport}
+          disabled={!selectedFile || !tableName.trim() || isImporting}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isImporting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            'Import File'
           )}
-          
-          <div className="flex-1" />
-          
-          {currentStep === 'preview' && (
-            <button
-              onClick={() => setCurrentStep('configure')}
-              disabled={!canProceed()}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Configure Import
-            </button>
-          )}
+        </button>
+      </div>
+    </>
+  )
 
-          {currentStep === 'configure' && (
-            <button
-              onClick={handleImport}
-              disabled={!canProceed() || isImporting}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isImporting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                'Import Data'
-              )}
-            </button>
-          )}
+  if (isEmbedded) {
+    return content
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-background rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold">Import File</h2>
+          <button
+            onClick={handleClose}
+            className="p-1 hover:bg-muted rounded-md transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+        {content}
       </div>
     </div>
   )
