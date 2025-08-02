@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { logger } from '../utils/logger';
-import Database from 'better-sqlite3';
+import sqlite3 from 'sqlite3';
 
 export interface DataSource {
   id: string;
@@ -106,12 +106,30 @@ export class DataSourceManager {
     // Get table count from SQLite
     let tableCount = 0;
     try {
-      const db = new Database(filePath, { readonly: true });
-      const tables = db.prepare(
-        "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-      ).get() as { count: number };
-      tableCount = tables.count;
-      db.close();
+      await new Promise<void>((resolve, reject) => {
+        const db = new sqlite3.Database(filePath, sqlite3.OPEN_READONLY, (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          
+          db.get(
+            "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            (err, row: any) => {
+              if (err) {
+                logger.error('Failed to read SQLite metadata:', err);
+              } else if (row) {
+                tableCount = row.count;
+              }
+              
+              db.close((closeErr) => {
+                if (closeErr) logger.error('Error closing db:', closeErr);
+                resolve();
+              });
+            }
+          );
+        });
+      });
     } catch (error) {
       logger.error('Failed to read SQLite metadata:', error);
     }

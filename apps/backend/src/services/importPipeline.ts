@@ -314,8 +314,8 @@ export class ImportPipeline extends EventEmitter {
   ): Promise<{ rowCount: number }> {
     // This method maintains compatibility with the existing file import
     // It will be used during the transition period
-    const Database = require('better-sqlite3');
-    const db = new Database(':memory:');
+    const sqlite3 = require('sqlite3');
+    const db = new sqlite3.Database(':memory:');
     
     try {
       const format = this.detectFormat(filePath);
@@ -340,22 +340,41 @@ export class ImportPipeline extends EventEmitter {
         return `"${col.name}" ${sqlType}`;
       }).join(', ');
 
-      db.exec(`CREATE TABLE "${tableName}" (${columnDefs})`);
+      await new Promise<void>((resolve, reject) => {
+        db.run(`CREATE TABLE "${tableName}" (${columnDefs})`, (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
 
       // Insert data
       const placeholders = columns.map(() => '?').join(', ');
-      const insertStmt = db.prepare(
-        `INSERT INTO "${tableName}" VALUES (${placeholders})`
-      );
-
-      const insertMany = db.transaction((rows: any[]) => {
-        for (const row of rows) {
-          const values = columns.map(col => row[col.name]);
-          insertStmt.run(values);
-        }
+      const insertSQL = `INSERT INTO "${tableName}" VALUES (${placeholders})`;
+      
+      // Use serialize to ensure operations run sequentially
+      await new Promise<void>((resolve, reject) => {
+        db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+          
+          const stmt = db.prepare(insertSQL);
+          for (const row of data) {
+            const values = columns.map(col => row[col.name]);
+            stmt.run(values);
+          }
+          
+          stmt.finalize((err) => {
+            if (err) {
+              db.run('ROLLBACK');
+              reject(err);
+            } else {
+              db.run('COMMIT', (err) => {
+                if (err) reject(err);
+                else resolve();
+              });
+            }
+          });
+        });
       });
-
-      insertMany(data);
 
       return { rowCount: data.length };
     } finally {
