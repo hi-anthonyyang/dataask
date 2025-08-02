@@ -1,28 +1,23 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Pool } from 'pg';
-import { UserService, CreateUserData } from '../utils/userService';
-import { AuthService, authenticateToken, AuthenticatedRequest } from '../utils/auth';
+import { AuthService } from '../services/authService';
+import { authenticate, AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { applyRateLimiting } from '../security/rateLimiter';
 import { 
   handleZodError,
   sendBadRequest,
   sendUnauthorized,
-  sendNotFound,
-  sendConflict,
   sendServerError
 } from '../utils/errors';
 
 const router = Router();
 
-// Initialize user service (will be set in the factory function)
-let userService: UserService;
-
 // Validation schemas
 const RegisterSchema = z.object({
   email: z.string().email().max(255),
-  password: z.string().min(8).max(128)
+  password: z.string().min(8).max(128),
+  name: z.string().optional()
 });
 
 const LoginSchema = z.object({
@@ -30,201 +25,155 @@ const LoginSchema = z.object({
   password: z.string()
 });
 
+const RefreshTokenSchema = z.object({
+  refreshToken: z.string()
+});
+
+// Apply rate limiting to auth endpoints
+applyRateLimiting(router, '/register', { max: 5, windowMs: 15 * 60 * 1000 }); // 5 requests per 15 minutes
+applyRateLimiting(router, '/login', { max: 10, windowMs: 15 * 60 * 1000 }); // 10 requests per 15 minutes
+
 // Registration endpoint
 router.post('/register', async (req, res) => {
   try {
-    const { email, password } = RegisterSchema.parse(req.body);
+    const validationResult = RegisterSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return handleZodError(res, validationResult.error);
+    }
 
-    // Create user
-    const user = await userService.createUser({ email, password });
+    const { email, password, name } = validationResult.data;
+    const authService = AuthService.getInstance();
 
-    // Generate tokens
-    const tokens = AuthService.generateTokens(user);
+    try {
+      const user = await authService.register(email, password, name);
+      const tokens = await authService.login(email, password, req.ip, req.get('user-agent'));
 
-    // Set secure cookies
-    AuthService.setAuthCookies(res, tokens);
+      logger.info(`User registered: ${email}`);
 
-    logger.info(`User registered: ${email}`);
-
-    res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        created_at: user.created_at,
-        email_verified: user.email_verified
-      },
-      message: 'Registration successful'
-    });
-
-  } catch (error) {
-    logger.error('Registration failed:', error);
-
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: error.errors.map(e => e.message)
+      res.status(201).json({
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role
+        },
+        ...tokens
       });
-    }
-
-    if (error instanceof Error) {
-      if (error.message.includes('already exists')) {
-        return sendConflict(res, 'User already exists with this email');
+    } catch (error: any) {
+      if (error.message === 'User already exists') {
+        return res.status(409).json({ error: 'User already exists' });
       }
-      
-      if (error.message.includes('Password validation failed')) {
-        return sendBadRequest(res, error.message);
-      }
+      throw error;
     }
-
-          sendServerError(res, error, 'Registration failed');
+  } catch (error) {
+    logger.error('Registration error:', error);
+    sendServerError(res, 'Registration failed');
   }
 });
 
 // Login endpoint
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = LoginSchema.parse(req.body);
-
-    // Authenticate user
-    const user = await userService.authenticateUser(email, password);
-
-    if (!user) {
-      // Use generic message to prevent email enumeration
-      return sendUnauthorized(res, 'Invalid email or password');
+    const validationResult = LoginSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return handleZodError(res, validationResult.error);
     }
 
-    // Generate tokens
-    const tokens = AuthService.generateTokens(user);
+    const { email, password } = validationResult.data;
+    const authService = AuthService.getInstance();
 
-    // Set secure cookies
-    AuthService.setAuthCookies(res, tokens);
+    try {
+      const tokens = await authService.login(
+        email, 
+        password, 
+        req.ip, 
+        req.get('user-agent')
+      );
 
-    logger.info(`User logged in: ${email}`);
+      logger.info(`User logged in: ${email}`);
 
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        last_login: user.last_login,
-        email_verified: user.email_verified
-      },
-      message: 'Login successful'
-    });
-
+      res.json(tokens);
+    } catch (error: any) {
+      if (error.message === 'Invalid credentials') {
+        return sendUnauthorized(res, 'Invalid credentials');
+      }
+      throw error;
+    }
   } catch (error) {
-    logger.error('Login failed:', error);
-
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: error.errors.map(e => e.message)
-      });
-    }
-
-          sendServerError(res, error, 'Login failed');
+    logger.error('Login error:', error);
+    sendServerError(res, 'Login failed');
   }
 });
 
-// Logout endpoint
-router.post('/logout', (req, res) => {
-  try {
-    // Clear authentication cookies
-    AuthService.clearAuthCookies(res);
-
-    res.json({ message: 'Logout successful' });
-  } catch (error) {
-    logger.error('Logout failed:', error);
-          sendServerError(res, error, 'Logout failed');
-  }
-});
-
-// Token refresh endpoint
+// Refresh token endpoint
 router.post('/refresh', async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
-
-    if (!refreshToken) {
-      return sendUnauthorized(res, 'Refresh token required');
+    const validationResult = RefreshTokenSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return handleZodError(res, validationResult.error);
     }
 
-    // Verify refresh token
-    const payload = AuthService.verifyRefreshToken(refreshToken);
+    const { refreshToken } = validationResult.data;
+    const authService = AuthService.getInstance();
 
-    // Get user from database
-    const user = await userService.getUserById(payload.userId);
-
-    if (!user) {
-              return sendUnauthorized(res, 'User not found');
+    try {
+      const { accessToken } = await authService.refreshAccessToken(refreshToken);
+      res.json({ accessToken });
+    } catch (error: any) {
+      if (error.message.includes('Invalid or expired refresh token')) {
+        return sendUnauthorized(res, 'Invalid or expired refresh token');
+      }
+      throw error;
     }
-
-    // Generate new tokens
-    const tokens = AuthService.generateTokens(user);
-
-    // Set new cookies
-    AuthService.setAuthCookies(res, tokens);
-
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        email_verified: user.email_verified
-      },
-      message: 'Token refreshed successfully'
-    });
-
   } catch (error) {
-    logger.error('Token refresh failed:', error);
-    
-    // Clear cookies on refresh failure
-    AuthService.clearAuthCookies(res);
-    
-          sendUnauthorized(res, 'Invalid or expired refresh token');
+    logger.error('Token refresh error:', error);
+    sendServerError(res, 'Token refresh failed');
   }
 });
 
-// Get current user endpoint
-router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
+// Logout endpoint (requires authentication)
+router.post('/logout', authenticate, async (req: AuthRequest, res) => {
   try {
     if (!req.user) {
-      return sendUnauthorized(res, 'User not authenticated');
+      return sendUnauthorized(res, 'Not authenticated');
     }
 
-    // Get fresh user data from database
-    const user = await userService.getUserById(req.user.id);
+    const refreshToken = req.body.refreshToken;
+    const authService = AuthService.getInstance();
 
-    if (!user) {
-              return sendNotFound(res, 'User');
+    await authService.logout(req.user.id, refreshToken);
+
+    logger.info(`User logged out: ${req.user.email}`);
+
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    logger.error('Logout error:', error);
+    sendServerError(res, 'Logout failed');
+  }
+});
+
+// Get current user endpoint (requires authentication)
+router.get('/me', authenticate, async (req: AuthRequest, res) => {
+  try {
+    if (!req.user) {
+      return sendUnauthorized(res, 'Not authenticated');
     }
 
     res.json({
       user: {
-        id: user.id,
-        email: user.email,
-        created_at: user.created_at,
-        last_login: user.last_login,
-        email_verified: user.email_verified
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role
       }
     });
-
   } catch (error) {
-    logger.error('Get user failed:', error);
-          sendServerError(res, error, 'Failed to get user information');
+    logger.error('Get user error:', error);
+    sendServerError(res, 'Failed to get user information');
   }
 });
 
-// Health check for auth service
+// Health check endpoint (no auth required)
 router.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    service: 'Authentication',
-    timestamp: new Date().toISOString()
-  });
+  res.json({ status: 'ok', service: 'auth' });
 });
 
-// Factory function to create router with dependencies
-export const createAuthRouter = (pool: Pool): Router => {
-  userService = new UserService(pool);
-  return router;
-};
-
-export { router as authRouter };
+export default router;

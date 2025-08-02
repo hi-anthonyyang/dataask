@@ -5,13 +5,12 @@ import cookieParser from 'cookie-parser';
 // import { Pool } from 'pg'; // Removed PostgreSQL support
 import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
-import { createAuthRouter } from './api/auth';
+import authRouter from './api/auth';
 import { createUserConnectionsRouter } from './api/user-connections';
 import filesRouter from './api/files';
 import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';
-import { MigrationRunner } from './utils/migrations';
-import { optionalAuth } from './utils/auth';
+import { AuthService } from './services/authService';
 import { 
   DB_CONSTANTS, 
   API_MESSAGES, 
@@ -53,8 +52,19 @@ const runMigrations = async (): Promise<void> => {
   }
 };
 
-// Initialize migrations (don't await to avoid blocking startup)
-runMigrations();
+// Initialize auth service
+const initializeAuth = async () => {
+  try {
+    const authService = AuthService.getInstance();
+    await authService.initialize();
+    logger.info('Auth service initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize auth service:', error);
+  }
+};
+
+// Initialize services (don't await to avoid blocking startup)
+initializeAuth();
 
 const app = express();
 
@@ -86,11 +96,11 @@ app.use((req, res, next) => {
 });
 
 // API routes
-app.use('/api/auth', createAuthRouter(dbPool!));
+app.use('/api/auth', authRouter);
 app.use('/api/user/connections', createUserConnectionsRouter(dbPool!));
-app.use('/api/db', optionalAuth, dbRouter); // Make db routes optionally authenticated
-app.use('/api/llm', optionalAuth, llmRouter); // Make llm routes optionally authenticated
-app.use('/api/files', optionalAuth, filesRouter); // File import routes
+app.use('/api/db', dbRouter);
+app.use('/api/llm', llmRouter);
+app.use('/api/files', filesRouter);
 
 // Root endpoint
 app.get('/', (req, res) => {
