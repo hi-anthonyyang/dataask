@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, FileText, Loader2 } from 'lucide-react'
 import FileDropZone from './FileDropZone'
 
@@ -9,6 +9,16 @@ interface FileImportModalProps {
   isEmbedded?: boolean
 }
 
+interface ImportProgress {
+  importId: string
+  status: 'uploading' | 'processing' | 'importing' | 'completed' | 'failed'
+  progress: number
+  totalRows?: number
+  processedRows?: number
+  message?: string
+  error?: string
+}
+
 export default function FileImportModal({ isOpen, onClose, onConnectionAdded, isEmbedded = false }: FileImportModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [tableName, setTableName] = useState('')
@@ -16,6 +26,17 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    // Clean up interval on unmount
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+      }
+    }
+  }, [])
 
   if (!isOpen && !isEmbedded) return null
 
@@ -26,6 +47,11 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
     setIsUploading(false)
     setUploadProgress(0)
     setIsImporting(false)
+    setImportProgress(null)
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current)
+      progressIntervalRef.current = null
+    }
   }
 
   const handleClose = () => {
@@ -46,6 +72,49 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
     setTableName(cleanName || 'imported_data')
   }
 
+  const trackImportProgress = async (importId: string) => {
+    const checkProgress = async () => {
+      try {
+        const response = await fetch(`/api/files/import-progress/${importId}`)
+        if (!response.ok) {
+          // Import not found or error
+          if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current)
+            progressIntervalRef.current = null
+          }
+          return
+        }
+        
+        const progress: ImportProgress = await response.json()
+        setImportProgress(progress)
+        
+        // Update upload progress based on import progress
+        if (progress.status === 'importing' && progress.progress > 0) {
+          setUploadProgress(progress.progress)
+        }
+        
+        // Stop polling when completed or failed
+        if (progress.status === 'completed' || progress.status === 'failed') {
+          if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current)
+            progressIntervalRef.current = null
+          }
+          
+          if (progress.status === 'failed' && progress.error) {
+            setError(progress.error)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check import progress:', error)
+      }
+    }
+    
+    // Start polling for progress
+    progressIntervalRef.current = setInterval(checkProgress, 500) // Check every 500ms
+    // Initial check
+    checkProgress()
+  }
+
   const handleImport = async () => {
     if (!selectedFile || !tableName.trim()) {
       setError('Please select a file and provide a table name')
@@ -55,20 +124,24 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
     setIsImporting(true)
     setError(null)
     setUploadProgress(0)
+    setImportProgress(null)
 
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
       formData.append('tableName', tableName.trim())
 
-      // Use XMLHttpRequest for progress tracking
+      // Use XMLHttpRequest for upload progress tracking
       const response = await new Promise<Response>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
 
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
             const progress = Math.round((event.loaded / event.total) * 100)
-            setUploadProgress(progress)
+            // Only update upload progress, not import progress
+            if (!importProgress || importProgress.status === 'uploading') {
+              setUploadProgress(progress)
+            }
           }
         }
 
@@ -100,9 +173,26 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
 
       const result = await response.json()
       
+      // Start tracking import progress
+      if (result.importId) {
+        await trackImportProgress(result.importId)
+      }
+      
       if (result.connectionId) {
-        onConnectionAdded(result.connectionId)
-        resetModal()
+        // Wait for import to complete
+        await new Promise<void>((resolve) => {
+          const checkComplete = setInterval(() => {
+            if (!importProgress || importProgress.status === 'completed' || importProgress.status === 'failed') {
+              clearInterval(checkComplete)
+              resolve()
+            }
+          }, 100)
+        })
+        
+        if (importProgress?.status === 'completed') {
+          onConnectionAdded(result.connectionId)
+          resetModal()
+        }
       } else {
         throw new Error('No connection ID returned')
       }
@@ -168,7 +258,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
               <div className="flex items-center justify-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm">
-                  {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing file...'}
+                  {importProgress?.message || (uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing file...')}
                 </span>
               </div>
               
@@ -179,6 +269,13 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
+              
+              {/* Row count info */}
+              {importProgress?.totalRows && importProgress?.processedRows && (
+                <div className="text-center text-xs text-muted-foreground">
+                  {importProgress.processedRows.toLocaleString()} / {importProgress.totalRows.toLocaleString()} rows processed
+                </div>
+              )}
             </div>
           )}
 
