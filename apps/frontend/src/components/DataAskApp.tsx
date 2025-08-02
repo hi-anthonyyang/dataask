@@ -192,6 +192,8 @@ const DataAskApp: React.FC = () => {
                   onConnectionSelect={handleConnectionSelect}
                   onTableSelect={setSelectedTable}
                   selectedTable={selectedTable}
+                  showAddDataModal={showAddDataModal}
+                  setShowAddDataModal={setShowAddDataModal}
                   connections={connections}
                   onConnectionsChange={loadConnections}
                   onEditConnection={handleEditConnection}
@@ -238,12 +240,10 @@ const DataAskApp: React.FC = () => {
           <ChatPanel
             selectedConnection={selectedConnection}
             connectionType={getSelectedConnectionType()}
-            onQueryExecuted={(query, results) => {
-              setCurrentQuery(query)
+            onQueryUpdate={setCurrentQuery}
+            onQueryExecute={(results: any) => {
               setQueryResults(results)
             }}
-            currentQuery={currentQuery}
-            queryResults={queryResults}
           />
         </div>
 
