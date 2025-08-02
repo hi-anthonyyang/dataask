@@ -102,6 +102,29 @@ curl http://localhost:3001/api/llm/health
 
 This will show if your API key is configured correctly.
 
+## Project Structure
+
+```
+dataask/
+├── apps/                    # Application code
+│   ├── backend/            # Node.js backend server
+│   │   └── src/
+│   │       └── test/
+│   │           └── fixtures/  # Test data files (CSV samples)
+│   ├── frontend/           # React frontend application
+│   └── electron-shell/     # Electron desktop wrapper
+├── docs/                   # Technical documentation
+│   ├── AUTHENTICATION.md   # Authentication system guide
+│   ├── PRODUCTION_CHECKLIST.md  # Deployment checklist
+│   ├── TROUBLESHOOTING.md  # Common issues and solutions
+│   └── ...                 # Other technical docs
+├── scripts/                # Utility scripts
+│   └── deploy.sh          # Production deployment script
+├── docker/                 # Docker configuration
+├── env.example            # Environment variables template
+└── package.json           # Root package configuration
+```
+
 ## Architecture
 
 - **Frontend**: React with TypeScript

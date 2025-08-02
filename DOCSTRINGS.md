@@ -391,3 +391,32 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * Electron version. Can be extended with additional secure APIs in the
      * future. Maintains context isolation to prevent privilege escalation.
      */
+
+## Project Structure
+
+```
+dataask/
+├── apps/
+│   ├── backend/           # Node.js Express backend
+│   │   ├── src/
+│   │   │   ├── api/      # API routes and controllers
+│   │   │   ├── security/ # Security utilities
+│   │   │   ├── test/     # Test utilities and fixtures
+│   │   │   │   └── fixtures/ # Test data files
+│   │   │   ├── types/    # TypeScript type definitions
+│   │   │   └── utils/    # Utility functions
+│   │   └── package.json
+│   ├── frontend/          # React TypeScript frontend
+│   │   ├── src/
+│   │   │   ├── components/  # React components
+│   │   │   ├── services/    # API services
+│   │   │   ├── types/       # TypeScript types
+│   │   │   └── utils/       # Utility functions
+│   │   └── package.json
+│   └── electron-shell/    # Electron desktop wrapper
+├── docker/                # Docker configuration
+├── docs/                  # Technical documentation
+├── scripts/               # Utility scripts
+├── env.example           # Environment template
+└── package.json          # Root package configuration
+```
