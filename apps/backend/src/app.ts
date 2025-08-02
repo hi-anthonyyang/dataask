@@ -2,16 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { Pool } from 'pg';
+// import { Pool } from 'pg'; // Removed PostgreSQL support
 import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
-import { createAuthRouter } from './api/auth';
+import authRouter from './api/auth';
 import { createUserConnectionsRouter } from './api/user-connections';
 import filesRouter from './api/files';
 import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';
-import { MigrationRunner } from './utils/migrations';
-import { optionalAuth } from './utils/auth';
+import { AuthService } from './services/authService';
 import { 
   DB_CONSTANTS, 
   API_MESSAGES, 
@@ -21,34 +20,10 @@ import {
 } from './utils/constants';
 
 // Create database pool for user management
-const createDatabasePool = (): Pool | null => {
-  // Skip database pool creation if migrations are disabled and no host is configured
-  if (!process.env.POSTGRES_HOST && process.env.SKIP_MIGRATIONS === 'true') {
-    logger.info('Skipping database pool creation (no POSTGRES_HOST and SKIP_MIGRATIONS=true)');
-    return null;
-  }
-  
-  const pool = new Pool({
-    host: process.env.POSTGRES_HOST || DB_CONSTANTS.DEFAULT_HOST,
-    port: parseInt(process.env.POSTGRES_PORT || String(DB_CONSTANTS.DEFAULT_PORT.POSTGRESQL)),
-    database: process.env.POSTGRES_DB || DB_CONSTANTS.DEFAULT_DATABASE,
-    user: process.env.POSTGRES_USER || DB_CONSTANTS.DEFAULT_USER,
-    password: process.env.POSTGRES_PASSWORD || DB_CONSTANTS.DEFAULT_PASSWORD,
-    max: DB_CONSTANTS.POOL.MAX_CONNECTIONS,
-    idleTimeoutMillis: DB_CONSTANTS.POOL.IDLE_TIMEOUT_MS,
-    connectionTimeoutMillis: DB_CONSTANTS.POOL.CONNECTION_TIMEOUT_MS,
-    // SSL configuration for production
-    ssl: process.env.NODE_ENV === APP_INFO.ENVIRONMENT.PRODUCTION ? {
-      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
-      ca: process.env.DB_SSL_CA,
-      cert: process.env.DB_SSL_CERT,
-      key: process.env.DB_SSL_KEY
-    } : process.env.DB_SSL_ENABLED === 'true' ? {
-      rejectUnauthorized: false // Allow self-signed certs in development
-    } : false
-  });
-
-  return pool;
+const createDatabasePool = (): any | null => {
+  // PostgreSQL support has been removed - user authentication is disabled
+  logger.info('PostgreSQL support has been removed - user authentication is disabled');
+  return null;
 };
 
 // Initialize database pool
@@ -77,8 +52,19 @@ const runMigrations = async (): Promise<void> => {
   }
 };
 
-// Initialize migrations (don't await to avoid blocking startup)
-runMigrations();
+// Initialize auth service
+const initializeAuth = async () => {
+  try {
+    const authService = AuthService.getInstance();
+    await authService.initialize();
+    logger.info('Auth service initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize auth service:', error);
+  }
+};
+
+// Initialize services (don't await to avoid blocking startup)
+initializeAuth();
 
 const app = express();
 
@@ -110,11 +96,11 @@ app.use((req, res, next) => {
 });
 
 // API routes
-app.use('/api/auth', createAuthRouter(dbPool!));
+app.use('/api/auth', authRouter);
 app.use('/api/user/connections', createUserConnectionsRouter(dbPool!));
-app.use('/api/db', optionalAuth, dbRouter); // Make db routes optionally authenticated
-app.use('/api/llm', optionalAuth, llmRouter); // Make llm routes optionally authenticated
-app.use('/api/files', optionalAuth, filesRouter); // File import routes
+app.use('/api/db', dbRouter);
+app.use('/api/llm', llmRouter);
+app.use('/api/files', filesRouter);
 
 // Root endpoint
 app.get('/', (req, res) => {

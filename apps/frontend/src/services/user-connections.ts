@@ -4,14 +4,9 @@ import { handleApiError, handleConnectionError, logWarning, logInfo } from './er
 export interface UserConnection {
   id: string;
   name: string;
-  type: 'postgresql' | 'mysql' | 'sqlite';
+  type: 'sqlite';
   config: {
-    host?: string;
-    port?: number;
-    database?: string;
-    username?: string;
     filename?: string;
-    // Note: password is never returned from the server
   };
   created_at: string;
   updated_at: string;
@@ -20,13 +15,8 @@ export interface UserConnection {
 
 export interface CreateConnectionData {
   name: string;
-  type: 'postgresql' | 'mysql' | 'sqlite';
+  type: 'sqlite';
   config: {
-    host?: string;
-    port?: number;
-    database?: string;
-    username?: string;
-    password?: string;
     filename?: string;
   };
 }
@@ -251,11 +241,6 @@ class UserConnectionsService {
       name: localConnection.name,
       type: localConnection.type,
       config: {
-        host: localConnection.config.host,
-        port: localConnection.config.port,
-        database: localConnection.config.database,
-        username: localConnection.config.username,
-        password: localConnection.config.password,
         filename: localConnection.config.filename,
       }
     };

@@ -257,7 +257,7 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
         body: JSON.stringify({
           query: inputText,
           schema: schema,
-          connectionType: connectionType || 'postgresql'
+          connectionType: connectionType || 'sqlite'
         })
       })
 

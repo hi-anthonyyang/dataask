@@ -27,19 +27,13 @@ import {
 const router = Router();
 
 // Database types enum for validation
-const DATABASE_TYPES: DatabaseType[] = ['postgresql', 'sqlite', 'mysql'];
+const DATABASE_TYPES: DatabaseType[] = ['sqlite'];
 
 // Connection schema validation
 const ConnectionSchema = z.object({
   type: z.enum(DATABASE_TYPES),
   name: z.string().min(1),
   config: z.object({
-    // PostgreSQL and MySQL config
-    host: z.string().optional(),
-    port: z.number().optional(),
-    database: z.string().optional(),
-    username: z.string().optional(),
-    password: z.string().optional(),
     // SQLite config
     filename: z.string().optional(),
   })
@@ -180,6 +174,44 @@ router.post('/query', async (req, res) => {
   }
 });
 
+// Alias for frontend compatibility
+router.post('/execute-query', async (req, res) => {
+  try {
+    const queryRequest = QuerySchema.parse(req.body);
+    
+    // Security validation - ensure read-only queries
+    const validationResult = validateSQLQuery(queryRequest.sql);
+    if (!validationResult.isValid) {
+      return res.status(400).json({ 
+        error: 'Query validation failed',
+        details: validationResult.errors
+      });
+    }
+    
+    const dbManager = DatabaseManager.getInstance();
+    const result = await dbManager.executeQuery(
+      queryRequest.connectionId,
+      queryRequest.sql,
+      queryRequest.params
+    );
+    
+    logger.info(`Query executed successfully (via execute-query): ${queryRequest.sql.substring(0, 100)}...`);
+    
+    return res.json({
+      data: result.rows,
+      rowCount: result.rowCount,
+      fields: result.fields,
+      executionTime: result.executionTime
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error);
+    }
+    
+    return handleDatabaseError(res, error, 'query execution');
+  }
+});
+
 // Get list of connections
 router.get('/connections', async (req, res) => {
   try {
@@ -187,6 +219,23 @@ router.get('/connections', async (req, res) => {
     const connections = await dbManager.listConnections();
 
     logger.info(`Listing connections: found ${connections.length} connections`);
+    connections.forEach(conn => {
+      logger.info(`Connection: ${conn.id} - ${conn.name} (${conn.type})`);
+    });
+
+    res.json({ connections });
+  } catch (error) {
+    return handleGenericError(res, error, 'Failed to retrieve connections');
+  }
+});
+
+// Alias for frontend compatibility
+router.get('/list-connections', async (req, res) => {
+  try {
+    const dbManager = DatabaseManager.getInstance();
+    const connections = await dbManager.listConnections();
+
+    logger.info(`Listing connections (via list-connections): found ${connections.length} connections`);
     connections.forEach(conn => {
       logger.info(`Connection: ${conn.id} - ${conn.name} (${conn.type})`);
     });

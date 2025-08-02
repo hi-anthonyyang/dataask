@@ -170,14 +170,10 @@ class AuthFlowTester {
   async testCreateConnection(): Promise<string | null> {
     try {
       const connectionData = {
-        name: 'Test PostgreSQL Connection',
-        type: 'postgresql',
+              name: 'Test SQLite Connection',
+      type: 'sqlite',
         config: {
-          host: 'localhost',
-          port: 5432,
-          database: 'testdb',
-          username: 'testuser',
-          password: 'testpass123',
+          filename: '/tmp/test.db',
         },
       };
 
@@ -232,13 +228,9 @@ class AuthFlowTester {
     try {
       const updateData = {
         name: 'Updated Test Connection',
-        type: 'postgresql',
+        type: 'sqlite',
         config: {
-          host: 'updated-host',
-          port: 5432,
-          database: 'updated_db',
-          username: 'updated_user',
-          password: 'updated_pass123',
+          filename: '/tmp/test-updated.db',
         },
       };
 

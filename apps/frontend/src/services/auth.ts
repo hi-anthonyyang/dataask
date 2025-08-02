@@ -1,261 +1,250 @@
-import { handleAuthError, logInfo } from './error';
-import { apiClient } from './apiClient';
-import { API_ENDPOINTS } from '../utils/constants';
+import { API_BASE_URL } from '../config';
 
 interface User {
   id: string;
   email: string;
-  created_at: string;
-  last_login?: string;
-  email_verified: boolean;
+  role: string;
 }
 
-interface AuthResponse {
-  user: User;
-  message?: string;
+interface AuthTokens {
+  accessToken: string;
+  refreshToken?: string;
 }
 
-interface RegisterData {
-  email: string;
-  password: string;
-}
-
-interface LoginData {
-  email: string;
-  password: string;
-}
-
-interface AuthError {
-  error: string;
-  details?: string[];
+interface AuthResponse extends AuthTokens {
+  user?: User;
 }
 
 class AuthService {
-  private baseUrl = '/api/auth';
+  private accessToken: string | null = null;
+  private refreshToken: string | null = null;
   private user: User | null = null;
-  private listeners: ((user: User | null) => void)[] = [];
 
   constructor() {
-    // Set up the refresh token function for the API client
-    apiClient.setRefreshTokenFunction(() => this.refreshToken());
+    // Load tokens from localStorage on initialization
+    this.loadFromStorage();
   }
 
-  /**
-   * Add listener for authentication state changes
-   */
-  onAuthStateChange(listener: (user: User | null) => void): () => void {
-    this.listeners.push(listener);
-    // Return unsubscribe function
-    return () => {
-      const index = this.listeners.indexOf(listener);
-      if (index > -1) {
-        this.listeners.splice(index, 1);
+  private loadFromStorage(): void {
+    this.accessToken = localStorage.getItem('accessToken');
+    this.refreshToken = localStorage.getItem('refreshToken');
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        this.user = JSON.parse(userStr);
+      } catch (e) {
+        console.error('Failed to parse user from storage:', e);
       }
-    };
-  }
-
-  /**
-   * Notify all listeners of auth state change
-   */
-  private notifyListeners(): void {
-    this.listeners.forEach(listener => listener(this.user));
-  }
-
-  /**
-   * Register a new user
-   */
-  async register(data: RegisterData): Promise<AuthResponse> {
-    try {
-      const result = await apiClient.post<AuthResponse>(
-        `${this.baseUrl}/register`,
-        data
-      );
-
-      this.user = result.user;
-      this.notifyListeners();
-
-      return result;
-    } catch (error) {
-      const message = handleAuthError(error, 'registration');
-      throw new Error(message);
     }
   }
 
-  /**
-   * Login user
-   */
-  async login(data: LoginData): Promise<AuthResponse> {
-    try {
-      const result = await apiClient.post<AuthResponse>(
-        `${this.baseUrl}/login`,
-        data
-      );
+  private saveToStorage(): void {
+    if (this.accessToken) {
+      localStorage.setItem('accessToken', this.accessToken);
+    } else {
+      localStorage.removeItem('accessToken');
+    }
 
-      this.user = result.user;
-      this.notifyListeners();
+    if (this.refreshToken) {
+      localStorage.setItem('refreshToken', this.refreshToken);
+    } else {
+      localStorage.removeItem('refreshToken');
+    }
 
-      return result;
-    } catch (error) {
-      const message = handleAuthError(error, 'login');
-      throw new Error(message);
+    if (this.user) {
+      localStorage.setItem('user', JSON.stringify(this.user));
+    } else {
+      localStorage.removeItem('user');
     }
   }
 
-  /**
-   * Logout user
-   */
+  async register(email: string, password: string, name?: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password, name }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Registration failed');
+    }
+
+    const data: AuthResponse = await response.json();
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken || null;
+    this.user = data.user || null;
+    this.saveToStorage();
+
+    return this.user!;
+  }
+
+  async login(email: string, password: string): Promise<User> {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Login failed');
+    }
+
+    const data: AuthTokens = await response.json();
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken || null;
+
+    // Get user info
+    await this.fetchCurrentUser();
+    this.saveToStorage();
+
+    return this.user!;
+  }
+
   async logout(): Promise<void> {
-    try {
-      await apiClient.post(`${this.baseUrl}/logout`);
-
-      this.user = null;
-      this.notifyListeners();
-    } catch (error) {
-      handleAuthError(error, 'logout');
-      // Still clear local state even if server logout fails
-      this.user = null;
-      this.notifyListeners();
+    if (this.accessToken) {
+      try {
+        await fetch(`${API_BASE_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refreshToken: this.refreshToken }),
+        });
+      } catch (error) {
+        console.error('Logout request failed:', error);
+      }
     }
+
+    this.accessToken = null;
+    this.refreshToken = null;
+    this.user = null;
+    this.saveToStorage();
   }
 
-  /**
-   * Get current user info
-   */
-  async getCurrentUser(): Promise<User | null> {
-    try {
-      const result = await apiClient.get<{ user: User }>(`${this.baseUrl}/me`);
-      this.user = result.user;
-      this.notifyListeners();
-      return result.user;
-    } catch (error) {
-      handleAuthError(error, 'get current user');
-      this.user = null;
-      this.notifyListeners();
+  async refreshAccessToken(): Promise<string> {
+    if (!this.refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken: this.refreshToken }),
+    });
+
+    if (!response.ok) {
+      // Clear auth state on refresh failure
+      this.logout();
+      throw new Error('Token refresh failed');
+    }
+
+    const data: { accessToken: string } = await response.json();
+    this.accessToken = data.accessToken;
+    this.saveToStorage();
+
+    return data.accessToken;
+  }
+
+  async fetchCurrentUser(): Promise<User | null> {
+    if (!this.accessToken) {
       return null;
     }
-  }
 
-  /**
-   * Refresh authentication token
-   */
-  async refreshToken(): Promise<boolean> {
-    try {
-      // Use the base api service to avoid infinite recursion
-      const response = await fetch(`${this.baseUrl}/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-      });
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${this.accessToken}`,
+      },
+    });
 
-      if (!response.ok) {
-        this.user = null;
-        this.notifyListeners();
-        return false;
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Try to refresh token
+        try {
+          await this.refreshAccessToken();
+          // Retry the request
+          return this.fetchCurrentUser();
+        } catch (error) {
+          this.logout();
+          return null;
+        }
       }
-
-      const result = await response.json();
-      this.user = result.user;
-      this.notifyListeners();
-
-      return true;
-    } catch (error) {
-      handleAuthError(error, 'token refresh');
-      this.user = null;
-      this.notifyListeners();
-      return false;
+      throw new Error('Failed to fetch user');
     }
-  }
 
-  /**
-   * Get current user (synchronous)
-   */
-  getUser(): User | null {
+    const data = await response.json();
+    this.user = data.user;
+    this.saveToStorage();
+
     return this.user;
   }
 
-  /**
-   * Check if user is authenticated
-   */
+  getAuthHeaders(): Record<string, string> {
+    if (!this.accessToken) {
+      return {};
+    }
+    return {
+      'Authorization': `Bearer ${this.accessToken}`,
+    };
+  }
+
   isAuthenticated(): boolean {
-    return this.user !== null;
+    return !!this.accessToken;
   }
 
-  /**
-   * Initialize auth service (call on app startup)
-   */
-  async initialize(): Promise<void> {
-    await this.getCurrentUser();
+  getCurrentUser(): User | null {
+    return this.user;
   }
 
-  /**
-   * Make authenticated API request
-   */
+  getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
+  // Helper method to make authenticated requests
   async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const headers = {
+      ...options.headers,
+      ...this.getAuthHeaders(),
+    };
+
     const response = await fetch(url, {
       ...options,
-      credentials: 'include', // Always include cookies
+      headers,
     });
 
-    // If unauthorized, try to refresh token
-    if (response.status === 401) {
-      const refreshed = await this.refreshToken();
-      if (refreshed) {
-        // Retry the original request
+    // Handle token expiration
+    if (response.status === 401 && this.refreshToken) {
+      try {
+        await this.refreshAccessToken();
+        // Retry the request with new token
         return fetch(url, {
           ...options,
-          credentials: 'include',
+          headers: {
+            ...options.headers,
+            ...this.getAuthHeaders(),
+          },
         });
+      } catch (error) {
+        // Refresh failed, logout
+        this.logout();
+        throw new Error('Authentication failed');
       }
     }
 
     return response;
   }
-
-  /**
-   * Validate email format
-   */
-  static isValidEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email) && email.length <= 255;
-  }
-
-  /**
-   * Validate password strength
-   */
-  static validatePassword(password: string): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
-
-    if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-    }
-
-    if (password.length > 128) {
-      errors.push('Password must be less than 128 characters');
-    }
-
-    if (!/[a-z]/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-
-    if (!/[A-Z]/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-
-    if (!/\d/.test(password)) {
-      errors.push('Password must contain at least one number');
-    }
-
-    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
-      errors.push('Password must contain at least one special character');
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    };
-  }
 }
 
-// Export singleton instance and class
+// Export singleton instance
 export const authService = new AuthService();
+
+// Export class for testing
 export { AuthService };
-export type { User, AuthResponse, RegisterData, LoginData, AuthError };

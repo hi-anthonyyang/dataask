@@ -57,8 +57,6 @@ export const STORAGE_KEYS = {
 
 // Database types
 export const DATABASE_TYPES = {
-  POSTGRESQL: 'postgresql',
-  MYSQL: 'mysql',
   SQLITE: 'sqlite',
 } as const;
 

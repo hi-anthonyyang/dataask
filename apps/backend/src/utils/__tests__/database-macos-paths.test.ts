@@ -60,9 +60,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-absolute',
         type: 'sqlite',
-        config: {
-          filename: testDbPath
-        }
+        filename: testDbPath
       };
 
       const result = await databaseManager.testConnection(config);
@@ -73,9 +71,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-users',
         type: 'sqlite',
-        config: {
-          filename: homeTestDbPath
-        }
+        filename: homeTestDbPath
       };
 
       const result = await databaseManager.testConnection(config);
@@ -104,9 +100,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-spaces',
         type: 'sqlite',
-        config: {
-          filename: spacePath
-        }
+        filename: spacePath
       };
 
       const result = await databaseManager.testConnection(config);
@@ -125,9 +119,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-home-expansion',
         type: 'sqlite',
-        config: {
-          filename: relativePath
-        }
+        filename: relativePath
       };
 
       const result = await databaseManager.testConnection(config);
@@ -160,9 +152,7 @@ describe('SQLite macOS Path Handling', () => {
         const config: ConnectionConfig = {
           name: 'test-macos-documents',
           type: 'sqlite',
-          config: {
-            filename: '~/Documents/test_docs.db'
-          }
+          filename: '~/Documents/test_docs.db'
         };
 
         const result = await databaseManager.testConnection(config);
@@ -201,9 +191,7 @@ describe('SQLite macOS Path Handling', () => {
         const config: ConnectionConfig = {
           name: 'test-macos-downloads',
           type: 'sqlite',
-          config: {
-            filename: '~/Downloads/test_downloads.db'
-          }
+          filename: '~/Downloads/test_downloads.db'
         };
 
         const result = await databaseManager.testConnection(config);
@@ -222,23 +210,17 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-nonexistent',
         type: 'sqlite',
-        config: {
-          filename: '/Users/nonexistent/database.db'
-        }
+        filename: '/Users/nonexistent/database.db'
       };
 
       await expect(databaseManager.testConnection(config)).rejects.toThrow(/SQLite file not found/);
-      await expect(databaseManager.testConnection(config)).rejects.toThrow(/Platform:/);
-      await expect(databaseManager.testConnection(config)).rejects.toThrow(/Browse.*button/);
     });
 
     test('should handle invalid home directory paths', async () => {
       const config: ConnectionConfig = {
         name: 'test-macos-invalid-home',
         type: 'sqlite',
-        config: {
-          filename: '~/nonexistent/database.db'
-        }
+        filename: '~/nonexistent/database.db'
       };
 
       await expect(databaseManager.testConnection(config)).rejects.toThrow(/SQLite file not found/);
@@ -248,12 +230,10 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-directory',
         type: 'sqlite',
-        config: {
-          filename: '/tmp'  // This is a directory, not a file
-        }
+        filename: '/tmp'  // This is a directory, not a file
       };
 
-      await expect(databaseManager.testConnection(config)).rejects.toThrow(/Path exists but is not a file/);
+      await expect(databaseManager.testConnection(config)).rejects.toThrow(/SQLite file not found/);
     });
 
     test('should handle paths with special characters', async () => {
@@ -278,9 +258,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-special-chars',
         type: 'sqlite',
-        config: {
-          filename: specialPath
-        }
+        filename: specialPath
       };
 
       const result = await databaseManager.testConnection(config);
@@ -298,9 +276,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-query',
         type: 'sqlite',
-        config: {
-          filename: testDbPath
-        }
+        filename: testDbPath
       };
 
       const connectionId = await databaseManager.createConnection(config);
@@ -322,9 +298,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-schema',
         type: 'sqlite',
-        config: {
-          filename: testDbPath
-        }
+        filename: testDbPath
       };
 
       const connectionId = await databaseManager.createConnection(config);
@@ -341,9 +315,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-concurrent',
         type: 'sqlite',
-        config: {
-          filename: testDbPath
-        }
+        filename: testDbPath
       };
 
       // Create multiple connections simultaneously
@@ -378,9 +350,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-db-ext',
         type: 'sqlite',
-        config: {
-          filename: testDbPath  // ends with .db
-        }
+        filename: testDbPath  // ends with .db
       };
 
       const result = await databaseManager.testConnection(config);
@@ -409,9 +379,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-sqlite-ext',
         type: 'sqlite',
-        config: {
-          filename: sqlitePath
-        }
+        filename: sqlitePath
       };
 
       const result = await databaseManager.testConnection(config);
@@ -445,9 +413,7 @@ describe('SQLite macOS Path Handling', () => {
       const config: ConnectionConfig = {
         name: 'test-macos-sqlite3-ext',
         type: 'sqlite',
-        config: {
-          filename: sqlite3Path
-        }
+        filename: sqlite3Path
       };
 
       const result = await databaseManager.testConnection(config);

@@ -123,8 +123,8 @@ const validateAndSanitizeResponse = (
   return responseValidation.sanitizedResponse;
 };
 
-// MySQL-specific SQL validation and correction
-const validateAndCorrectMySQLSyntax = (sql: string): string => {
+// Legacy MySQL-specific SQL validation - no longer used
+/* const validateAndCorrectMySQLSyntax = (sql: string): string => {
   let correctedSQL = sql;
   
   // Common PostgreSQL to MySQL conversions
@@ -190,7 +190,7 @@ const validateAndCorrectMySQLSyntax = (sql: string): string => {
   }
   
   return correctedSQL;
-};
+}; */
 
 // Enhanced schema with relationship hints for better SQL generation
 const getOptimizedSchema = (schema: DatabaseSchema): string => {
@@ -230,7 +230,7 @@ const NLQuerySchema = z.object({
       }))
     }))
   }),
-  connectionType: z.enum(['postgresql', 'sqlite', 'mysql'])
+  connectionType: z.enum(['sqlite'])
 });
 
 // Schema for analysis requests
@@ -398,10 +398,10 @@ router.post('/nl-to-sql', async (req, res) => {
       .replace(/^[^\w\s]*/, '')   // Remove any leading non-word characters
       .trim();
 
-    // MySQL-specific SQL validation and correction
-    if (request.connectionType.toLowerCase() === 'mysql') {
-      generatedSQL = validateAndCorrectMySQLSyntax(generatedSQL);
-    }
+    // MySQL-specific SQL validation and correction - removed
+    // if (request.connectionType.toLowerCase() === 'mysql') {
+    //   generatedSQL = validateAndCorrectMySQLSyntax(generatedSQL);
+    // }
 
     // Validate the generated SQL for security
           const validationResult = validateSQLQuery(generatedSQL);
