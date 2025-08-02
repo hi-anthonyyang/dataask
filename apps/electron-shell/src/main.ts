@@ -55,7 +55,7 @@ function executeSQLiteQuery(filePath: string, sql: string, params: unknown[] = [
             []
 
           resolve({
-            data: rows,
+            data: rows as Record<string, unknown>[],
             rowCount: rows.length,
             fields,
             executionTime
@@ -114,10 +114,10 @@ function setupIpcHandlers(): void {
 
     // Get columns for each table
     const tables = []
-    for (const table of tablesResult.data) {
+    for (const table of tablesResult.data || []) {
       const columnsResult = await executeSQLiteQuery(filePath, `PRAGMA table_info(${table.name})`)
       
-      const columns = columnsResult.error ? [] : columnsResult.data.map((col) => ({
+      const columns = columnsResult.error ? [] : (columnsResult.data || []).map((col) => ({
         name: col.name,
         type: col.type,
         nullable: !col.notnull,
