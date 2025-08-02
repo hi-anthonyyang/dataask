@@ -163,64 +163,23 @@ const DataAskApp: React.FC = () => {
               </div>
             </div>
           ) : (
-            <>
-              {/* Schema Browser Header */}
-              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-sm font-medium text-gray-700">Connections</h2>
-                <div className="flex items-center space-x-1">
-                  <button
-                    onClick={() => setShowAddDataModal(true)}
-                    className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Add data source"
-                  >
-                    <Plus className="w-4 h-4 text-gray-600" />
-                  </button>
-                  <button
-                    onClick={toggleLeftPanel}
-                    className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Minimize panel"
-                  >
-                    <ChevronRight className="w-4 h-4 text-gray-600 rotate-180" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Schema Browser Content */}
-              <div className="flex-1 overflow-hidden">
-                <SchemaBrowser
-                  selectedConnection={selectedConnection}
-                  onConnectionSelect={handleConnectionSelect}
-                  onTableSelect={setSelectedTable}
-                  selectedTable={selectedTable}
-                  showAddDataModal={showAddDataModal}
-                  setShowAddDataModal={setShowAddDataModal}
-                  connections={connections}
-                  onConnectionsChange={loadConnections}
-                  onEditConnection={handleEditConnection}
-                />
-              </div>
-              
-              {/* User Info Footer */}
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-gray-600" />
-                    </div>
-                    <div className="text-sm">
-                      <div className="font-medium text-gray-900">{user?.email}</div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                    title="Logout"
-                  >
-                    <LogOut className="w-4 h-4 text-gray-600" />
-                  </button>
-                </div>
-              </div>
-            </>
+            <div className="flex-1 overflow-hidden">
+              <SchemaBrowser
+                selectedConnection={selectedConnection}
+                onConnectionSelect={handleConnectionSelect}
+                onTableSelect={setSelectedTable}
+                selectedTable={selectedTable}
+                showAddDataModal={showAddDataModal}
+                setShowAddDataModal={setShowAddDataModal}
+                connections={connections}
+                onConnectionsChange={loadConnections}
+                onEditConnection={handleEditConnection}
+                onTogglePanel={toggleLeftPanel}
+                isPanelMinimized={isLeftPanelMinimized}
+                userEmail={user?.email}
+                onLogout={handleLogout}
+              />
+            </div>
           )}
         </div>
 
