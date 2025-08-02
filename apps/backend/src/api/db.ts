@@ -27,7 +27,7 @@ import {
 const router = Router();
 
 // Database types enum for validation
-const DATABASE_TYPES: DatabaseType[] = ['sqlite'];
+const DATABASE_TYPES = ['sqlite'] as const;
 
 // Connection schema validation
 const ConnectionSchema = z.object({
@@ -59,7 +59,13 @@ const TablePreviewSchema = z.object({
 // Test database connection
 router.post('/test-connection', async (req, res) => {
   try {
-    const connection = ConnectionSchema.parse(req.body);
+    const validatedData = ConnectionSchema.parse(req.body);
+    
+    const connection: ConnectionConfig = {
+      type: validatedData.type as DatabaseType,
+      name: validatedData.name,
+      filename: validatedData.config.filename
+    };
     
     const dbManager = DatabaseManager.getInstance();
     const isValid = await dbManager.testConnection(connection);
@@ -91,7 +97,13 @@ router.post('/test-connection', async (req, res) => {
 // Create new database connection
 router.post('/connections', async (req, res) => {
   try {
-    const connection = ConnectionSchema.parse(req.body);
+    const validatedData = ConnectionSchema.parse(req.body);
+    
+    const connection: ConnectionConfig = {
+      type: validatedData.type as DatabaseType,
+      name: validatedData.name,
+      filename: validatedData.config.filename
+    };
     
     const dbManager = DatabaseManager.getInstance();
     const connectionId = await dbManager.createConnection(connection);
@@ -146,7 +158,7 @@ router.post('/query', async (req, res) => {
     if (!validationResult.isValid) {
       return res.status(400).json({ 
         error: 'Query validation failed',
-        details: validationResult.errors
+        details: validationResult.error
       });
     }
     
@@ -184,7 +196,7 @@ router.post('/execute-query', async (req, res) => {
     if (!validationResult.isValid) {
       return res.status(400).json({ 
         error: 'Query validation failed',
-        details: validationResult.errors
+        details: validationResult.error
       });
     }
     
@@ -311,9 +323,9 @@ router.post('/table-columns', async (req, res) => {
     const { connectionId, tableName } = TableMetadataSchema.parse(req.body);
     
     const dbManager = DatabaseManager.getInstance();
-    const columns = await dbManager.getTableColumns(connectionId, tableName);
+    const metadata = await dbManager.getTableMetadata(connectionId, tableName);
     
-    return res.json({ columns });
+    return res.json({ columns: metadata.columns });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return handleZodError(res, error);

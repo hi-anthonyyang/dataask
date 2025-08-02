@@ -270,7 +270,7 @@ export class AuthService {
   private generateAccessToken(payload: UserPayload): string {
     return jwt.sign(payload, this.getJwtSecret(), {
       expiresIn: process.env.JWT_EXPIRES_IN || '15m'
-    });
+    } as jwt.SignOptions);
   }
 
   private async generateRefreshToken(userId: string): Promise<string> {

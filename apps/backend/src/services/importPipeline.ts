@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 import { parse } from 'csv-parse';
 import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
-import * as parquet from 'parquetjs';
+// import * as parquet from 'parquetjs'; // Commented out - not used in SQLite-only version
 
 export interface ImportOptions {
   name?: string;
@@ -205,11 +205,13 @@ export class ImportPipeline extends EventEmitter {
     let columns: ColumnSchema[] = [];
     if (data.length > 0) {
       const firstRow = data[0];
-      columns = Object.keys(firstRow).map(key => ({
-        name: key,
-        type: this.inferType(firstRow[key]),
-        nullable: true
-      }));
+      if (firstRow && typeof firstRow === 'object') {
+        columns = Object.keys(firstRow as Record<string, unknown>).map(key => ({
+          name: key,
+          type: this.inferType((firstRow as Record<string, unknown>)[key]),
+          nullable: true
+        }));
+      }
     }
 
     return { data, columns };
@@ -245,65 +247,9 @@ export class ImportPipeline extends EventEmitter {
     data: any[],
     columns: ColumnSchema[]
   ): Promise<void> {
-    // For now, we'll use a simple approach
-    // In production, we'd use a proper Parquet writer like parquetjs or arrow
-    
-    // Create schema
-    const schema = new parquet.ParquetSchema(
-      columns.reduce((acc, col) => {
-        let type;
-        switch (col.type) {
-          case 'number':
-            type = { type: 'DOUBLE', optional: col.nullable };
-            break;
-          case 'boolean':
-            type = { type: 'BOOLEAN', optional: col.nullable };
-            break;
-          case 'date':
-            type = { type: 'TIMESTAMP_MILLIS', optional: col.nullable };
-            break;
-          default:
-            type = { type: 'UTF8', optional: col.nullable };
-        }
-        acc[col.name] = type;
-        return acc;
-      }, {} as any)
-    );
-
-    // Write the file
-    const writer = await parquet.ParquetWriter.openFile(schema, filePath);
-    
-    let written = 0;
-    for (const row of data) {
-      // Convert row data types
-      const convertedRow: any = {};
-      for (const col of columns) {
-        const value = row[col.name];
-        if (value === null || value === undefined) {
-          convertedRow[col.name] = null;
-        } else if (col.type === 'date' && !(value instanceof Date)) {
-          convertedRow[col.name] = new Date(value);
-        } else {
-          convertedRow[col.name] = value;
-        }
-      }
-      
-      await writer.appendRow(convertedRow);
-      written++;
-      
-      // Emit progress every 1000 rows
-      if (written % 1000 === 0) {
-        this.emit('progress', {
-          phase: 'writing',
-          progress: 50 + (written / data.length) * 40,
-          rowsProcessed: written,
-          totalRows: data.length,
-          message: `Writing to Parquet... (${written}/${data.length})`
-        } as ImportProgress);
-      }
-    }
-    
-    await writer.close();
+    // Parquet writing is not implemented in SQLite-only version
+    // This method is kept for interface compatibility but throws an error
+    throw new Error('Parquet export is not supported in SQLite-only version');
   }
 
   // For backwards compatibility with existing file import
@@ -341,7 +287,7 @@ export class ImportPipeline extends EventEmitter {
       }).join(', ');
 
       await new Promise<void>((resolve, reject) => {
-        db.run(`CREATE TABLE "${tableName}" (${columnDefs})`, (err) => {
+        db.run(`CREATE TABLE "${tableName}" (${columnDefs})`, (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         });
@@ -362,12 +308,12 @@ export class ImportPipeline extends EventEmitter {
             stmt.run(values);
           }
           
-          stmt.finalize((err) => {
+          stmt.finalize((err: Error | null) => {
             if (err) {
               db.run('ROLLBACK');
               reject(err);
             } else {
-              db.run('COMMIT', (err) => {
+              db.run('COMMIT', (err: Error | null) => {
                 if (err) reject(err);
                 else resolve();
               });

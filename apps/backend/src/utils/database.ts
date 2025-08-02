@@ -226,7 +226,12 @@ class DatabaseManager {
       logger.info(`Query executed successfully in ${executionTime}ms, returned ${result.rowCount} rows`);
       
       return {
-        ...limitedResult,
+        rows: limitedResult.rows,
+        fields: limitedResult.fields.map(f => ({
+          name: f.name,
+          type: f.type || 'TEXT'
+        })),
+        rowCount: limitedResult.rowCount,
         executionTime
       };
     } catch (error) {
@@ -261,6 +266,9 @@ class DatabaseManager {
         name: config.name,
         type: config.type,
         config: {
+          id,
+          name: config.name,
+          type: config.type,
           filename: config.filename
         }
       });

@@ -29,9 +29,7 @@ const RefreshTokenSchema = z.object({
   refreshToken: z.string()
 });
 
-// Apply rate limiting to auth endpoints
-applyRateLimiting(router, '/register', { max: 5, windowMs: 15 * 60 * 1000 }); // 5 requests per 15 minutes
-applyRateLimiting(router, '/login', { max: 10, windowMs: 15 * 60 * 1000 }); // 10 requests per 15 minutes
+// Rate limiting is applied at the app level in app.ts
 
 // Registration endpoint
 router.post('/register', async (req, res) => {
@@ -66,7 +64,7 @@ router.post('/register', async (req, res) => {
     }
   } catch (error) {
     logger.error('Registration error:', error);
-    sendServerError(res, 'Registration failed');
+    sendServerError(res, error, 'Registration failed');
   }
 });
 
@@ -100,7 +98,7 @@ router.post('/login', async (req, res) => {
     }
   } catch (error) {
     logger.error('Login error:', error);
-    sendServerError(res, 'Login failed');
+    sendServerError(res, error, 'Login failed');
   }
 });
 
@@ -126,7 +124,7 @@ router.post('/refresh', async (req, res) => {
     }
   } catch (error) {
     logger.error('Token refresh error:', error);
-    sendServerError(res, 'Token refresh failed');
+    sendServerError(res, error, 'Token refresh failed');
   }
 });
 
@@ -147,7 +145,7 @@ router.post('/logout', authenticate, async (req: AuthRequest, res) => {
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
     logger.error('Logout error:', error);
-    sendServerError(res, 'Logout failed');
+    sendServerError(res, error, 'Logout failed');
   }
 });
 
@@ -167,7 +165,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
     });
   } catch (error) {
     logger.error('Get user error:', error);
-    sendServerError(res, 'Failed to get user information');
+    sendServerError(res, error, 'Failed to get user information');
   }
 });
 

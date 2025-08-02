@@ -259,7 +259,12 @@ const classifyQuery = async (query: string, schema: DatabaseSchema): Promise<{
     const cached = llmCache.get(cacheKey);
     if (cached) {
       logger.info('Classification cache hit', { query: query.substring(0, 50) });
-      return cached;
+      return cached as {
+        isVague: boolean;
+        queryType: 'specific' | 'exploratory' | 'unclear';
+        suggestions?: string[];
+        message?: string;
+      };
     }
 
     // Clean classification with proper suggestion generation
@@ -347,7 +352,20 @@ router.post('/nl-to-sql', async (req, res) => {
     const sanitizedQuery = sanitization.sanitizedInput;
 
     // Use AI to classify query and handle exploratory requests
-    const classification = await classifyQuery(sanitizedQuery, request.schema);
+    const databaseSchema: DatabaseSchema = {
+      tables: request.schema.tables.map(table => ({
+        name: table.name,
+        type: 'table', // SQLite tables are always type 'table'
+        columns: table.columns.map(col => ({
+          name: col.name,
+          type: col.type,
+          nullable: col.nullable ?? true,
+          default_value: null,
+          primary_key: false
+        }))
+      }))
+    };
+    const classification = await classifyQuery(sanitizedQuery, databaseSchema);
     
     if (classification.isVague) {
       return res.json({
@@ -359,7 +377,7 @@ router.post('/nl-to-sql', async (req, res) => {
     }
 
     // Check cache first
-    const schemaHash = getOptimizedSchema(request.schema);
+    const schemaHash = getOptimizedSchema(databaseSchema);
     const cacheKey = llmCache.getCacheKey('sql', sanitizedQuery, `${request.connectionType}-${schemaHash}`);
     const cached = llmCache.get(cacheKey);
     if (cached) {
@@ -408,12 +426,12 @@ router.post('/nl-to-sql', async (req, res) => {
     if (!validationResult.isValid) {
       logger.warn('LLM generated invalid SQL:', { 
         query: generatedSQL.substring(0, 200), 
-        errors: validationResult.errors,
+        errors: validationResult.error,
         fullQuery: generatedSQL
       });
       return res.status(400).json({ 
         error: 'Generated query failed security validation',
-        details: validationResult.errors,
+        details: validationResult.error,
         generatedSQL: generatedSQL.substring(0, 200) // Include partial SQL for debugging
       });
     }

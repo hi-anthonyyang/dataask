@@ -93,9 +93,7 @@ class SQLiteMacOSIntegrationTester {
       const config: ConnectionConfig = {
         name: `test-${testName.toLowerCase().replace(/\s+/g, '-')}`,
         type: 'sqlite',
-        config: {
-          filename: dbPath
-        }
+        filename: dbPath
       };
 
       const connectionTest = await this.databaseManager.testConnection(config);
@@ -260,9 +258,7 @@ class SQLiteMacOSIntegrationTester {
         const config: ConnectionConfig = {
           name: `error-test-${errorTest.name.toLowerCase().replace(/\s+/g, '-')}`,
           type: 'sqlite',
-          config: {
-            filename: errorTest.path
-          }
+          filename: errorTest.path
         };
 
         await this.databaseManager.testConnection(config);

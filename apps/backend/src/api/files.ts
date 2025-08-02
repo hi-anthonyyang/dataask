@@ -431,7 +431,7 @@ router.post('/import-old', async (req, res) => {
     const connectionId = await dbManager.createConnection({
       type: 'sqlite',
       name: tableName,
-      config: { filename: dbPath }
+      filename: dbPath
     });
 
     // Create table with proper column types
@@ -457,14 +457,23 @@ router.post('/import-old', async (req, res) => {
     // Use optimized bulk insert with progress tracking
     logger.info(`Starting bulk import of ${preparedRows.length} rows into ${tableName}`);
     
-    await dbManager.executeSQLiteBulkInsert(
-      connectionId, 
-      insertSQL, 
-      preparedRows,
-      (progress) => {
-        logger.info(`Import progress: ${progress}%`);
+    // Insert rows in batches for better performance
+    const batchSize = 100;
+    for (let i = 0; i < preparedRows.length; i += batchSize) {
+      const batch = preparedRows.slice(i, i + batchSize);
+      
+      // Execute inserts in a transaction for better performance
+      await dbManager.executeQuery(connectionId, 'BEGIN TRANSACTION', []);
+      
+      for (const row of batch) {
+        await dbManager.executeQuery(connectionId, insertSQL, row);
       }
-    );
+      
+      await dbManager.executeQuery(connectionId, 'COMMIT', []);
+      
+      const progress = Math.round((i + batch.length) / preparedRows.length * 100);
+      logger.info(`Import progress: ${progress}%`);
+    }
 
     // Clean up temporary file
     fs.unlinkSync(tempFilePath);

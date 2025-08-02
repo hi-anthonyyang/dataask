@@ -42,9 +42,8 @@ const runMigrations = async (): Promise<void> => {
   }
   
   try {
-    const migrationRunner = new MigrationRunner(dbPool);
-    await migrationRunner.runMigrations();
-    logger.info('Database migrations completed successfully');
+    // Migrations are not needed for SQLite-only setup
+    logger.info('SQLite-only setup - no migrations needed');
   } catch (error) {
     logger.error('Failed to run database migrations:', error);
     // Don't exit the process, just log the error
