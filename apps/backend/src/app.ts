@@ -61,6 +61,11 @@ const runMigrations = async (): Promise<void> => {
     return;
   }
   
+  if (!dbPool) {
+    logger.warn('Cannot run migrations: database pool not initialized');
+    return;
+  }
+  
   try {
     const migrationRunner = new MigrationRunner(dbPool);
     await migrationRunner.runMigrations();
@@ -105,8 +110,8 @@ app.use((req, res, next) => {
 });
 
 // API routes
-app.use('/api/auth', createAuthRouter(dbPool));
-app.use('/api/user/connections', createUserConnectionsRouter(dbPool));
+app.use('/api/auth', createAuthRouter(dbPool!));
+app.use('/api/user/connections', createUserConnectionsRouter(dbPool!));
 app.use('/api/db', optionalAuth, dbRouter); // Make db routes optionally authenticated
 app.use('/api/llm', optionalAuth, llmRouter); // Make llm routes optionally authenticated
 app.use('/api/files', optionalAuth, filesRouter); // File import routes
@@ -141,6 +146,15 @@ app.get('/health', healthCheck);
 
 // Database health check
 app.get('/health/db', async (req, res) => {
+  if (!dbPool) {
+    return res.status(503).json({
+      status: HEALTH_CHECK.STATUS.ERROR,
+      service: HEALTH_CHECK.SERVICE.DATABASE,
+      error: 'Database pool not initialized',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
   try {
     await dbPool.query('SELECT 1');
     res.json({
@@ -186,13 +200,17 @@ app.use('*', (req, res) => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
-  await dbPool.end();
+  if (dbPool) {
+    await dbPool.end();
+  }
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
-  await dbPool.end();
+  if (dbPool) {
+    await dbPool.end();
+  }
   process.exit(0);
 });
 

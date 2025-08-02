@@ -50,7 +50,7 @@ interface AppState {
 
 class StorageService {
   // Get all saved connections
-  getConnections(): SavedConnection[] {
+  static getConnections(): SavedConnection[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.CONNECTIONS)
       if (!data) return []

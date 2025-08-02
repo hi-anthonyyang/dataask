@@ -171,7 +171,7 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
             <p>No database connections</p>
             <div className="mt-3 space-y-1">
               <button 
-                onClick={() => setShowConnectionModal(true)}
+                onClick={() => onConnectionsChange && onConnectionsChange()}
                 className="block w-full text-primary hover:underline text-xs"
               >
                 Add Database Connection

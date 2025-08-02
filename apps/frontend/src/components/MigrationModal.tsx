@@ -28,7 +28,7 @@ export default function MigrationModal({ isOpen, onClose, onComplete }: Migratio
     const connections = StorageService.getConnections();
     setLocalConnections(connections);
     // Select all by default
-    setSelectedConnections(new Set(connections.map(c => c.id)));
+    setSelectedConnections(new Set(connections.map((c: any) => c.id)));
   };
 
   const handleConnectionToggle = (connectionId: string) => {

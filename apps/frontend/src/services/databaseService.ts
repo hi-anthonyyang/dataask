@@ -1,6 +1,6 @@
 // Database service that handles both Electron and web modes
 import '../types/electron.d.ts'
-import { API_ENDPOINTS, DATABASE_TYPES, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../utils/constants'
+import { API_ENDPOINTS, DATABASE_TYPES, ERROR_MESSAGES } from '../utils/constants'
 
 const isElectron = () => {
   return typeof window !== 'undefined' && window.electronAPI

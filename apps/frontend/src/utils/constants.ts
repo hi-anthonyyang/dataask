@@ -1,6 +1,6 @@
 // API endpoints
 export const API_ENDPOINTS = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
+  BASE_URL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001',
   AUTH: {
     LOGIN: '/api/auth/login',
     REGISTER: '/api/auth/register',
@@ -52,6 +52,7 @@ export const STORAGE_KEYS = {
   QUERY_HISTORY: 'dataask_query_history',
   USER_PREFERENCES: 'dataask_preferences',
   ENCRYPTION_KEY: 'dataask-encryption-key',
+  APP_STATE: 'dataask_app_state',
 } as const;
 
 // Database types
