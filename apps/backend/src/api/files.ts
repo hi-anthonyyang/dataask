@@ -65,7 +65,7 @@ const handleMulterError = (err: any, req: express.Request, res: express.Response
   next();
 };
 
-// File upload and preview endpoint
+// File upload and preview endpoint (DEPRECATED - use /import instead)
 router.post('/upload', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   try {
     if (!req.file) {
@@ -170,8 +170,155 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
   }
 });
 
-// Import file as table endpoint
-router.post('/import', async (req, res) => {
+// Combined upload and import endpoint
+router.post('/import', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
+  let tempFilePath: string | undefined;
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { tableName } = req.body;
+    if (!tableName || typeof tableName !== 'string') {
+      return res.status(400).json({ error: 'Table name is required' });
+    }
+
+    // Validate table name
+    const cleanTableName = tableName.trim().replace(/[^a-zA-Z0-9_]/g, '_');
+    if (!cleanTableName) {
+      return res.status(400).json({ error: 'Invalid table name' });
+    }
+
+    tempFilePath = req.file.path;
+    const fileExtension = path.extname(req.file.originalname).toLowerCase();
+    
+    if (!['.csv', '.xlsx', '.xls'].includes(fileExtension)) {
+      return res.status(400).json({ error: 'Unsupported file format. Please upload a CSV, XLS, or XLSX file.' });
+    }
+
+    // Read and parse file
+    let workbook: XLSX.WorkBook;
+    if (fileExtension === '.csv') {
+      const csvContent = fs.readFileSync(tempFilePath, 'utf8');
+      workbook = XLSX.read(csvContent, { type: 'string' });
+    } else {
+      workbook = XLSX.readFile(tempFilePath);
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+    if (!jsonData || jsonData.length < 2) {
+      return res.status(400).json({ error: 'File is empty or contains no data rows' });
+    }
+
+    const headers = jsonData[0] as string[];
+    const dataRows = jsonData.slice(1);
+
+    // Auto-detect column types
+    const columns = headers.map((header, index) => {
+      const columnData = dataRows.slice(0, 100).map(row => (row as any[])[index]);
+      return {
+        name: header,
+        type: detectColumnType(columnData),
+        nullable: true,
+        primaryKey: false
+      };
+    });
+
+    // Create SQLite database file for this import
+    const dbFilename = `import_${uuidv4()}.sqlite`;
+    const dbPath = path.join(process.cwd(), 'data', dbFilename);
+    
+    // Ensure data directory exists
+    const dataDir = path.dirname(dbPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    // Create the database connection
+    const dbManager = DatabaseManager.getInstance();
+    const connectionId = await dbManager.createConnection({
+      type: 'sqlite',
+      name: cleanTableName,
+      config: { filename: dbPath }
+    });
+
+    // Create table with proper column types
+    const columnDefinitions = columns.map(col => 
+      `"${col.name}" ${col.type}${col.nullable ? '' : ' NOT NULL'}`
+    ).join(', ');
+    
+    const createTableSQL = `CREATE TABLE "${cleanTableName}" (${columnDefinitions})`;
+    await dbManager.executeQuery(connectionId, createTableSQL, []);
+
+    // Insert data using batch insertion
+    const placeholders = columns.map(() => '?').join(', ');
+    const insertSQL = `INSERT INTO "${cleanTableName}" (${columns.map(col => `"${col.name}"`).join(', ')}) VALUES (${placeholders})`;
+    
+    // Process data in batches
+    const batchSize = 1000;
+    const totalRows = dataRows.length;
+    
+    // Begin transaction
+    await dbManager.executeQuery(connectionId, 'BEGIN TRANSACTION', []);
+    
+    try {
+      for (let i = 0; i < totalRows; i += batchSize) {
+        const batch = dataRows.slice(i, i + batchSize);
+        
+        for (const row of batch) {
+          const values = columns.map((col, index) => {
+            const value = (row as any[])[index];
+            return convertValueToType(value, col.type);
+          });
+          
+          await dbManager.executeQuery(connectionId, insertSQL, values);
+        }
+      }
+      
+      // Commit transaction
+      await dbManager.executeQuery(connectionId, 'COMMIT', []);
+    } catch (error) {
+      // Rollback on error
+      await dbManager.executeQuery(connectionId, 'ROLLBACK', []);
+      throw error;
+    }
+
+    // Clean up temp file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+
+    res.json({
+      connectionId,
+      tableName: cleanTableName,
+      rowCount: totalRows,
+      columns: columns.length
+    });
+
+  } catch (error) {
+    logger.error('File import failed:', error);
+    
+    // Clean up temp file on error
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+      } catch (cleanupError) {
+        logger.error('Failed to clean up uploaded file:', cleanupError);
+      }
+    }
+    
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'File import failed. Please try again.' 
+    });
+  }
+});
+
+// Import file as table endpoint (OLD - keeping for backward compatibility)
+router.post('/import-old', async (req, res) => {
   try {
     const { filename, tableName, columns, tempFilePath } = ImportRequestSchema.extend({
       tempFilePath: z.string()

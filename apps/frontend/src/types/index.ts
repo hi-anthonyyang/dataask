@@ -32,23 +32,5 @@ export interface Connection {
     fileSize?: number
     uploadedAt?: string
     rowCount?: number
-    columns?: FileColumn[]
   }
-}
-
-export interface FileColumn {
-  name: string
-  type: 'TEXT' | 'INTEGER' | 'REAL' | 'DATE'
-  originalType?: string
-  nullable?: boolean
-  sampleValues?: any[]
-}
-
-export interface FilePreview {
-  filename: string
-  rowCount: number
-  columns: FileColumn[]
-  sampleData: any[][]
-  headers: string[]
-  tempFilePath?: string
 }

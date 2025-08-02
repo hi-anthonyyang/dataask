@@ -45,15 +45,14 @@ The following docstrings describe the purpose of each module in the DataAsk repo
     /**
      * API router for file import operations.
      *
-     * Provides endpoints for uploading CSV/Excel files, parsing and previewing
-     * their contents, and importing them as SQLite tables. Features include:
-     * - POST /upload: Handles multipart file uploads with validation
-     * - POST /import: Creates SQLite tables from parsed file data
+     * Provides endpoints for importing CSV/Excel files as SQLite tables:
+     * - POST /import: Combined upload and import with automatic processing
+     * - POST /upload: (Deprecated) Legacy endpoint for file preview
      * 
-     * Supports automatic column type detection, data validation, and proper
-     * error handling. Uses multer for file handling and xlsx library for
-     * Excel parsing. Creates temporary SQLite databases that integrate
-     * seamlessly with the existing connection management system.
+     * Features automatic column type detection, table name generation,
+     * batch insertion for performance, and transaction support. Uses multer
+     * for file handling and xlsx library for parsing. Creates SQLite databases
+     * that integrate seamlessly with the connection management system.
      */
 
 ### `apps/backend/src/api/llm.ts`
@@ -193,14 +192,13 @@ The following docstrings describe the purpose of each module in the DataAsk repo
     /**
      * Modal dialog for importing CSV and Excel files as queryable tables.
      *
-     * Provides a multi-step workflow:
+     * Simplified single-step workflow:
      * - Upload: Drag & drop or file selection with validation
-     * - Preview: Display parsed data with auto-detected column types
-     * - Configure: Edit table name and adjust column types before import
+     * - Auto table name generation from filename
+     * - Direct import with progress tracking
      * 
-     * Integrates with FileDropZone, DataPreview, and ColumnTypeEditor components.
-     * Handles file upload, parsing, type detection, and table creation via the
-     * backend API. Creates SQLite tables that appear as regular connections.
+     * Integrates with FileDropZone component. Handles file upload and import
+     * in a single API call. Creates SQLite tables that appear as regular connections.
      */
 
 ### `apps/frontend/src/components/FileDropZone.tsx`
@@ -214,26 +212,27 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * messages for invalid files. Integrates with the file import workflow.
      */
 
-### `apps/frontend/src/components/DataPreview.tsx`
+### `apps/frontend/src/components/AddDataModal.tsx`
 
     /**
-     * Component for previewing imported file data before table creation.
+     * Combined modal for adding data through file import or database connection.
      *
-     * Displays file metadata (name, row count, column count), shows detected
-     * column types with color coding, and renders a scrollable table preview
-     * of the first 10 rows. Provides visual feedback for data quality and
-     * structure to help users verify their import before proceeding.
+     * Features tabbed interface with:
+     * - File Import tab: Upload CSV/Excel files to create queryable tables
+     * - Database Connection tab: Connect to PostgreSQL, MySQL, or SQLite databases
+     * 
+     * Embeds FileImportModal and ConnectionModal components in a unified interface.
+     * Defaults to file import tab for easier data onboarding.
      */
 
-### `apps/frontend/src/components/ColumnTypeEditor.tsx`
+### `apps/frontend/src/components/DataVisualizer.tsx`
 
     /**
-     * Component for editing column names and types during file import.
+     * Advanced data visualization component for query results.
      *
-     * Allows users to modify auto-detected column names and types before
-     * table creation. Provides dropdowns for type selection (Text, Integer,
-     * Number, Date) with visual indicators and sample values. Includes
-     * explanatory information about each data type.
+     * Provides multiple visualization types including tables, charts, and graphs.
+     * Features include column sorting, data export, and interactive visualizations.
+     * Automatically selects appropriate chart types based on data characteristics.
      */
 
 ### `apps/frontend/src/components/TableDetails.tsx`
