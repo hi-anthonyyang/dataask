@@ -179,19 +179,25 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
       }
       
       if (result.connectionId) {
-        // Wait for import to complete
-        await new Promise<void>((resolve) => {
-          const checkComplete = setInterval(() => {
-            if (!importProgress || importProgress.status === 'completed' || importProgress.status === 'failed') {
-              clearInterval(checkComplete)
-              resolve()
-            }
-          }, 100)
-        })
-        
-        if (importProgress?.status === 'completed') {
+        // If no importId, the import is already complete (synchronous)
+        if (!result.importId) {
           onConnectionAdded(result.connectionId)
           resetModal()
+        } else {
+          // Wait for import to complete
+          await new Promise<void>((resolve) => {
+            const checkComplete = setInterval(() => {
+              if (!importProgress || importProgress.status === 'completed' || importProgress.status === 'failed') {
+                clearInterval(checkComplete)
+                resolve()
+              }
+            }, 100)
+          })
+          
+          if (importProgress?.status === 'completed') {
+            onConnectionAdded(result.connectionId)
+            resetModal()
+          }
         }
       } else {
         throw new Error('No connection ID returned')
