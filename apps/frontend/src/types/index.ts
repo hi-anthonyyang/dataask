@@ -66,6 +66,7 @@ export interface TestConnectionResponse {
 }
 
 export interface CreateConnectionResponse {
+  success?: boolean;
   connectionId?: string;
   message?: string;
   error?: string;

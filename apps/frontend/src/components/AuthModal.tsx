@@ -48,8 +48,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
     if (mode === 'register') {
       const passwordValidation = AuthService.validatePassword(password);
-      if (!passwordValidation.valid) {
-        setPasswordErrors(passwordValidation.errors);
+      if (!passwordValidation.isValid) {
+        setPasswordErrors(passwordValidation.message ? [passwordValidation.message] : []);
         return false;
       }
     }
@@ -69,9 +69,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
     try {
       if (mode === 'login') {
-        await authService.login({ email, password });
+        await authService.login(email, password);
       } else {
-        await authService.register({ email, password });
+        await authService.register(email, password);
       }
 
       resetForm();

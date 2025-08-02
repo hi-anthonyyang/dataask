@@ -4,7 +4,7 @@
  */
 
 import { api } from './api';
-import type { ApiError } from './api';
+// import type { ApiError } from './api';
 
 class ApiClient {
   private refreshTokenFn?: () => Promise<boolean>;

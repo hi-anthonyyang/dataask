@@ -71,7 +71,18 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
       console.log('Schema data received:', data)
       if (data.schema) {
         console.log('Setting schema with tables:', data.schema.tables.map(t => t.name))
-        setSchema(data.schema)
+        setSchema({
+          tables: data.schema.tables.map(table => ({
+            name: table.name,
+            type: table.type,
+            columns: (table.columns || []).map(col => ({
+              name: col.name,
+              type: col.type,
+              nullable: col.nullable,
+              primaryKey: col.primary_key
+            }))
+          }))
+        })
       } else {
         console.warn('No schema data received for connection:', connectionId)
       }

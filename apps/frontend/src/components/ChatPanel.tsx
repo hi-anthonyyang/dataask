@@ -343,7 +343,12 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
         }
         setMessages(prev => [...prev, errorMessageObj])
       } else {
-        onQueryExecute(results)
+        onQueryExecute({
+          rows: results.data || [],
+          fields: results.fields || [],
+          rowCount: results.rowCount || 0,
+          executionTime: results.executionTime || 0
+        })
         
         // Close table overview/preview when query is executed
         if (onTableClose) {
@@ -527,7 +532,12 @@ export default function ChatPanel({ selectedConnection, connectionType, onQueryU
         throw new Error(results.error)
       }
 
-      onQueryExecute(results)
+      onQueryExecute({
+        rows: results.data || [],
+        fields: results.fields || [],
+        rowCount: results.rowCount || 0,
+        executionTime: results.executionTime || 0
+      })
       
       // Close table overview/preview when query is executed
       if (onTableClose) {

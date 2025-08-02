@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { X, Database, FileText, AlertCircle, CheckCircle, Upload } from 'lucide-react'
+import { X, Database, AlertCircle, CheckCircle, Upload } from 'lucide-react'
 import { testConnection, createConnection, updateConnection } from '../services/database'
 import { Connection } from '../types/database'
 

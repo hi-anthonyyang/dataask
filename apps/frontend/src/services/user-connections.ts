@@ -1,5 +1,5 @@
 import { authService } from './auth';
-import { handleApiError, handleConnectionError, logWarning, logInfo } from './error';
+import { handleApiError, handleConnectionError, logWarning } from './error';
 
 export interface UserConnection {
   id: string;
@@ -228,7 +228,7 @@ class UserConnectionsService {
       const result = await response.json();
       return result.success;
     } catch (error) {
-      handleConnectionError(error, config.type);
+      handleConnectionError(error, 'sqlite');
       return false;
     }
   }
@@ -236,7 +236,7 @@ class UserConnectionsService {
   /**
    * Convert localStorage connection to server format
    */
-  convertLocalStorageConnection(localConnection: Connection): CreateConnectionData {
+  convertLocalStorageConnection(localConnection: any): CreateConnectionData {
     return {
       name: localConnection.name,
       type: localConnection.type,

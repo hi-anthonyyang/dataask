@@ -4,10 +4,10 @@ import AnalysisPanel from './AnalysisPanel'
 import ChatPanel from './ChatPanel'
 import AddDataModal from './AddDataModal'
 import ConnectionStatus from './ConnectionStatus'
-import { Database, ChevronRight, LogOut, User, Plus } from 'lucide-react'
+import { Database, ChevronRight, LogOut, Plus } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { Connection, QueryResult } from '../types'
+import { Connection, QueryResult, DatabaseType } from '../types'
 import { databaseService } from '../services/database'
 import StorageService from '../services/storage'
 import { useResizablePanel } from '../hooks/useResizablePanel'
@@ -86,7 +86,14 @@ const DataAskApp: React.FC = () => {
       const connection = data.connections.find(c => c.id === connectionId)
       if (connection) {
         console.log('Found new connection:', connection)
-        StorageService.saveConnection(connection)
+        StorageService.saveConnection({
+          id: connection.id,
+          name: connection.name,
+          type: connection.type as DatabaseType,
+          config: {
+            filename: connection.config?.filename
+          }
+        })
         
         // Set the new connection as selected after state update
         // Using setTimeout to ensure the connections list renders first

@@ -27,7 +27,7 @@ export interface ErrorReport {
 class ErrorService {
   private errorHistory: ErrorReport[] = [];
   private readonly maxHistorySize = 100;
-  private isDevelopment = import.meta.env.DEV;
+  private isDevelopment = (import.meta as any).env?.DEV || false;
 
   /**
    * Log an error with context and optional user notification

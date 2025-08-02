@@ -3,7 +3,7 @@ import { TrendingUp, Download, BarChart3, Copy, Check } from 'lucide-react'
 import DataVisualizer from './DataVisualizer'
 import TableDetails from './TableDetails'
 import { copyInsightsText, copyTableAsCSV, copyTableAsTSV } from '../services/copy'
-import { QueryResult, DatabaseField } from '../types'
+import { QueryResult } from '../types'
 
 interface AnalysisPanelProps {
   queryResults: QueryResult | null
@@ -318,7 +318,17 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
           <div className="p-4">
             {isVisualizableData ? (
               <DataVisualizer
-                data={queryResults.rows}
+                data={queryResults.rows.map(row => {
+                  const typedRow: { [key: string]: string | number } = {};
+                  for (const [key, value] of Object.entries(row)) {
+                    if (typeof value === 'string' || typeof value === 'number') {
+                      typedRow[key] = value;
+                    } else {
+                      typedRow[key] = String(value);
+                    }
+                  }
+                  return typedRow;
+                })}
                 fields={queryResults.fields}
                 currentQuery={currentQuery}
               />

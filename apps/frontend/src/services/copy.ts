@@ -33,12 +33,13 @@ export const copyTableAsCSV = async (data: Record<string, unknown>[], fields: Ar
 
   try {
     // Create CSV header
-    const headers = fields.map(field => field.name || field).join(',')
+    const headers = fields.map(field => typeof field === 'string' ? field : field.name).join(',')
     
     // Create CSV rows with proper escaping
     const rows = data.map(row => 
       fields.map(field => {
-        const value = row[field.name || field]
+        const fieldName = typeof field === 'string' ? field : field.name
+        const value = row[fieldName]
         if (value === null || value === undefined) return ''
         
         // Escape CSV values that contain commas, quotes, or newlines
@@ -70,7 +71,8 @@ export const copyTableAsTSV = async (data: Record<string, unknown>[], fields: Ar
     // Create TSV rows
     const rows = data.map(row => 
       fields.map(field => {
-        const value = row[field.name || field]
+        const fieldName = typeof field === 'string' ? field : field.name
+        const value = row[fieldName]
         if (value === null || value === undefined) return ''
         
         // Replace tabs and newlines in TSV
