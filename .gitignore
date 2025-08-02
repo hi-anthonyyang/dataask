@@ -65,4 +65,4 @@ temp/
 *.tmp
 
 # Docker
-.dockerignore 
+.dockerignore core
