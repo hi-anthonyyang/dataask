@@ -33,7 +33,9 @@ export class AuthService {
   private initialized = false;
 
   private constructor() {
-    const authDbPath = path.join(process.cwd(), 'data', 'auth.db');
+    // Use a fixed path relative to the backend directory
+    const backendDir = path.resolve(__dirname, '..', '..');
+    const authDbPath = path.join(backendDir, 'data', 'auth.db');
     
     // Ensure data directory exists
     const dataDir = path.dirname(authDbPath);
