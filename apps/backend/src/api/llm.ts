@@ -10,6 +10,7 @@ import {
   createSafePrompt, 
   logSecurityEvent 
 } from '../security/promptSanitize';
+import { LLM_MODEL_CONFIG, LLM_MESSAGES } from '../utils/constants';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ let openai: OpenAI | null = null;
 
 const initializeOpenAI = () => {
   if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'sk-placeholder-key-replace-with-real-key') {
-    logger.warn('OpenAI API key not configured or using placeholder key');
+    logger.warn(LLM_MESSAGES.API_KEY_PLACEHOLDER);
     return null;
   }
   
@@ -38,18 +39,12 @@ openai = initializeOpenAI();
 // Helper function to ensure OpenAI is available
 const ensureOpenAI = (): OpenAI => {
   if (!openai) {
-    throw new Error('OpenAI client not initialized');
+    throw new Error(LLM_MESSAGES.CLIENT_NOT_INITIALIZED);
   }
   return openai;
 };
 
-// Optimized model configuration for cost reduction
-const MODEL_CONFIG = {
-  classification: 'gpt-4o-mini',     // Simple JSON output - 95% cheaper
-  nlToSql: 'gpt-4o',                // Needs accuracy - 83% cheaper  
-  analysis: 'gpt-4o',               // Needs quality - 83% cheaper
-  summarization: 'gpt-3.5-turbo'    // Short outputs - 92% cheaper
-} as const;
+
 
 // MySQL-specific SQL validation and correction
 const validateAndCorrectMySQLSyntax = (sql: string): string => {
@@ -210,7 +205,7 @@ RESPONSE FORMAT:
     }
 
     const completion = await ensureOpenAI().chat.completions.create({
-      model: MODEL_CONFIG.classification,
+      model: LLM_MODEL_CONFIG.CLASSIFICATION,
       messages: [
         { role: 'system', content: classificationPrompt },
         { role: 'user', content: query }
@@ -268,7 +263,7 @@ router.post('/nl-to-sql', async (req, res) => {
     
     if (!openai) {
       return res.status(500).json({ 
-        error: 'OpenAI API key not configured or invalid. Please set a valid OPENAI_API_KEY in your environment variables.',
+        error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
         details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate SQL queries.'
       });
     }
@@ -380,7 +375,7 @@ WINDOW FUNCTIONS:
     const safePrompt = createSafePrompt('nlToSql', sanitizedQuery, schemaHash, request.connectionType);
 
     const completion = await ensureOpenAI().chat.completions.create({
-      model: MODEL_CONFIG.nlToSql,
+      model: LLM_MODEL_CONFIG.NL_TO_SQL,
       messages: [
         { role: 'system', content: safePrompt.system },
         { role: 'user', content: safePrompt.user }
@@ -471,7 +466,7 @@ router.post('/analyze', async (req, res) => {
     
     if (!openai) {
       return res.status(500).json({ 
-        error: 'OpenAI API key not configured or invalid. Please set a valid OPENAI_API_KEY in your environment variables.',
+        error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
         details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate analysis.'
       });
     }
@@ -540,7 +535,7 @@ router.post('/analyze', async (req, res) => {
     const safePrompt = createSafePrompt('analysis', sanitizedQuery, dataSanitization.sanitizedInput);
 
     const completion = await ensureOpenAI().chat.completions.create({
-      model: MODEL_CONFIG.analysis,
+      model: LLM_MODEL_CONFIG.ANALYSIS,
       messages: [
         { role: 'system', content: safePrompt.system },
         { role: 'user', content: safePrompt.user }
@@ -604,7 +599,7 @@ router.post('/summarize', async (req, res) => {
     
     if (!openai) {
       return res.status(500).json({ 
-        error: 'OpenAI API key not configured or invalid. Please set a valid OPENAI_API_KEY in your environment variables.',
+        error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
         details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate summaries.'
       });
     }
@@ -644,7 +639,7 @@ router.post('/summarize', async (req, res) => {
     const safePrompt = createSafePrompt('summarization', sanitizedQuery);
 
     const completion = await ensureOpenAI().chat.completions.create({
-      model: MODEL_CONFIG.summarization,
+      model: LLM_MODEL_CONFIG.SUMMARIZATION,
       messages: [
         { role: 'system', content: safePrompt.system },
         { role: 'user', content: safePrompt.user }
@@ -731,7 +726,7 @@ router.get('/health', async (req, res) => {
       hasApiKey,
       isPlaceholder,
       model: 'gpt-4',
-      message: hasApiKey ? 'OpenAI API is ready' : 'Please configure a valid OPENAI_API_KEY environment variable'
+      message: hasApiKey ? LLM_MESSAGES.API_READY : LLM_MESSAGES.CONFIGURE_API_KEY
     });
   } catch (error) {
     logger.error('LLM health check failed:', error);

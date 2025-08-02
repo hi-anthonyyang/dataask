@@ -3,15 +3,20 @@ import { z } from 'zod';
 import { DatabaseManager } from '../utils/database';
 import { validateQuery } from '../security/sanitize';
 import { logger } from '../utils/logger';
+import { API_MESSAGES, QUERY_LIMITS } from '../utils/constants';
 
 const router = Router();
 
+// Database types enum for better type safety
+const DATABASE_TYPES = ['postgresql', 'sqlite', 'mysql'] as const;
+type DatabaseType = typeof DATABASE_TYPES[number];
+
 // Connection schema validation
 const ConnectionSchema = z.object({
-  type: z.enum(['postgresql', 'sqlite', 'mysql']),
+  type: z.enum(DATABASE_TYPES),
   name: z.string().min(1),
   config: z.object({
-    // PostgreSQL config
+    // PostgreSQL and MySQL config
     host: z.string().optional(),
     port: z.number().optional(),
     database: z.string().optional(),
@@ -24,7 +29,7 @@ const ConnectionSchema = z.object({
 
 const QuerySchema = z.object({
   connectionId: z.string(),
-  sql: z.string().min(1),
+  sql: z.string().min(QUERY_LIMITS.MIN_QUERY_LENGTH),
   params: z.array(z.any()).optional()
 });
 
@@ -36,7 +41,7 @@ const TableMetadataSchema = z.object({
 const TablePreviewSchema = z.object({
   connectionId: z.string(),
   tableName: z.string().min(1),
-  limit: z.number().min(1).max(1000).optional()
+  limit: z.number().min(1).max(QUERY_LIMITS.MAX_PREVIEW_ROWS).optional()
 });
 
 // Test database connection
@@ -49,7 +54,7 @@ router.post('/test-connection', async (req, res) => {
     
     res.json({ 
       success: isValid,
-      message: isValid ? 'Connection successful' : 'Connection failed'
+      message: isValid ? API_MESSAGES.CONNECTION_SUCCESS : API_MESSAGES.CONNECTION_FAILED
     });
   } catch (error) {
     logger.error('Connection test failed:', error);
@@ -57,7 +62,7 @@ router.post('/test-connection', async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ 
         success: false,
-        message: 'Invalid connection parameters'
+        message: API_MESSAGES.INVALID_PARAMS
       });
     }
     

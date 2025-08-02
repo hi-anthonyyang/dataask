@@ -12,25 +12,33 @@ import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';
 import { MigrationRunner } from './utils/migrations';
 import { optionalAuth } from './utils/auth';
+import { 
+  DB_CONSTANTS, 
+  API_MESSAGES, 
+  SERVER_CONFIG, 
+  APP_INFO, 
+  HEALTH_CHECK 
+} from './utils/constants';
 
 // Create database pool for user management
 const createDatabasePool = (): Pool | null => {
+  // Skip database pool creation if migrations are disabled and no host is configured
   if (!process.env.POSTGRES_HOST && process.env.SKIP_MIGRATIONS === 'true') {
     logger.info('Skipping database pool creation (no POSTGRES_HOST and SKIP_MIGRATIONS=true)');
     return null;
   }
   
   const pool = new Pool({
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT || '5432'),
-    database: process.env.POSTGRES_DB || 'dataask_dev',
-    user: process.env.POSTGRES_USER || 'dataask_user',
-    password: process.env.POSTGRES_PASSWORD || 'dataask_dev_password',
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    host: process.env.POSTGRES_HOST || DB_CONSTANTS.DEFAULT_HOST,
+    port: parseInt(process.env.POSTGRES_PORT || String(DB_CONSTANTS.DEFAULT_PORT.POSTGRESQL)),
+    database: process.env.POSTGRES_DB || DB_CONSTANTS.DEFAULT_DATABASE,
+    user: process.env.POSTGRES_USER || DB_CONSTANTS.DEFAULT_USER,
+    password: process.env.POSTGRES_PASSWORD || DB_CONSTANTS.DEFAULT_PASSWORD,
+    max: DB_CONSTANTS.POOL.MAX_CONNECTIONS,
+    idleTimeoutMillis: DB_CONSTANTS.POOL.IDLE_TIMEOUT_MS,
+    connectionTimeoutMillis: DB_CONSTANTS.POOL.CONNECTION_TIMEOUT_MS,
     // SSL configuration for production
-    ssl: process.env.NODE_ENV === 'production' ? {
+    ssl: process.env.NODE_ENV === APP_INFO.ENVIRONMENT.PRODUCTION ? {
       rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
       ca: process.env.DB_SSL_CA,
       cert: process.env.DB_SSL_CERT,
@@ -80,14 +88,14 @@ app.use(applyRateLimiting);
 
 // CORS configuration with credentials support
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: process.env.CORS_ORIGIN || SERVER_CONFIG.DEFAULT_CORS_ORIGIN,
   credentials: true, // Enable credentials for cookie authentication
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: SERVER_CONFIG.CORS_SUCCESS_STATUS,
 };
 app.use(cors(corsOptions));
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: SERVER_CONFIG.JSON_LIMIT }));
 app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
@@ -106,11 +114,11 @@ app.use('/api/files', optionalAuth, filesRouter); // File import routes
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    name: 'DataAsk Backend API',
-    version: '1.0.0',
-    status: 'Running',
+    name: APP_INFO.NAME,
+    version: APP_INFO.VERSION,
+    status: APP_INFO.STATUS,
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
+    environment: process.env.NODE_ENV || APP_INFO.ENVIRONMENT.DEVELOPMENT,
     features: {
       authentication: true,
       userConnections: true,
@@ -136,16 +144,16 @@ app.get('/health/db', async (req, res) => {
   try {
     await dbPool.query('SELECT 1');
     res.json({
-      status: 'OK',
-      service: 'Database',
+      status: HEALTH_CHECK.STATUS.OK,
+      service: HEALTH_CHECK.SERVICE.DATABASE,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     logger.error('Database health check failed:', error);
     res.status(503).json({
-      status: 'ERROR',
-      service: 'Database',
-      error: 'Database connection failed',
+      status: HEALTH_CHECK.STATUS.ERROR,
+      service: HEALTH_CHECK.SERVICE.DATABASE,
+      error: API_MESSAGES.DB_CONNECTION_FAILED,
       timestamp: new Date().toISOString()
     });
   }
@@ -156,8 +164,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   logger.error('Unhandled error:', err);
   
   // Don't expose internal errors in production
-  const message = process.env.NODE_ENV === 'production' 
-    ? 'Internal Server Error' 
+  const message = process.env.NODE_ENV === APP_INFO.ENVIRONMENT.PRODUCTION 
+    ? API_MESSAGES.INTERNAL_ERROR 
     : err.message || 'Something went wrong';
 
   res.status(err.status || 500).json({
@@ -169,7 +177,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
-    error: 'Route not found',
+    error: API_MESSAGES.ROUTE_NOT_FOUND,
     path: req.originalUrl,
     timestamp: new Date().toISOString()
   });

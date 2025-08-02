@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { logger } from './logger';
+import { TOKEN_EXPIRY } from './constants';
 
 export interface User {
   id: string;
@@ -29,17 +30,17 @@ export interface AuthenticatedRequest extends Request {
 }
 
 // JWT Configuration
+// Note: These secrets should be set via environment variables in production
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || JWT_SECRET + '-refresh';
-const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY = '7d';
 
 export class AuthService {
   /**
    * Hash password using bcrypt
    */
   static async hashPassword(password: string): Promise<string> {
-    const saltRounds = 12; // High security
+    // Using 12 salt rounds for high security - balances security and performance
+    const saltRounds = 12;
     return bcrypt.hash(password, saltRounds);
   }
 
@@ -67,13 +68,13 @@ export class AuthService {
     };
 
     const accessToken = jwt.sign(accessPayload, JWT_SECRET, {
-      expiresIn: ACCESS_TOKEN_EXPIRY,
+      expiresIn: TOKEN_EXPIRY.ACCESS_TOKEN,
       issuer: 'dataask',
       audience: 'dataask-users'
     });
 
     const refreshToken = jwt.sign(refreshPayload, JWT_REFRESH_SECRET, {
-      expiresIn: REFRESH_TOKEN_EXPIRY,
+      expiresIn: TOKEN_EXPIRY.REFRESH_TOKEN,
       issuer: 'dataask',
       audience: 'dataask-users'
     });
