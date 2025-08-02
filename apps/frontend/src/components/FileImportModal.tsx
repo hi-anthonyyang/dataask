@@ -172,6 +172,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
       }
 
       const result = await response.json()
+      console.log('Import result:', result)
       
       // Start tracking import progress
       if (result.importId) {
@@ -179,6 +180,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
       }
       
       if (result.connectionId) {
+        console.log('Import completed with connectionId:', result.connectionId)
         // If no importId, the import is already complete (synchronous)
         if (!result.importId) {
           onConnectionAdded(result.connectionId)

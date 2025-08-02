@@ -50,6 +50,7 @@ const DataAskApp: React.FC = () => {
   const loadConnections = async () => {
     try {
       const data = await databaseService.listConnections()
+      console.log('Loaded connections:', data.connections)
       setConnections(data.connections)
     } catch (error) {
       console.error('Failed to load connections:', error)
@@ -69,19 +70,30 @@ const DataAskApp: React.FC = () => {
 
   const handleConnectionAdded = async (connectionId: string) => {
     setShowAddDataModal(false)
-    // Load connections first to get the new connection
-    await loadConnections()
-    setSelectedConnection(connectionId)
     
-    // Now save the imported connection to localStorage
     try {
+      // Load the updated connections list
       const data = await databaseService.listConnections()
+      console.log('New connections after import:', data.connections)
+      
+      // Update connections state
+      setConnections(data.connections)
+      
+      // Find and save the new connection to localStorage
       const connection = data.connections.find(c => c.id === connectionId)
       if (connection) {
         StorageService.saveConnection(connection)
+        
+        // Set the new connection as selected after state update
+        // Using setTimeout to ensure the connections list renders first
+        setTimeout(() => {
+          setSelectedConnection(connectionId)
+        }, 100)
+      } else {
+        console.error('New connection not found in list:', connectionId)
       }
     } catch (error) {
-      console.error('Failed to save imported connection:', error)
+      console.error('Failed to handle new connection:', error)
     }
   }
 
