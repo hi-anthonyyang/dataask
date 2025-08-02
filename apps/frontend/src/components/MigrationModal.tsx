@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Upload, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { userConnectionsService, MigrationResult } from '../services/userConnections';
+import { userConnectionsService, MigrationResult } from '../services/user-connections';
 import StorageService from '../services/storage';
 
 interface MigrationModalProps {

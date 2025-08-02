@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
 import { createAuthRouter } from './api/auth';
-import { createUserConnectionsRouter } from './api/userConnections';
+import { createUserConnectionsRouter } from './api/user-connections';
 import filesRouter from './api/files';
 import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';

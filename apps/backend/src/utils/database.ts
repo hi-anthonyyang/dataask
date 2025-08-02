@@ -5,7 +5,8 @@ import { promisify } from 'util';
 // Using require to avoid TypeScript module declaration issues
 const { v4: uuidv4 } = require('uuid');
 import { logger } from './logger';
-import { sanitizeParams, limitQueryResult, validateQueryResult } from '../security/sanitize';
+import { limitQueryResult, validateQueryResult } from '../security/sanitize';
+import { sanitizeParameters, sanitizeTableName, quoteTableName } from './validation';
 import { SSHTunnelManager, SSHTunnelConfig, TunnelConnection } from './sshTunnel';
 import { 
   DatabaseType, 
@@ -321,7 +322,7 @@ class DatabaseManager {
       throw new Error('Database connection not found');
     }
 
-    const sanitizedParams = sanitizeParams(params);
+    const sanitizedParams = sanitizeParameters(params);
     const startTime = Date.now();
 
     try {
@@ -968,20 +969,10 @@ Suggestions:
       throw new Error('Connection not found');
     }
 
-    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTableName = sanitizeTableName(tableName);
     
     // Use database-specific identifier quoting
-    let quotedTableName: string;
-    switch (config.type) {
-      case 'mysql':
-        quotedTableName = `\`${sanitizedTableName}\``;  // MySQL uses backticks
-        break;
-      case 'postgresql':
-      case 'sqlite':
-      default:
-        quotedTableName = `"${sanitizedTableName}"`; // PostgreSQL and SQLite use double quotes
-        break;
-    }
+    const quotedTableName = quoteTableName(tableName, config.type as 'postgresql' | 'mysql' | 'sqlite');
     
     const sql = `SELECT * FROM ${quotedTableName} LIMIT ${Math.min(limit, DATABASE_CONFIG.query.maxPreviewLimit)}`;
     
@@ -990,7 +981,7 @@ Suggestions:
 
   // PostgreSQL-specific table metadata
   private async getPostgreSQLTableMetadata(connection: Pool, tableName: string): Promise<TableMetadata> {
-    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTableName = sanitizeTableName(tableName);
     
     const queries = [
       // Row count
@@ -1024,7 +1015,7 @@ Suggestions:
 
   // SQLite-specific table metadata
   private async getSQLiteTableMetadata(connection: sqlite3.Database, tableName: string): Promise<TableMetadata> {
-    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTableName = sanitizeTableName(tableName);
     
     return new Promise((resolve, reject) => {
       // Get row count
@@ -1045,7 +1036,7 @@ Suggestions:
 
   // PostgreSQL-specific table columns
   private async getPostgreSQLTableColumns(connection: Pool, tableName: string): Promise<TableColumn[]> {
-    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTableName = sanitizeTableName(tableName);
     
     const query = `
       SELECT 
@@ -1075,7 +1066,7 @@ Suggestions:
 
   // SQLite-specific table columns
   private async getSQLiteTableColumns(connection: sqlite3.Database, tableName: string): Promise<TableColumn[]> {
-    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTableName = sanitizeTableName(tableName);
     
     return new Promise((resolve, reject) => {
       connection.all(`PRAGMA table_info("${sanitizedTableName}")`, (err: Error | null, rows: Array<{name: string; type: string; notnull: number; dflt_value: string | null; pk: number}>) => {
@@ -1333,7 +1324,7 @@ Suggestions:
 
   // MySQL-specific table metadata
   private async getMySQLTableMetadata(pool: mysql.Pool, tableName: string): Promise<TableMetadata> {
-    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTableName = sanitizeTableName(tableName);
     
     try {
       // Row count with error handling
@@ -1378,7 +1369,7 @@ Suggestions:
 
   // MySQL-specific table columns
   private async getMySQLTableColumns(pool: mysql.Pool, tableName: string): Promise<TableColumn[]> {
-    const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+    const sanitizedTableName = sanitizeTableName(tableName);
     
     try {
       const [result] = await pool.execute(`

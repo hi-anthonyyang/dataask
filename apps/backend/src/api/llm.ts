@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
-import { validateQuery } from '../security/sanitize';
+import { validateSQLQuery } from '../utils/validation';
 import { llmCache } from '../utils/cache';
 import { 
   sanitizePromptInput, 
@@ -404,7 +404,7 @@ router.post('/nl-to-sql', async (req, res) => {
     }
 
     // Validate the generated SQL for security
-    const validationResult = validateQuery(generatedSQL);
+          const validationResult = validateSQLQuery(generatedSQL);
     if (!validationResult.isValid) {
       logger.warn('LLM generated invalid SQL:', { 
         query: generatedSQL.substring(0, 200), 

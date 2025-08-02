@@ -1,4 +1,6 @@
-import { handleAuthError, logInfo } from './errorService';
+import { handleAuthError, logInfo } from './error';
+import { apiClient } from './apiClient';
+import { API_ENDPOINTS } from '../utils/constants';
 
 interface User {
   id: string;
@@ -33,6 +35,11 @@ class AuthService {
   private user: User | null = null;
   private listeners: ((user: User | null) => void)[] = [];
 
+  constructor() {
+    // Set up the refresh token function for the API client
+    apiClient.setRefreshTokenFunction(() => this.refreshToken());
+  }
+
   /**
    * Add listener for authentication state changes
    */
@@ -59,20 +66,10 @@ class AuthService {
    */
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Registration failed');
-      }
+      const result = await apiClient.post<AuthResponse>(
+        `${this.baseUrl}/register`,
+        data
+      );
 
       this.user = result.user;
       this.notifyListeners();
@@ -89,20 +86,10 @@ class AuthService {
    */
   async login(data: LoginData): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Login failed');
-      }
+      const result = await apiClient.post<AuthResponse>(
+        `${this.baseUrl}/login`,
+        data
+      );
 
       this.user = result.user;
       this.notifyListeners();
@@ -119,10 +106,7 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      await fetch(`${this.baseUrl}/logout`, {
-        method: 'POST',
-        credentials: 'include', // Include cookies
-      });
+      await apiClient.post(`${this.baseUrl}/logout`);
 
       this.user = null;
       this.notifyListeners();
@@ -139,28 +123,9 @@ class AuthService {
    */
   async getCurrentUser(): Promise<User | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/me`, {
-        credentials: 'include', // Include cookies
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Try to refresh token
-          const refreshed = await this.refreshToken();
-          if (refreshed) {
-            // Retry getting current user
-            return this.getCurrentUser();
-          }
-        }
-        this.user = null;
-        this.notifyListeners();
-        return null;
-      }
-
-      const result = await response.json();
+      const result = await apiClient.get<{ user: User }>(`${this.baseUrl}/me`);
       this.user = result.user;
       this.notifyListeners();
-
       return result.user;
     } catch (error) {
       handleAuthError(error, 'get current user');
@@ -175,9 +140,10 @@ class AuthService {
    */
   async refreshToken(): Promise<boolean> {
     try {
+      // Use the base api service to avoid infinite recursion
       const response = await fetch(`${this.baseUrl}/refresh`, {
         method: 'POST',
-        credentials: 'include', // Include cookies
+        credentials: 'include',
       });
 
       if (!response.ok) {

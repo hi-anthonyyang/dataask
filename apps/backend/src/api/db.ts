@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { DatabaseManager } from '../utils/database';
-import { validateQuery } from '../security/sanitize';
+import { validateSQLQuery } from '../utils/validation';
 import { logger } from '../utils/logger';
 import { API_MESSAGES, QUERY_LIMITS } from '../utils/constants';
 import { 
@@ -144,7 +144,7 @@ router.post('/query', async (req, res) => {
     const queryRequest = QuerySchema.parse(req.body);
     
     // Security validation - ensure read-only queries
-    const validationResult = validateQuery(queryRequest.sql);
+    const validationResult = validateSQLQuery(queryRequest.sql);
     if (!validationResult.isValid) {
       return res.status(400).json({ 
         error: 'Query validation failed',

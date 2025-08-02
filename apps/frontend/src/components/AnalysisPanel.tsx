@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, Download, BarChart3, Copy, Check } from 'lucide-react'
 import DataVisualizer from './DataVisualizer'
 import TableDetails from './TableDetails'
-import { copyInsightsText, copyTableAsCSV, copyTableAsTSV } from '../services/copyService'
+import { copyInsightsText, copyTableAsCSV, copyTableAsTSV } from '../services/copy'
+import { QueryResult, DatabaseField } from '../types'
 
 interface AnalysisPanelProps {
-  queryResults: any
+  queryResults: QueryResult | null
   currentQuery: string
   selectedConnection?: string | null
   selectedTable?: string | null
@@ -41,7 +42,7 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
 
   // Generate AI analysis when query results change (only if query actually changed)
   useEffect(() => {
-    if (queryResults && queryResults.data && queryResults.data.length > 0 && currentQuery) {
+    if (queryResults && queryResults.rows && queryResults.rows.length > 0 && currentQuery) {
       // Only analyze if this is a new query or if we don't have analysis yet
       if (currentQuery !== lastAnalyzedQuery || !aiAnalysis) {
         generateAIAnalysis()
@@ -61,7 +62,7 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: queryResults.data,
+          data: queryResults.rows,
           query: currentQuery,
           context: 'Business data analysis for database exploration'
         })
@@ -83,7 +84,7 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
   }
 
   // Check if data is suitable for visualization
-  const isVisualizableData = queryResults?.data && queryResults.data.length > 0 && queryResults.fields
+  const isVisualizableData = queryResults?.rows && queryResults.rows.length > 0 && queryResults.fields
 
   // Show table details if a table is selected
   if (selectedTable && selectedConnection) {
@@ -249,7 +250,7 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
               <h3 className="font-medium text-foreground">Data Table</h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleCopy(() => copyTableAsCSV(queryResults.data, queryResults.fields), 'csv')}
+                  onClick={() => handleCopy(() => copyTableAsCSV(queryResults.rows, queryResults.fields), 'csv')}
                   className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1 transition-colors"
                   title="Copy as CSV (comma-separated)"
                   type="button"
@@ -262,7 +263,7 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
                   {copyStates.csv ? 'Copied!' : 'CSV'}
                 </button>
                 <button
-                  onClick={() => handleCopy(() => copyTableAsTSV(queryResults.data, queryResults.fields), 'tsv')}
+                  onClick={() => handleCopy(() => copyTableAsTSV(queryResults.rows, queryResults.fields), 'tsv')}
                   className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1 transition-colors"
                   title="Copy as TSV (tab-separated)"
                   type="button"
@@ -281,8 +282,8 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
               <div className="overflow-x-auto max-w-full">
                 <table className="min-w-full text-sm">
                   <thead className="bg-muted">
-                    <tr>
-                      {queryResults.fields.map((field: any) => (
+                                  <tr>
+                {queryResults.fields.map((field) => (
                         <th key={field.name} className="px-4 py-2 text-left font-medium max-w-xs truncate" title={field.name}>
                           {field.name}
                         </th>
@@ -290,9 +291,9 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
                     </tr>
                   </thead>
                   <tbody>
-                    {queryResults.data.slice(0, 100).map((row: any, index: number) => (
+                    {queryResults.rows.slice(0, 100).map((row, index) => (
                       <tr key={index} className="border-t border-border hover:bg-muted/50">
-                        {queryResults.fields.map((field: any) => (
+                        {queryResults.fields.map((field) => (
                           <td key={field.name} className="px-4 py-2 max-w-xs truncate" title={row[field.name]?.toString() || ''}>
                             {row[field.name]?.toString() || ''}
                           </td>
@@ -317,7 +318,7 @@ export default function AnalysisPanel({ queryResults, currentQuery, selectedConn
           <div className="p-4">
             {isVisualizableData ? (
               <DataVisualizer
-                data={queryResults.data}
+                data={queryResults.rows}
                 fields={queryResults.fields}
                 currentQuery={currentQuery}
               />

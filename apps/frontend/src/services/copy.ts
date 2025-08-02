@@ -1,7 +1,7 @@
 // Universal copy service with button-based feedback
 // Provides elegant copy functionality across all DataAsk components
 
-import { logError } from './errorService'
+import { logError } from './error'
 
 export interface CopyResult {
   success: boolean

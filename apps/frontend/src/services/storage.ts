@@ -1,7 +1,7 @@
 // Local storage service for persisting app state (DBeaver-style)
 import CryptoJS from 'crypto-js'
 import { STORAGE_KEYS, DATABASE_TYPES } from '../utils/constants'
-import { logWarning } from './errorService'
+import { logWarning } from './error'
 
 // Secure encryption key derivation
 const getEncryptionKey = (): string => {

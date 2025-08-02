@@ -7,8 +7,8 @@ import ConnectionStatus from './ConnectionStatus'
 import { Database, ChevronRight, LogOut, User, Plus } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { Connection } from '../types'
-import { databaseService } from '../services/databaseService'
+import { Connection, QueryResult } from '../types'
+import { databaseService } from '../services/database'
 import { useResizablePanel } from '../hooks/useResizablePanel'
 
 const DataAskApp: React.FC = () => {
@@ -241,7 +241,7 @@ const DataAskApp: React.FC = () => {
             selectedConnection={selectedConnection}
             connectionType={getSelectedConnectionType()}
             onQueryUpdate={setCurrentQuery}
-            onQueryExecute={(results: any) => {
+            onQueryExecute={(results: QueryResult) => {
               setQueryResults(results)
             }}
           />

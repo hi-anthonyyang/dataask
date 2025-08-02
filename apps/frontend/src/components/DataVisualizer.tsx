@@ -15,7 +15,7 @@ import {
   Legend
 } from 'recharts'
 import { BarChart3, TrendingUp, PieChart as PieChartIcon, AlertCircle, Copy, Check } from 'lucide-react'
-import { copyChartAsImage } from '../services/copyService'
+import { copyChartAsImage } from '../services/copy'
 
 // Universal date formatting utilities (works with any database)
 const formatDateForDisplay = (dateValue: any): string => {

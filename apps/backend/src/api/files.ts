@@ -19,6 +19,12 @@ import {
   sendBadRequest,
   sendServerError
 } from '../utils/errors';
+import {
+  detectColumnType,
+  convertValueToType,
+  isValidDate,
+  sanitizeTableName
+} from '../utils/validation';
 
 const router = express.Router();
 
@@ -445,65 +451,8 @@ router.post('/import-old', async (req, res) => {
   }
 });
 
-// Utility functions
-function detectColumnType(values: unknown[]): ColumnType {
-  if (values.length === 0) return 'TEXT';
 
-  let integerCount = 0;
-  let realCount = 0;
-  let dateCount = 0;
-  
-  for (const value of values) {
-    const strValue = String(value).trim();
-    
-    // Check for integer
-    if (/^-?\d+$/.test(strValue)) {
-      integerCount++;
-    }
-    // Check for real number
-    else if (/^-?\d*\.?\d+([eE][+-]?\d+)?$/.test(strValue)) {
-      realCount++;
-    }
-    // Check for date
-    else if (isValidDate(strValue)) {
-      dateCount++;
-    }
-  }
 
-  const total = values.length;
-  // For small datasets, require 100% consistency to prevent edge cases with mixed types
-  // This prevents cases like ['1', '2', '3', '4', 'five'] being detected as INTEGER
-  const threshold = values.length < 5 ? 1.0 : 0.8;
 
-  if (dateCount / total >= threshold) return 'DATE';
-  if (integerCount / total >= threshold) return 'INTEGER';
-  if ((integerCount + realCount) / total >= threshold) return 'REAL';
-  
-  return 'TEXT';
-}
-
-function isValidDate(value: string): boolean {
-  const date = new Date(value);
-  return !isNaN(date.getTime()) && value.length > 6; // Avoid matching simple numbers
-}
-
-function convertValueToType(value: unknown, type: ColumnType): unknown {
-  if (value == null || value === '') return null;
-
-  switch (type) {
-    case 'INTEGER':
-      const intValue = parseInt(String(value));
-      return isNaN(intValue) ? null : intValue;
-    case 'REAL':
-      const realValue = parseFloat(String(value));
-      return isNaN(realValue) ? null : realValue;
-    case 'DATE':
-      const dateValue = new Date(String(value));
-      return isNaN(dateValue.getTime()) ? String(value) : dateValue.toISOString();
-    case 'TEXT':
-    default:
-      return String(value);
-  }
-}
 
 export default router;

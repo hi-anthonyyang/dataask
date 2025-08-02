@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Play, Bot, User, Code, MessageCircle, History, Copy, Trash2, ChevronDown, ChevronRight, Check } from 'lucide-react'
-import { copySQLQuery } from '../services/copyService'
-import { databaseService } from '../services/databaseService'
+import { copySQLQuery } from '../services/copy'
+import { databaseService } from '../services/database'
+import { QueryResult } from '../types'
 
 // Configuration constants
 const CHAT_CONFIG = {
@@ -34,7 +35,7 @@ interface ChatPanelProps {
   selectedConnection: string | null
   connectionType: string | null
   onQueryUpdate: (query: string) => void
-  onQueryExecute: (results: any) => void
+  onQueryExecute: (results: QueryResult) => void
   onTableClose?: () => void
 }
 

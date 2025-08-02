@@ -1,5 +1,5 @@
 import { authService } from './auth';
-import { handleApiError, handleConnectionError, logWarning, logInfo } from './errorService';
+import { handleApiError, handleConnectionError, logWarning, logInfo } from './error';
 
 export interface UserConnection {
   id: string;
