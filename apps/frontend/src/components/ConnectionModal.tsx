@@ -1,6 +1,47 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { X, Database, TestTube, Loader2 } from 'lucide-react'
 import { Connection } from '../types'
+import '../types/electron.d.ts'
+
+// File validation component for SQLite files
+const FileValidationStatus: React.FC<{ filePath: string }> = ({ filePath }) => {
+  const [status, setStatus] = useState<{ exists: boolean; error?: string; size?: number } | null>(null)
+
+  useEffect(() => {
+    if (!filePath || !window.electronAPI) {
+      setStatus(null)
+      return
+    }
+
+    const validateFile = async () => {
+      try {
+        const fileStats = await window.electronAPI.fileSystem.getFileStats(filePath)
+        setStatus(fileStats)
+      } catch (error) {
+        setStatus({ exists: false, error: 'Failed to check file' })
+      }
+    }
+
+    validateFile()
+  }, [filePath])
+
+  if (!status) return null
+
+  if (status.exists) {
+    const sizeKB = status.size ? Math.round(status.size / 1024) : 0
+    return (
+      <span className="text-green-600">
+        ✓ File found ({sizeKB > 0 ? `${sizeKB} KB` : 'Unknown size'})
+      </span>
+    )
+  } else {
+    return (
+      <span className="text-red-600">
+        ✗ File not found{status.error ? `: ${status.error}` : ''}
+      </span>
+    )
+  }
+}
 
 interface ConnectionModalProps {
   isOpen: boolean
@@ -441,13 +482,55 @@ export default function ConnectionModal({ isOpen, onClose, onConnectionAdded, ed
           {formData.type === 'sqlite' && (
             <div>
               <label className="block text-sm font-medium mb-1">Database File Path</label>
-              <input
-                type="text"
-                value={formData.filename}
-                onChange={(e) => handleInputChange('filename', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="/path/to/database.sqlite"
-              />
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={formData.filename}
+                  onChange={(e) => handleInputChange('filename', e.target.value)}
+                  className="flex-1 px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="/path/to/database.sqlite"
+                />
+                {window.electronAPI ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const result = await window.electronAPI!.dialog.openDatabase()
+                        if (!result.canceled && result.filePath) {
+                          handleInputChange('filename', result.filePath)
+                        }
+                      } catch (error) {
+                        console.error('Error opening file dialog:', error)
+                      }
+                    }}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 whitespace-nowrap"
+                  >
+                    Browse...
+                  </button>
+                ) : (
+                  <label className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 whitespace-nowrap cursor-pointer">
+                    Upload
+                    <input
+                      type="file"
+                      accept=".db,.sqlite,.sqlite3"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          // For web version, we'd need to handle file upload to server
+                          // For now, just set the filename
+                          handleInputChange('filename', file.name)
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+              {window.electronAPI && formData.filename && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <FileValidationStatus filePath={formData.filename} />
+                </div>
+              )}
             </div>
           )}
 
