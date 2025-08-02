@@ -1,6 +1,6 @@
 // API endpoints
 export const API_ENDPOINTS = {
-  BASE_URL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001',
+  BASE_URL: (import.meta as ImportMeta & { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || 'http://localhost:3001',
   AUTH: {
     LOGIN: '/api/auth/login',
     REGISTER: '/api/auth/register',

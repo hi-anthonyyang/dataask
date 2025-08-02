@@ -7,6 +7,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { DatabaseManager } from '../utils/database';
+import {
+  FileImportColumn,
+  FileImportConfig,
+  FileImportProgress,
+  FileImportResponse,
+  ColumnType
+} from '../types';
 
 const router = express.Router();
 
@@ -49,7 +56,7 @@ const ImportRequestSchema = z.object({
 });
 
 // Error handling middleware for multer
-const handleMulterError = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+const handleMulterError = (err: Error & { code?: string }, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       const maxSize = Math.round((50 * 1024 * 1024) / (1024 * 1024)); // Convert to MB
@@ -128,7 +135,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
 
     // Auto-detect column types
     const columns = headers.map((header, index) => {
-      const columnData = dataRows.map(row => (row as any[])[index]).filter(val => val != null && val !== '');
+      const columnData = dataRows.map(row => (row as unknown[])[index]).filter(val => val != null && val !== '');
       const detectedType = detectColumnType(columnData);
       
       return {
@@ -219,7 +226,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
 
     // Auto-detect column types
     const columns = headers.map((header, index) => {
-      const columnData = dataRows.slice(0, 100).map(row => (row as any[])[index]);
+              const columnData = dataRows.slice(0, 100).map(row => (row as unknown[])[index]);
       return {
         name: header,
         type: detectColumnType(columnData),
@@ -271,7 +278,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
         
         for (const row of batch) {
           const values = columns.map((col, index) => {
-            const value = (row as any[])[index];
+            const value = (row as unknown[])[index];
             return convertValueToType(value, col.type);
           });
           
@@ -392,7 +399,7 @@ router.post('/import-old', async (req, res) => {
     // Prepare data rows for bulk insert
     const preparedRows = dataRows.map(row => {
       return columns.map((col, index) => {
-        const value = (row as any[])[index];
+        const value = (row as unknown[])[index];
         return convertValueToType(value, col.type);
       });
     });
@@ -436,7 +443,7 @@ router.post('/import-old', async (req, res) => {
 });
 
 // Utility functions
-function detectColumnType(values: any[]): 'TEXT' | 'INTEGER' | 'REAL' | 'DATE' {
+function detectColumnType(values: unknown[]): ColumnType {
   if (values.length === 0) return 'TEXT';
 
   let integerCount = 0;
@@ -477,7 +484,7 @@ function isValidDate(value: string): boolean {
   return !isNaN(date.getTime()) && value.length > 6; // Avoid matching simple numbers
 }
 
-function convertValueToType(value: any, type: 'TEXT' | 'INTEGER' | 'REAL' | 'DATE'): any {
+function convertValueToType(value: unknown, type: ColumnType): unknown {
   if (value == null || value === '') return null;
 
   switch (type) {

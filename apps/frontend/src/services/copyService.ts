@@ -24,7 +24,7 @@ export const copyToClipboard = async (text: string, successMessage?: string): Pr
 
 // Specialized copy functions with formatted output
 
-export const copyTableAsCSV = async (data: any[], fields: any[]): Promise<CopyResult> => {
+export const copyTableAsCSV = async (data: Record<string, unknown>[], fields: Array<{name: string}>): Promise<CopyResult> => {
   if (!data || data.length === 0) {
     return copyToClipboard('', 'No data to copy')
   }
@@ -56,7 +56,7 @@ export const copyTableAsCSV = async (data: any[], fields: any[]): Promise<CopyRe
   }
 }
 
-export const copyTableAsTSV = async (data: any[], fields: any[]): Promise<CopyResult> => {
+export const copyTableAsTSV = async (data: Record<string, unknown>[], fields: Array<{name: string}>): Promise<CopyResult> => {
   if (!data || data.length === 0) {
     return copyToClipboard('', 'No data to copy')
   }
@@ -117,7 +117,7 @@ export const copyChartAsImage = async (chartElement: HTMLElement): Promise<CopyR
       logging: false,
       allowTaint: true,
       useCORS: true
-    } as any)
+    })
     
     // Convert canvas to blob
     return new Promise((resolve) => {

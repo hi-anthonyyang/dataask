@@ -7,6 +7,17 @@ const { v4: uuidv4 } = require('uuid');
 import { logger } from './logger';
 import { sanitizeParams, limitQueryResult, validateQueryResult } from '../security/sanitize';
 import { SSHTunnelManager, SSHTunnelConfig, TunnelConnection } from './sshTunnel';
+import { 
+  DatabaseType, 
+  ConnectionConfig, 
+  QueryResult as IQueryResult,
+  DatabaseField,
+  TableInfo,
+  TableColumn,
+  TableMetadata,
+  DatabaseSchema,
+  SavedConnection
+} from '../types';
 
 /**
  * Database Manager with SSL/TLS Security
@@ -35,10 +46,10 @@ interface MySQLError extends Error {
 
 class DatabaseError extends Error {
   public code: string;
-  public originalError?: any;
-  public context?: any;
+  public originalError?: Error | unknown;
+  public context?: Record<string, unknown>;
 
-  constructor(message: string, code: string, originalError?: any, context?: any) {
+  constructor(message: string, code: string, originalError?: Error | unknown, context?: Record<string, unknown>) {
     super(message);
     this.name = 'DatabaseError';
     this.code = code;
@@ -71,7 +82,7 @@ const MYSQL_ERROR_CODES = {
   'ER_TRUNCATED_WRONG_VALUE': 'INVALID_DATA_TYPE',
 };
 
-function handleMySQLError(error: MySQLError, context?: any): DatabaseError {
+function handleMySQLError(error: MySQLError, context?: Record<string, unknown>): DatabaseError {
   const errorCode = error.code || 'UNKNOWN_ERROR';
   const mappedCode = MYSQL_ERROR_CODES[errorCode as keyof typeof MYSQL_ERROR_CODES] || 'MYSQL_ERROR';
   
@@ -122,7 +133,7 @@ function handleMySQLError(error: MySQLError, context?: any): DatabaseError {
 }
 
 // Parameter validation helper
-function validateMySQLParameters(params: any[]): any[] {
+function validateMySQLParameters(params: unknown[]): unknown[] {
   return params.map((param, index) => {
     if (param === undefined) {
       logger.warn(`Parameter at index ${index} is undefined, converting to null`);
@@ -152,64 +163,18 @@ const DATABASE_CONFIG = {
   }
 };
 
-interface ConnectionConfig {
-  type: 'postgresql' | 'sqlite' | 'mysql' | 'file-import';
-  name: string;
-  config: {
-    // PostgreSQL & MySQL
-    host?: string;
-    port?: number;
-    database?: string;
-    username?: string;
-    password?: string;
-    // SQLite
-    filename?: string;
-    // SSL Configuration
-    sslEnabled?: boolean;
-    sslMode?: 'require' | 'prefer' | 'allow' | 'disable';
-    sslCa?: string;
-    sslCert?: string;
-    sslKey?: string;
-    sslRejectUnauthorized?: boolean;
-    // Connection Timeouts
-    connectionTimeout?: number;
-    queryTimeout?: number;
-    // SSH Tunnel Configuration
-    sshEnabled?: boolean;
-    sshHost?: string;
-    sshPort?: number;
-    sshUsername?: string;
-    sshPassword?: string;
-    sshPrivateKey?: string;
-    sshPassphrase?: string;
-  };
+// Using imported types from types module
+interface DatabaseConnectionConfig extends SavedConnection {
+  type: DatabaseType | 'file-import';
 }
 
-interface QueryResult {
-  rows: any[];
-  fields: any[];
-  rowCount: number;
-  executionTime?: number;
-}
-
-interface SchemaTable {
-  name: string;
-  columns: {
-    name: string;
-    type: string;
-    nullable: boolean;
-    primaryKey: boolean;
-  }[];
-}
-
-interface DatabaseSchema {
-  tables: SchemaTable[];
-}
+// Use imported QueryResult as IQueryResult to avoid naming conflict
+type QueryResult = IQueryResult;
 
 class DatabaseManager {
   private static instance: DatabaseManager;
-  private connections: Map<string, any> = new Map();
-  private connectionConfigs: Map<string, ConnectionConfig> = new Map();
+  private connections: Map<string, Pool | sqlite3.Database | mysql.Pool> = new Map();
+  private connectionConfigs: Map<string, DatabaseConnectionConfig> = new Map();
 
   // Singleton pattern to persist connections across API calls
   public static getInstance(): DatabaseManager {
@@ -257,12 +222,12 @@ class DatabaseManager {
   /**
    * Get SSL configuration from connection config
    */
-  private getSSLConfig(config: ConnectionConfig): any {
+  private getSSLConfig(config: DatabaseConnectionConfig): false | Record<string, string | boolean> {
     if (!config.config.sslEnabled) {
       return false;
     }
 
-    const sslConfig: any = {};
+    const sslConfig: Record<string, string | boolean> = {};
 
     // Use connection-specific SSL settings if provided
     if (config.config.sslMode) {
@@ -317,11 +282,11 @@ class DatabaseManager {
   /**
    * Create and store a new database connection
    */
-  async createConnection(config: ConnectionConfig): Promise<string> {
+  async createConnection(config: DatabaseConnectionConfig): Promise<string> {
     const connectionId = uuidv4();
     
     try {
-      let connection: any;
+      let connection: Pool | sqlite3.Database | mysql.Pool;
 
       if (config.type === 'postgresql') {
         connection = await this.createPostgreSQLConnection(config);
@@ -348,7 +313,7 @@ class DatabaseManager {
   /**
    * Execute a SQL query on a specific connection
    */
-  async executeQuery(connectionId: string, sql: string, params: any[] = []): Promise<QueryResult> {
+  async executeQuery(connectionId: string, sql: string, params: unknown[] = []): Promise<QueryResult> {
     const connection = this.connections.get(connectionId);
     const config = this.connectionConfigs.get(connectionId);
 
@@ -459,7 +424,7 @@ class DatabaseManager {
   /**
    * List all active connections
    */
-  async listConnections(): Promise<{ id: string; name: string; type: string; config: any }[]> {
+  async listConnections(): Promise<SavedConnection[]> {
     const connections = [];
     
     for (const [id, config] of this.connectionConfigs.entries()) {
@@ -487,7 +452,7 @@ class DatabaseManager {
           await connection.end();
         } else if (config?.type === 'sqlite') {
           await new Promise((resolve, reject) => {
-            connection.close((err: any) => {
+            connection.close((err: Error | null) => {
               if (err) reject(err);
               else resolve(undefined);
             });
@@ -566,7 +531,7 @@ class DatabaseManager {
     return pool;
   }
 
-  private async executePostgreSQLQuery(pool: Pool, sql: string, params: any[]): Promise<QueryResult> {
+  private async executePostgreSQLQuery(pool: Pool, sql: string, params: unknown[]): Promise<QueryResult> {
     const client = await pool.connect();
     
     try {
@@ -782,10 +747,10 @@ Suggestions:
     });
   }
 
-  private async executeSQLiteQuery(db: sqlite3.Database, sql: string, params: any[]): Promise<QueryResult> {
+  private async executeSQLiteQuery(db: sqlite3.Database, sql: string, params: unknown[]): Promise<QueryResult> {
     
     try {
-      const rows = await new Promise<any[]>((resolve, reject) => {
+      const rows = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
         if (params && params.length > 0) {
           db.all(sql, params, (err, rows) => {
             if (err) reject(err);
@@ -819,7 +784,7 @@ Suggestions:
   public async executeSQLiteBulkInsert(
     connectionId: string, 
     sql: string, 
-    dataRows: any[][], 
+    dataRows: unknown[][], 
     onProgress?: (progress: number) => void
   ): Promise<void> {
     const connection = this.connections.get(connectionId);
@@ -920,22 +885,24 @@ Suggestions:
         SELECT name FROM sqlite_master 
         WHERE type='table' AND name NOT LIKE 'sqlite_%'
         ORDER BY name
-      `) as any[];
+      `) as Array<{name: string}>;
 
-      const tables: SchemaTable[] = [];
+      const tables: TableInfo[] = [];
 
       for (const table of tablesResult) {
-        const columnsResult = await allAsync(`PRAGMA table_info(${table.name})`) as any[];
+        const columnsResult = await allAsync(`PRAGMA table_info(${table.name})`) as Array<{name: string; type: string; notnull: number; pk: number}>;
         
-        const columns = columnsResult.map(col => ({
+        const columns: TableColumn[] = columnsResult.map(col => ({
           name: col.name,
           type: col.type,
           nullable: !col.notnull,
-          primaryKey: !!col.pk
+          default_value: null, // SQLite PRAGMA doesn't provide default value here
+          primary_key: !!col.pk
         }));
 
         tables.push({
           name: table.name,
+          type: 'table',
           columns
         });
       }
@@ -947,7 +914,7 @@ Suggestions:
   }
 
   // Get table metadata (row count, size, created date)
-  async getTableMetadata(connectionId: string, tableName: string): Promise<any> {
+  async getTableMetadata(connectionId: string, tableName: string): Promise<TableMetadata> {
     const connection = this.connections.get(connectionId);
     const config = this.connectionConfigs.get(connectionId);
     
@@ -971,7 +938,7 @@ Suggestions:
   }
 
   // Get detailed table column information
-  async getTableColumns(connectionId: string, tableName: string): Promise<any[]> {
+  async getTableColumns(connectionId: string, tableName: string): Promise<TableColumn[]> {
     const connection = this.connections.get(connectionId);
     const config = this.connectionConfigs.get(connectionId);
     
@@ -1022,7 +989,7 @@ Suggestions:
   }
 
   // PostgreSQL-specific table metadata
-  private async getPostgreSQLTableMetadata(connection: any, tableName: string): Promise<any> {
+  private async getPostgreSQLTableMetadata(connection: Pool, tableName: string): Promise<TableMetadata> {
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
     
     const queries = [
@@ -1049,49 +1016,35 @@ Suggestions:
     );
 
     return {
-      tableName: sanitizedTableName,
-      rowCount: parseInt(results[0].row_count) || 0,
-      tableSize: results[1].table_size || 'Unknown',
-      dataSize: results[1].data_size || 'Unknown',
-      indexSize: results[1].index_size || 'Unknown',
-      schema: results[2].schemaname || 'public',
-      owner: results[2].tableowner || 'Unknown',
-      hasIndexes: results[2].hasindexes || false,
-      hasRules: results[2].hasrules || false,
-      hasTriggers: results[2].hastriggers || false,
+      row_count: parseInt(results[0].row_count) || 0,
+      table_size: results[1].table_size || 'Unknown',
+      columns: [] // Will be populated by getTableColumns
     };
   }
 
   // SQLite-specific table metadata
-  private async getSQLiteTableMetadata(connection: any, tableName: string): Promise<any> {
+  private async getSQLiteTableMetadata(connection: sqlite3.Database, tableName: string): Promise<TableMetadata> {
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
     
     return new Promise((resolve, reject) => {
       // Get row count
-      connection.get(`SELECT COUNT(*) as row_count FROM "${sanitizedTableName}"`, (err: any, row: any) => {
+      connection.get(`SELECT COUNT(*) as row_count FROM "${sanitizedTableName}"`, (err: Error | null, row: { row_count: number } | undefined) => {
         if (err) {
           reject(err);
           return;
         }
 
         resolve({
-          tableName: sanitizedTableName,
-          rowCount: row?.row_count || 0,
-          tableSize: 'N/A (SQLite)',
-          dataSize: 'N/A (SQLite)', 
-          indexSize: 'N/A (SQLite)',
-          schema: 'main',
-          owner: 'N/A (SQLite)',
-          hasIndexes: false, // Could be enhanced
-          hasRules: false,
-          hasTriggers: false,
+          row_count: row?.row_count || 0,
+          table_size: 'N/A (SQLite)',
+          columns: [] // Will be populated by getTableColumns
         });
       });
     });
   }
 
   // PostgreSQL-specific table columns
-  private async getPostgreSQLTableColumns(connection: any, tableName: string): Promise<any[]> {
+  private async getPostgreSQLTableColumns(connection: Pool, tableName: string): Promise<TableColumn[]> {
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
     
     const query = `
@@ -1111,24 +1064,21 @@ Suggestions:
 
     const result = await connection.query(query, [sanitizedTableName]);
     
-    return result.rows.map((col: any) => ({
+    return result.rows.map((col) => ({
       name: col.column_name,
       type: col.data_type,
       nullable: col.is_nullable === 'YES',
-      defaultValue: col.column_default,
-      maxLength: col.character_maximum_length,
-      precision: col.numeric_precision,
-      scale: col.numeric_scale,
-      position: col.ordinal_position
+      default_value: col.column_default,
+      primary_key: false // Would need additional query to determine
     }));
   }
 
   // SQLite-specific table columns
-  private async getSQLiteTableColumns(connection: any, tableName: string): Promise<any[]> {
+  private async getSQLiteTableColumns(connection: sqlite3.Database, tableName: string): Promise<TableColumn[]> {
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
     
     return new Promise((resolve, reject) => {
-      connection.all(`PRAGMA table_info("${sanitizedTableName}")`, (err: any, rows: any[]) => {
+      connection.all(`PRAGMA table_info("${sanitizedTableName}")`, (err: Error | null, rows: Array<{name: string; type: string; notnull: number; dflt_value: string | null; pk: number}>) => {
         if (err) {
           reject(err);
           return;
@@ -1138,9 +1088,8 @@ Suggestions:
           name: col.name,
           type: col.type,
           nullable: col.notnull === 0,
-          defaultValue: col.dflt_value,
-          primaryKey: col.pk === 1,
-          position: col.cid
+          default_value: col.dflt_value,
+          primary_key: col.pk === 1
         }));
 
         resolve(columns);
@@ -1264,7 +1213,7 @@ Suggestions:
     return pool;
   }
 
-  private async executeMySQLQuery(pool: mysql.Pool, sql: string, params: any[]): Promise<QueryResult> {
+  private async executeMySQLQuery(pool: mysql.Pool, sql: string, params: unknown[]): Promise<QueryResult> {
     try {
       // Validate and sanitize parameters to prevent undefined binding errors
       const validatedParams = validateMySQLParameters(params);
@@ -1272,8 +1221,8 @@ Suggestions:
       const [rows, fields] = await pool.execute(sql, validatedParams);
       
       return {
-        rows: rows as any[],
-        fields: (fields as any[]).map(field => ({
+        rows: rows as Record<string, unknown>[],
+        fields: (fields as mysql.FieldPacket[]).map(field => ({
           name: field.name,
           type: field.type
         })),
@@ -1309,9 +1258,9 @@ Suggestions:
       `;
       
       const [tablesResult] = await pool.execute(tablesQuery);
-      const tables: SchemaTable[] = [];
+      const tables: TableInfo[] = [];
 
-      for (const tableRow of tablesResult as any[]) {
+      for (const tableRow of tablesResult as Array<{table_name?: string; TABLE_NAME?: string}>) {
         const tableName = tableRow.table_name || tableRow.TABLE_NAME;
         
         if (!tableName) {
@@ -1335,15 +1284,23 @@ Suggestions:
           
           const [columnsResult] = await pool.execute(columnsQuery, [tableName]);
 
-          const columns = (columnsResult as any[]).map((col: any) => ({
-            name: col.column_name || col.COLUMN_NAME,
-            type: col.data_type || col.DATA_TYPE,
+          const columns: TableColumn[] = (columnsResult as Array<{
+            column_name?: string; COLUMN_NAME?: string;
+            data_type?: string; DATA_TYPE?: string;
+            is_nullable?: string; IS_NULLABLE?: string;
+            column_key?: string; COLUMN_KEY?: string;
+            column_default?: string | null; COLUMN_DEFAULT?: string | null;
+          }>).map(col => ({
+            name: col.column_name || col.COLUMN_NAME || '',
+            type: col.data_type || col.DATA_TYPE || '',
             nullable: (col.is_nullable || col.IS_NULLABLE) === 'YES',
-            primaryKey: (col.column_key || col.COLUMN_KEY) === 'PRI'
+            default_value: col.column_default || col.COLUMN_DEFAULT || null,
+            primary_key: (col.column_key || col.COLUMN_KEY) === 'PRI'
           }));
 
           tables.push({
             name: tableName,
+            type: 'table',
             columns
           });
         } catch (columnError) {
@@ -1375,7 +1332,7 @@ Suggestions:
   }
 
   // MySQL-specific table metadata
-  private async getMySQLTableMetadata(pool: mysql.Pool, tableName: string): Promise<any> {
+  private async getMySQLTableMetadata(pool: mysql.Pool, tableName: string): Promise<TableMetadata> {
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
     
     try {
@@ -1394,20 +1351,13 @@ Suggestions:
         WHERE table_schema = DATABASE() AND table_name = ?
       `, [sanitizedTableName]);
 
-      const rowCount = (rowCountResult as any[])[0]?.row_count || 0;
-      const sizeInfo = (sizeResult as any[])[0] || {};
+      const rowCount = (rowCountResult as Array<{row_count: number}>)[0]?.row_count || 0;
+      const sizeInfo = (sizeResult as Array<{size_mb?: number; data_size_mb?: number; index_size_mb?: number}>)[0] || {};
 
       return {
-        tableName: sanitizedTableName,
-        rowCount: parseInt(rowCount) || 0,
-        tableSize: sizeInfo.size_mb ? `${sizeInfo.size_mb} MB` : 'Unknown',
-        dataSize: sizeInfo.data_size_mb ? `${sizeInfo.data_size_mb} MB` : 'Unknown',
-        indexSize: sizeInfo.index_size_mb ? `${sizeInfo.index_size_mb} MB` : 'Unknown',
-        schema: 'mysql',
-        owner: 'MySQL',
-        hasIndexes: (sizeInfo.index_size_mb || 0) > 0,
-        hasRules: false,
-        hasTriggers: false,
+        row_count: parseInt(rowCount) || 0,
+        table_size: sizeInfo.size_mb ? `${sizeInfo.size_mb} MB` : 'Unknown',
+        columns: [] // Will be populated by getTableColumns
       };
     } catch (error) {
       const context = { 
@@ -1427,7 +1377,7 @@ Suggestions:
   }
 
   // MySQL-specific table columns
-  private async getMySQLTableColumns(pool: mysql.Pool, tableName: string): Promise<any[]> {
+  private async getMySQLTableColumns(pool: mysql.Pool, tableName: string): Promise<TableColumn[]> {
     const sanitizedTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
     
     try {
@@ -1447,16 +1397,18 @@ Suggestions:
         ORDER BY ordinal_position
       `, [sanitizedTableName]);
 
-      return (result as any[]).map((col: any) => ({
-        name: col.column_name || col.COLUMN_NAME,
-        type: col.data_type || col.DATA_TYPE,
-        nullable: (col.is_nullable || col.IS_NULLABLE) === 'YES',
-        defaultValue: col.column_default || col.COLUMN_DEFAULT,
-        maxLength: col.character_maximum_length || col.CHARACTER_MAXIMUM_LENGTH,
-        precision: col.numeric_precision || col.NUMERIC_PRECISION,
-        scale: col.numeric_scale || col.NUMERIC_SCALE,
-        position: col.ordinal_position || col.ORDINAL_POSITION,
-        primaryKey: (col.column_key || col.COLUMN_KEY) === 'PRI'
+      return (result as Array<{
+        column_name: string;
+        data_type: string;
+        is_nullable: string;
+        column_default: string | null;
+        column_key: string;
+      }>).map(col => ({
+        name: col.column_name,
+        type: col.data_type,
+        nullable: col.is_nullable === 'YES',
+        default_value: col.column_default,
+        primary_key: col.column_key === 'PRI'
       }));
     } catch (error) {
       const context = { 

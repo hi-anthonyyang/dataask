@@ -245,7 +245,7 @@ class UserConnectionsService {
   /**
    * Convert localStorage connection to server format
    */
-  convertLocalStorageConnection(localConnection: any): CreateConnectionData {
+  convertLocalStorageConnection(localConnection: Connection): CreateConnectionData {
     return {
       name: localConnection.name,
       type: localConnection.type,

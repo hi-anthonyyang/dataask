@@ -38,14 +38,10 @@ export interface DatabaseSchema {
 // Connection Types
 export type DatabaseType = 'postgresql' | 'mysql' | 'sqlite';
 
-export interface Connection {
-  id: string;
-  name: string;
-  type: string;
-  config?: ConnectionConfig;
-}
-
 export interface ConnectionConfig {
+  id?: string;
+  name: string;
+  type: DatabaseType;
   host?: string;
   port?: number;
   database?: string;
@@ -75,6 +71,13 @@ export interface ConnectionConfig {
   fileSize?: number;
   uploadedAt?: string;
   rowCount?: number;
+}
+
+export interface SavedConnection {
+  id: string;
+  name: string;
+  type: DatabaseType;
+  config: ConnectionConfig;
 }
 
 // API Response Types
@@ -113,7 +116,7 @@ export interface QueryResponse {
 }
 
 export interface ConnectionListResponse {
-  connections: Connection[];
+  connections: SavedConnection[];
 }
 
 export interface TablePreviewResponse {
@@ -227,13 +230,13 @@ export interface UserConnection {
   last_used?: string;
 }
 
-export interface CreateConnectionData {
+export interface CreateUserConnectionRequest {
   name: string;
   type: DatabaseType;
   config: ConnectionConfig;
 }
 
-export interface UpdateConnectionData {
+export interface UpdateUserConnectionRequest {
   name?: string;
   config?: ConnectionConfig;
 }
@@ -246,33 +249,6 @@ export interface MigrateConnectionsResponse {
   migrated: number;
   failed: number;
   errors?: string[];
-}
-
-// Chat and History Types
-export interface ChatMessage {
-  id: string;
-  type: 'user' | 'assistant';
-  content: string;
-  sql?: string;
-  timestamp: Date;
-  error?: string;
-}
-
-export interface QueryHistoryItem {
-  id: string;
-  title: string;
-  query: string;
-  timestamp: Date;
-  rowCount?: number;
-  executionTime?: number;
-}
-
-// UI State Types
-export interface AppState {
-  selectedConnectionId?: string;
-  leftPanelWidth: number;
-  rightPanelWidth: number;
-  expandedTables: string[];
 }
 
 // Error Types
@@ -288,24 +264,9 @@ export interface ApiError {
   validationErrors?: ValidationError[];
 }
 
-// Copy Service Types
-export interface CopyResult {
-  success: boolean;
-  message: string;
-}
+// Utility Types
+export type ColumnType = 'TEXT' | 'INTEGER' | 'REAL' | 'DATE' | 'BOOLEAN' | 'JSON';
 
-// Chart Types
-export type ChartType = 'bar' | 'line' | 'pie' | 'kpi';
-
-export interface ChartDataPoint {
-  [key: string]: string | number | Date;
-}
-
-export interface SeriesVisibility {
-  [key: string]: boolean;
-}
-
-// Import Progress Types
 export interface ImportProgress {
   importId: string;
   status: 'parsing' | 'importing' | 'completed' | 'error';
@@ -314,4 +275,39 @@ export interface ImportProgress {
   processedRows?: number;
   message: string;
   error?: string;
+}
+
+// SSH Tunnel Types
+export interface SSHTunnelConfig {
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+}
+
+// Rate Limit Types
+export interface RateLimitConfig {
+  windowMs: number;
+  max: number;
+  message: string;
+  standardHeaders: boolean;
+  legacyHeaders: boolean;
+}
+
+// Health Check Types
+export interface HealthCheckResponse {
+  status: 'OK' | 'ERROR';
+  timestamp: string;
+  environment: string;
+  rateLimits?: {
+    ai: string;
+    database: string;
+    general: string;
+  };
+  database?: {
+    connected: boolean;
+    error?: string;
+  };
 }

@@ -5,7 +5,7 @@ import { STORAGE_KEYS, DATABASE_TYPES } from '../utils/constants'
 // Secure encryption key derivation
 const getEncryptionKey = (): string => {
   // Use environment variable if available, otherwise derive from domain
-  const envKey = (window as any).__DATAASK_ENCRYPTION_KEY__ || 
+  const envKey = (window as Window & { __DATAASK_ENCRYPTION_KEY__?: string }).__DATAASK_ENCRYPTION_KEY__ || 
                  localStorage.getItem(STORAGE_KEYS.ENCRYPTION_KEY);
   
   if (envKey) return envKey;

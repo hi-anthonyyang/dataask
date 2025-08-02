@@ -27,7 +27,13 @@ function validateSQLiteFile(filePath: string): { valid: boolean; error?: string 
   }
 }
 
-function executeSQLiteQuery(filePath: string, sql: string, params: any[] = []): Promise<any> {
+function executeSQLiteQuery(filePath: string, sql: string, params: unknown[] = []): Promise<{
+  data?: Record<string, unknown>[];
+  rowCount?: number;
+  fields?: Array<{name: string; type: string}>;
+  executionTime?: number;
+  error?: string;
+}> {
   return new Promise((resolve) => {
     const db = new sqlite3.Database(filePath, sqlite3.OPEN_READONLY, (err) => {
       if (err) {
@@ -45,7 +51,7 @@ function executeSQLiteQuery(filePath: string, sql: string, params: any[] = []): 
           resolve({ error: queryErr.message })
         } else {
           const fields = rows.length > 0 ? 
-            Object.keys(rows[0] as Record<string, any>).map(name => ({ name, type: 'unknown' })) : 
+                          Object.keys(rows[0] as Record<string, unknown>).map(name => ({ name, type: 'unknown' })) : 
             []
 
           resolve({
@@ -111,7 +117,7 @@ function setupIpcHandlers(): void {
     for (const table of tablesResult.data) {
       const columnsResult = await executeSQLiteQuery(filePath, `PRAGMA table_info(${table.name})`)
       
-      const columns = columnsResult.error ? [] : columnsResult.data.map((col: any) => ({
+      const columns = columnsResult.error ? [] : columnsResult.data.map((col) => ({
         name: col.name,
         type: col.type,
         nullable: !col.notnull,

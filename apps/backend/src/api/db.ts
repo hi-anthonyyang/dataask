@@ -11,12 +11,23 @@ import {
   createErrorResponse,
   getConnectionErrorGuidance 
 } from '../utils/errors';
+import {
+  DatabaseType,
+  ConnectionConfig,
+  TestConnectionResponse,
+  CreateConnectionResponse,
+  SchemaResponse,
+  QueryResponse,
+  ConnectionListResponse,
+  TableMetadata,
+  TableColumn,
+  TablePreviewResponse
+} from '../types';
 
 const router = Router();
 
-// Database types enum for better type safety
-const DATABASE_TYPES = ['postgresql', 'sqlite', 'mysql'] as const;
-type DatabaseType = typeof DATABASE_TYPES[number];
+// Database types enum for validation
+const DATABASE_TYPES: DatabaseType[] = ['postgresql', 'sqlite', 'mysql'];
 
 // Connection schema validation
 const ConnectionSchema = z.object({
@@ -37,7 +48,7 @@ const ConnectionSchema = z.object({
 const QuerySchema = z.object({
   connectionId: z.string(),
   sql: z.string().min(QUERY_LIMITS.MIN_QUERY_LENGTH),
-  params: z.array(z.any()).optional()
+  params: z.array(z.unknown()).optional()
 });
 
 const TableMetadataSchema = z.object({
