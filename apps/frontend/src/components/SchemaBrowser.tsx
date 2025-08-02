@@ -176,14 +176,12 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
               >
                 Add Database Connection
               </button>
-              {setShowFileImportModal && (
-                <button 
-                  onClick={() => setShowFileImportModal(true)}
-                  className="block w-full text-primary hover:underline text-xs"
-                >
-                  Import CSV/Excel File
-                </button>
-              )}
+              <button 
+                onClick={() => setShowAddDataModal(true)}
+                className="block w-full text-primary hover:underline text-xs"
+              >
+                Import CSV/Excel File
+              </button>
             </div>
           </div>
         ) : (
