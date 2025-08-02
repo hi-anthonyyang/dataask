@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { DatabaseManager } from '../utils/database';
+import { DataSourceManager } from '../services/dataSourceManager';
+import { ImportPipeline } from '../services/importPipeline';
 import {
   FileImportColumn,
   FileImportConfig,
@@ -246,7 +248,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       };
     });
 
-    // Create SQLite database file for this import
+    // Create SQLite database file for this import (for backward compatibility)
     const dbFilename = `import_${uuidv4()}.sqlite`;
     const dbPath = path.join(process.cwd(), 'data', dbFilename);
     
@@ -256,15 +258,19 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
-    // Create the database connection
+    // Create the database connection using the simplified DatabaseManager
     const dbManager = DatabaseManager.getInstance();
     const connectionId = await dbManager.createConnection({
       type: 'sqlite',
       name: cleanTableName,
-      config: { filename: dbPath }
+      filename: dbPath
     });
 
     logger.info(`Created connection ${connectionId} with database at ${dbPath}`);
+    
+    // Also register with DataSourceManager for new architecture
+    const dataSourceManager = DataSourceManager.getInstance();
+    await dataSourceManager.registerSQLite(dbPath, cleanTableName);
 
     // Create table with proper column types
     const columnDefinitions = columns.map(col => 
