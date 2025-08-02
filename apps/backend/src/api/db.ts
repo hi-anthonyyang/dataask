@@ -186,6 +186,11 @@ router.get('/connections', async (req, res) => {
     const dbManager = DatabaseManager.getInstance();
     const connections = await dbManager.listConnections();
 
+    logger.info(`Listing connections: found ${connections.length} connections`);
+    connections.forEach(conn => {
+      logger.info(`Connection: ${conn.id} - ${conn.name} (${conn.type})`);
+    });
+
     res.json({ connections });
   } catch (error) {
     return handleGenericError(res, error, 'Failed to retrieve connections');

@@ -360,10 +360,14 @@ class DatabaseManager {
 
       const limitedResult = limitQueryResult(result);
       
-      logger.info(`Query executed successfully in ${result.executionTime}ms`, {
-        connectionId,
-        rowCount: result.rowCount
-      });
+      // Only log non-trivial queries
+      if (sql && !sql.toLowerCase().includes('pragma')) {
+        logger.info(`Query executed successfully in ${result.executionTime}ms`, {
+          connectionId,
+          rowCount: result.rowCount,
+          sql: sql.substring(0, 100) // Log first 100 chars of SQL
+        });
+      }
 
       return limitedResult;
 

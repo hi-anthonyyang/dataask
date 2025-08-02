@@ -331,6 +331,9 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       rowCount: totalRows,
       columns: columns.length
     });
+    
+    // Log the successful import
+    logger.info(`Import response sent: connectionId=${connectionId}, table=${cleanTableName}, rows=${totalRows}`);
 
   } catch (error) {
     logger.error('File import failed:', error);
