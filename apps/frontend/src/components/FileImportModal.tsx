@@ -20,6 +20,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
   const [columns, setColumns] = useState<FileColumn[]>([])
   const [tableName, setTableName] = useState('')
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [isImporting, setIsImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tempFilePath, setTempFilePath] = useState<string | null>(null)
@@ -35,6 +36,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
     setError(null)
     setTempFilePath(null)
     setIsUploading(false)
+    setUploadProgress(0)
     setIsImporting(false)
   }
 
@@ -47,14 +49,43 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
     setSelectedFile(file)
     setError(null)
     setIsUploading(true)
+    setUploadProgress(0)
 
     try {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch('/api/files/upload', {
-        method: 'POST',
-        body: formData
+      // Use XMLHttpRequest for progress tracking
+      const response = await new Promise<Response>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100)
+            setUploadProgress(progress)
+          }
+        }
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            // Create a Response-like object for compatibility
+            resolve(new Response(xhr.responseText, {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              headers: new Headers({
+                'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json'
+              })
+            }))
+          } else {
+            reject(new Error(`Upload failed (${xhr.status})`))
+          }
+        }
+
+        xhr.onerror = () => reject(new Error('Network error during upload'))
+        xhr.ontimeout = () => reject(new Error('Upload timed out'))
+
+        xhr.open('POST', '/api/files/upload')
+        xhr.send(formData)
       })
 
       if (!response.ok) {
@@ -81,6 +112,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
       setError(error instanceof Error ? error.message : 'Failed to upload file')
     } finally {
       setIsUploading(false)
+      setUploadProgress(0)
     }
   }
 
@@ -214,9 +246,29 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
               />
 
               {isUploading && (
-                <div className="flex items-center justify-center gap-2 py-4">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Processing file...</span>
+                <div className="space-y-3 py-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">
+                      {uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing file...'}
+                    </span>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                  
+                  {uploadProgress === 100 && (
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">
+                        Upload complete. Analyzing file structure...
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
