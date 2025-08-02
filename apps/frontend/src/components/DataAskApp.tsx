@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Connection, QueryResult } from '../types'
 import { databaseService } from '../services/database'
+import { StorageService } from '../services/storage'
 import { useResizablePanel } from '../hooks/useResizablePanel'
 
 const DataAskApp: React.FC = () => {
@@ -66,10 +67,22 @@ const DataAskApp: React.FC = () => {
     setQueryResults(null)
   }
 
-  const handleConnectionAdded = (connectionId: string) => {
+  const handleConnectionAdded = async (connectionId: string) => {
     setShowAddDataModal(false)
-    loadConnections()
+    // Load connections first to get the new connection
+    await loadConnections()
     setSelectedConnection(connectionId)
+    
+    // Now save the imported connection to localStorage
+    try {
+      const data = await databaseService.listConnections()
+      const connection = data.connections.find(c => c.id === connectionId)
+      if (connection) {
+        StorageService.saveConnection(connection)
+      }
+    } catch (error) {
+      console.error('Failed to save imported connection:', error)
+    }
   }
 
   const handleConnectionUpdated = (connectionId: string) => {
