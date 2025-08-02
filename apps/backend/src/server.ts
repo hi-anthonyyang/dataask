@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { app } from './app';
+import { app, initializeApp } from './app';
 import { logger } from './utils/logger';
 
 // Load environment variables
@@ -9,6 +9,9 @@ const PORT = process.env.PORT || 3001;
 
 async function startServer() {
   try {
+    // Initialize app and auth service
+    await initializeApp();
+    
     const server = app.listen(PORT, () => {
       logger.info(`🚀 DataAsk Backend server running on port ${PORT}`);
       logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);

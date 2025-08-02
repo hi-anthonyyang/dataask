@@ -73,7 +73,9 @@ class DatabaseManager {
    */
   private async loadPersistedConnections() {
     try {
-      const persistedConnectionsPath = path.join(process.cwd(), 'data', 'connections.json');
+      // Use consistent workspace root path
+      const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..');
+      const persistedConnectionsPath = path.join(workspaceRoot, 'data', 'connections.json');
       
       if (fs.existsSync(persistedConnectionsPath)) {
         const data = fs.readFileSync(persistedConnectionsPath, 'utf-8');
@@ -117,7 +119,8 @@ class DatabaseManager {
         }
       }
       
-      const persistedConnectionsPath = path.join(process.cwd(), 'data', 'connections.json');
+      const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..');
+      const persistedConnectionsPath = path.join(workspaceRoot, 'data', 'connections.json');
       const dataDir = path.dirname(persistedConnectionsPath);
       
       if (!fs.existsSync(dataDir)) {

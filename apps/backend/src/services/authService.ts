@@ -33,9 +33,10 @@ export class AuthService {
   private initialized = false;
 
   private constructor() {
-    // Use a fixed path relative to the backend directory
-    const backendDir = path.resolve(__dirname, '..', '..');
-    const authDbPath = path.join(backendDir, 'data', 'auth.db');
+    // Use a consistent path in the workspace root
+    // This ensures the same database is used regardless of where the process starts
+    const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..');
+    const authDbPath = path.join(workspaceRoot, 'data', 'auth.db');
     
     // Ensure data directory exists
     const dataDir = path.dirname(authDbPath);
@@ -43,12 +44,13 @@ export class AuthService {
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
+    logger.info(`Opening auth database at: ${authDbPath}`);
     this.db = new sqlite3.Database(authDbPath, (err) => {
       if (err) {
         logger.error('Failed to open auth database:', err);
         throw err;
       }
-      logger.info('Auth database connected');
+      logger.info(`Auth database connected successfully at: ${authDbPath}`);
     });
   }
 
@@ -176,11 +178,14 @@ export class AuthService {
   }
 
   async login(email: string, password: string, ipAddress?: string, userAgent?: string): Promise<TokenPair> {
+    logger.info(`Login attempt for email: ${email}`);
     const user = await this.getUserByEmail(email);
     
     if (!user) {
+      logger.warn(`User not found: ${email}`);
       throw new Error('Invalid credentials');
     }
+    logger.info(`User found: ${user.email}, ID: ${user.id}`);
 
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
@@ -300,14 +305,17 @@ export class AuthService {
 
   private getUserByEmail(email: string): Promise<User | null> {
     return new Promise((resolve, reject) => {
+      logger.info(`Querying for user with email: ${email}`);
       this.db.get(
         `SELECT * FROM users WHERE email = ?`,
         [email],
         (err, row: User) => {
           if (err) {
+            logger.error(`Database error in getUserByEmail: ${err}`);
             reject(err);
             return;
           }
+          logger.info(`Query result: ${row ? 'User found' : 'No user found'}`);
           resolve(row || null);
         }
       );

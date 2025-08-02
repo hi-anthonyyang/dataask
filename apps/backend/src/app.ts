@@ -62,10 +62,14 @@ const initializeAuth = async () => {
   }
 };
 
-// Initialize services (don't await to avoid blocking startup)
-initializeAuth();
-
 const app = express();
+
+// Create async initialization function
+export const initializeApp = async () => {
+  // Initialize auth service before starting the server
+  await initializeAuth();
+  return app;
+};
 
 // Security middleware
 app.use(helmet());
