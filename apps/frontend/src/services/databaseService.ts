@@ -5,14 +5,21 @@ const isElectron = () => {
   return typeof window !== 'undefined' && window.electronAPI
 }
 
+// For SQLite in Electron, we store the current file path instead of connection IDs
+let currentSQLiteFile: string | null = null
+
 export const databaseService = {
   // Test database connection
   async testConnection(config: any): Promise<{ success: boolean; message: string; error?: string; guidance?: string[] }> {
-    if (isElectron()) {
-      const result = await window.electronAPI!.database.testConnection(config)
-      return result
+    if (isElectron() && config.type === 'sqlite') {
+      // For SQLite in Electron, just validate the file
+      const result = await window.electronAPI!.sqlite.validateFile(config.config.filename)
+      return {
+        success: result.valid,
+        message: result.valid ? 'File is accessible' : (result.error || 'File validation failed')
+      }
     } else {
-      // Web mode - use HTTP API
+      // Web mode or non-SQLite - use HTTP API
       const response = await fetch('/api/db/test-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,10 +40,20 @@ export const databaseService = {
 
   // Create database connection
   async createConnection(config: any): Promise<{ connectionId?: string; message?: string; error?: string }> {
-    if (isElectron()) {
-      return await window.electronAPI!.database.createConnection(config)
+    if (isElectron() && config.type === 'sqlite') {
+      // For SQLite in Electron, just store the file path and return a fake connection ID
+      const result = await window.electronAPI!.sqlite.validateFile(config.config.filename)
+      if (result.valid) {
+        currentSQLiteFile = config.config.filename
+        return { 
+          connectionId: 'sqlite_file', 
+          message: 'SQLite file ready' 
+        }
+      } else {
+        return { error: result.error || 'File validation failed' }
+      }
     } else {
-      // Web mode - use HTTP API
+      // Web mode or non-SQLite - use HTTP API
       const response = await fetch('/api/db/connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -54,10 +71,10 @@ export const databaseService = {
 
   // Get database schema
   async getSchema(connectionId: string): Promise<{ schema?: { tables: any[] }; error?: string }> {
-    if (isElectron()) {
-      return await window.electronAPI!.database.getSchema(connectionId)
+    if (isElectron() && connectionId === 'sqlite_file' && currentSQLiteFile) {
+      return await window.electronAPI!.sqlite.getSchema(currentSQLiteFile)
     } else {
-      // Web mode - use HTTP API
+      // Web mode or non-SQLite - use HTTP API
       const response = await fetch(`/api/db/connections/${connectionId}/schema`)
       
       if (!response.ok) {
@@ -76,10 +93,10 @@ export const databaseService = {
     executionTime?: number
     error?: string
   }> {
-    if (isElectron()) {
-      return await window.electronAPI!.database.executeQuery(connectionId, sql, params)
+    if (isElectron() && connectionId === 'sqlite_file' && currentSQLiteFile) {
+      return await window.electronAPI!.sqlite.executeQuery(currentSQLiteFile, sql, params)
     } else {
-      // Web mode - use HTTP API
+      // Web mode or non-SQLite - use HTTP API
       const response = await fetch('/api/db/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,8 +118,16 @@ export const databaseService = {
 
   // List active connections
   async listConnections(): Promise<{ connections: Array<{ id: string; name: string; type: string; config?: any }> }> {
-    if (isElectron()) {
-      return await window.electronAPI!.database.listConnections()
+    if (isElectron() && currentSQLiteFile) {
+      // For SQLite in Electron, return the current file as a connection
+      return {
+        connections: [{
+          id: 'sqlite_file',
+          name: `SQLite: ${currentSQLiteFile.split('/').pop() || 'Database'}`,
+          type: 'sqlite',
+          config: { filename: currentSQLiteFile }
+        }]
+      }
     } else {
       // Web mode - use HTTP API
       const response = await fetch('/api/db/connections')
@@ -117,8 +142,10 @@ export const databaseService = {
 
   // Delete connection
   async deleteConnection(connectionId: string): Promise<{ message: string; error?: string }> {
-    if (isElectron()) {
-      return await window.electronAPI!.database.deleteConnection(connectionId)
+    if (isElectron() && connectionId === 'sqlite_file') {
+      // For SQLite in Electron, just clear the current file
+      currentSQLiteFile = null
+      return { message: 'SQLite file connection cleared' }
     } else {
       // Web mode - use HTTP API
       const response = await fetch(`/api/db/connections/${connectionId}`, {

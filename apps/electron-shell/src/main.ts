@@ -1,20 +1,66 @@
 import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import * as path from 'path'
 import * as sqlite3 from 'sqlite3'
+import * as fs from 'fs'
 
 const isDev = process.env.NODE_ENV === 'development'
 
 console.log('🔧 Electron starting...', { isDev, NODE_ENV: process.env.NODE_ENV })
 
-// Store active database connections
-const activeConnections = new Map<string, sqlite3.Database>()
-
-// Generate unique connection ID
-function generateConnectionId(): string {
-  return 'electron_' + Math.random().toString(36).substr(2, 9)
+// Simple SQLite operations - no connection management needed
+function validateSQLiteFile(filePath: string): { valid: boolean; error?: string } {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { valid: false, error: 'File does not exist' }
+    }
+    
+    const stats = fs.statSync(filePath)
+    if (!stats.isFile()) {
+      return { valid: false, error: 'Path is not a file' }
+    }
+    
+    // Try to access the file for reading
+    fs.accessSync(filePath, fs.constants.R_OK)
+    return { valid: true }
+  } catch (error) {
+    return { valid: false, error: `Cannot access file: ${error instanceof Error ? error.message : 'Unknown error'}` }
+  }
 }
 
-// IPC Handlers for file system operations and database management
+function executeSQLiteQuery(filePath: string, sql: string, params: any[] = []): Promise<any> {
+  return new Promise((resolve) => {
+    const db = new sqlite3.Database(filePath, sqlite3.OPEN_READONLY, (err) => {
+      if (err) {
+        resolve({ error: `Failed to open database: ${err.message}` })
+        return
+      }
+
+      const startTime = Date.now()
+      db.all(sql, params, (queryErr, rows) => {
+        const executionTime = Date.now() - startTime
+        
+        db.close() // Always close immediately after query
+        
+        if (queryErr) {
+          resolve({ error: queryErr.message })
+        } else {
+          const fields = rows.length > 0 ? 
+            Object.keys(rows[0] as Record<string, any>).map(name => ({ name, type: 'unknown' })) : 
+            []
+
+          resolve({
+            data: rows,
+            rowCount: rows.length,
+            fields,
+            executionTime
+          })
+        }
+      })
+    })
+  })
+}
+
+// IPC Handlers for file system operations and simple SQLite access
 function setupIpcHandlers(): void {
   // Handle file dialog for opening SQLite databases
   ipcMain.handle('dialog:openDatabase', async () => {
@@ -37,161 +83,55 @@ function setupIpcHandlers(): void {
     }
   })
 
-  // Test SQLite database connection
-  ipcMain.handle('db:testConnection', async (event, config) => {
-    return new Promise((resolve) => {
-      const { filename } = config.config
-      
-      if (!filename) {
-        resolve({ success: false, message: 'SQLite filename is required' })
-        return
-      }
-
-      // Test connection with timeout
-      const timeout = setTimeout(() => {
-        resolve({ success: false, message: 'Connection test timed out' })
-      }, 5000)
-
-      const db = new sqlite3.Database(filename, sqlite3.OPEN_READONLY, (err) => {
-        clearTimeout(timeout)
-        
-        if (err) {
-          resolve({ success: false, message: `SQLite connection failed: ${err.message}` })
-        } else {
-          // Test with a simple query
-          db.get('SELECT 1 as test', (queryErr) => {
-            db.close()
-            if (queryErr) {
-              resolve({ success: false, message: `SQLite test query failed: ${queryErr.message}` })
-            } else {
-              resolve({ success: true, message: 'Connection successful' })
-            }
-          })
-        }
-      })
-    })
+  // Simple SQLite file validation
+  ipcMain.handle('sqlite:validateFile', async (event, filePath) => {
+    return validateSQLiteFile(filePath)
   })
 
-  // Create SQLite database connection
-  ipcMain.handle('db:createConnection', async (event, config) => {
-    return new Promise((resolve) => {
-      const { filename } = config.config
-      const connectionId = generateConnectionId()
-      
-      const db = new sqlite3.Database(filename, sqlite3.OPEN_READWRITE, (err) => {
-        if (err) {
-          resolve({ error: `Failed to connect to SQLite database: ${err.message}` })
-        } else {
-          activeConnections.set(connectionId, db)
-          resolve({ connectionId, message: 'Connection created successfully' })
-        }
-      })
-    })
-  })
-
-  // Get database schema
-  ipcMain.handle('db:getSchema', async (event, connectionId) => {
-    return new Promise((resolve) => {
-      const db = activeConnections.get(connectionId)
-      if (!db) {
-        resolve({ error: 'Database connection not found' })
-        return
-      }
-
-      db.all(`
-        SELECT name FROM sqlite_master 
-        WHERE type='table' AND name NOT LIKE 'sqlite_%'
-        ORDER BY name
-      `, (err, tables) => {
-        if (err) {
-          resolve({ error: `Failed to retrieve schema: ${err.message}` })
-          return
-        }
-
-        const schemaPromises = tables.map((table: any) => {
-          return new Promise((resolveTable) => {
-            db.all(`PRAGMA table_info(${table.name})`, (colErr, columns) => {
-              if (colErr) {
-                resolveTable({ name: table.name, columns: [] })
-              } else {
-                const formattedColumns = columns.map((col: any) => ({
-                  name: col.name,
-                  type: col.type,
-                  nullable: !col.notnull,
-                  primaryKey: !!col.pk
-                }))
-                resolveTable({ name: table.name, columns: formattedColumns })
-              }
-            })
-          })
-        })
-
-        Promise.all(schemaPromises).then((tablesWithColumns) => {
-          resolve({ schema: { tables: tablesWithColumns } })
-        })
-      })
-    })
-  })
-
-  // Execute SQL query
-  ipcMain.handle('db:executeQuery', async (event, connectionId, sql, params = []) => {
-    return new Promise((resolve) => {
-      const db = activeConnections.get(connectionId)
-      if (!db) {
-        resolve({ error: 'Database connection not found' })
-        return
-      }
-
-      const startTime = Date.now()
-      
-      db.all(sql, params, (err, rows) => {
-        const executionTime = Date.now() - startTime
-        
-        if (err) {
-          resolve({ error: err.message })
-        } else {
-          // Get column information from the first row
-          const fields = rows.length > 0 ? 
-            Object.keys(rows[0] as Record<string, any>).map(name => ({ name, type: 'unknown' })) : 
-            []
-
-          resolve({
-            data: rows,
-            rowCount: rows.length,
-            fields,
-            executionTime
-          })
-        }
-      })
-    })
-  })
-
-  // List active connections
-  ipcMain.handle('db:listConnections', async () => {
-    const connections = Array.from(activeConnections.keys()).map(id => ({
-      id,
-      name: `SQLite Database`,
-      type: 'sqlite'
-    }))
-    return { connections }
-  })
-
-  // Delete connection
-  ipcMain.handle('db:deleteConnection', async (event, connectionId) => {
-    const db = activeConnections.get(connectionId)
-    if (db) {
-      return new Promise((resolve) => {
-        db.close((err) => {
-          activeConnections.delete(connectionId)
-          if (err) {
-            resolve({ error: `Failed to close connection: ${err.message}` })
-          } else {
-            resolve({ message: 'Connection deleted successfully' })
-          }
-        })
-      })
+  // Get SQLite database schema
+  ipcMain.handle('sqlite:getSchema', async (event, filePath) => {
+    const validation = validateSQLiteFile(filePath)
+    if (!validation.valid) {
+      return { error: validation.error }
     }
-    return { message: 'Connection not found' }
+
+    // Get tables
+    const tablesResult = await executeSQLiteQuery(filePath, `
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name NOT LIKE 'sqlite_%'
+      ORDER BY name
+    `)
+
+    if (tablesResult.error) {
+      return { error: tablesResult.error }
+    }
+
+    // Get columns for each table
+    const tables = []
+    for (const table of tablesResult.data) {
+      const columnsResult = await executeSQLiteQuery(filePath, `PRAGMA table_info(${table.name})`)
+      
+      const columns = columnsResult.error ? [] : columnsResult.data.map((col: any) => ({
+        name: col.name,
+        type: col.type,
+        nullable: !col.notnull,
+        primaryKey: !!col.pk
+      }))
+
+      tables.push({ name: table.name, columns })
+    }
+
+    return { schema: { tables } }
+  })
+
+  // Execute SQLite query
+  ipcMain.handle('sqlite:executeQuery', async (event, filePath, sql, params = []) => {
+    const validation = validateSQLiteFile(filePath)
+    if (!validation.valid) {
+      return { error: validation.error }
+    }
+
+    return await executeSQLiteQuery(filePath, sql, params)
   })
 }
 
@@ -259,12 +199,6 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed, except on macOS
 app.on('window-all-closed', () => {
-  // Close all database connections before quitting
-  activeConnections.forEach((db, connectionId) => {
-    db.close()
-  })
-  activeConnections.clear()
-  
   if (process.platform !== 'darwin') app.quit()
 })
 

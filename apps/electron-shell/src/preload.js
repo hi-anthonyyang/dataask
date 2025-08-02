@@ -61,36 +61,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
-  // Database operation APIs
-  database: {
-    // Test database connection
-    testConnection: (config) => {
-      return ipcRenderer.invoke('db:testConnection', config)
-    },
-    
-    // Create database connection
-    createConnection: (config) => {
-      return ipcRenderer.invoke('db:createConnection', config)
+  // Simple SQLite operations - no connection management
+  sqlite: {
+    // Validate SQLite file
+    validateFile: (filePath) => {
+      return ipcRenderer.invoke('sqlite:validateFile', filePath)
     },
     
     // Get database schema
-    getSchema: (connectionId) => {
-      return ipcRenderer.invoke('db:getSchema', connectionId)
+    getSchema: (filePath) => {
+      return ipcRenderer.invoke('sqlite:getSchema', filePath)
     },
     
     // Execute SQL query
-    executeQuery: (connectionId, sql, params) => {
-      return ipcRenderer.invoke('db:executeQuery', connectionId, sql, params)
-    },
-    
-    // List active connections
-    listConnections: () => {
-      return ipcRenderer.invoke('db:listConnections')
-    },
-    
-    // Delete connection
-    deleteConnection: (connectionId) => {
-      return ipcRenderer.invoke('db:deleteConnection', connectionId)
+    executeQuery: (filePath, sql, params) => {
+      return ipcRenderer.invoke('sqlite:executeQuery', filePath, sql, params)
     }
   }
 })

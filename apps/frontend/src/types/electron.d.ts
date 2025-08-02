@@ -26,36 +26,20 @@ interface ElectronAPI {
     }>
   }
 
-  database: {
-    testConnection: (config: any) => Promise<{
-      success: boolean
-      message: string
-    }>
-    createConnection: (config: any) => Promise<{
-      connectionId?: string
-      message?: string
+  sqlite: {
+    validateFile: (filePath: string) => Promise<{
+      valid: boolean
       error?: string
     }>
-    getSchema: (connectionId: string) => Promise<{
+    getSchema: (filePath: string) => Promise<{
       schema?: { tables: any[] }
       error?: string
     }>
-    executeQuery: (connectionId: string, sql: string, params?: any[]) => Promise<{
+    executeQuery: (filePath: string, sql: string, params?: any[]) => Promise<{
       data?: any[]
       rowCount?: number
       fields?: any[]
       executionTime?: number
-      error?: string
-    }>
-    listConnections: () => Promise<{
-      connections: Array<{
-        id: string
-        name: string
-        type: string
-      }>
-    }>
-    deleteConnection: (connectionId: string) => Promise<{
-      message: string
       error?: string
     }>
   }
