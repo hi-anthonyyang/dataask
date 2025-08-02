@@ -19,6 +19,8 @@ import {
   DatabaseSchema,
   SavedConnection
 } from '../types';
+import path from 'path';
+import fs from 'fs';
 
 /**
  * Database Manager with SSL/TLS Security
@@ -181,11 +183,84 @@ class DatabaseManager {
   public static getInstance(): DatabaseManager {
     if (!DatabaseManager.instance) {
       DatabaseManager.instance = new DatabaseManager();
+      DatabaseManager.instance.initialize(); // Initialize on first getInstance
     }
     return DatabaseManager.instance;
   }
 
   private constructor() {} // Private constructor for singleton
+
+  /**
+   * Initialize the DatabaseManager and load persisted connections
+   */
+  private async initialize() {
+    await this.loadPersistedConnections();
+  }
+
+  /**
+   * Load persisted SQLite connections from disk
+   */
+  private async loadPersistedConnections() {
+    try {
+      const persistedConnectionsPath = path.join(process.cwd(), 'data', 'connections.json');
+      
+      if (fs.existsSync(persistedConnectionsPath)) {
+        const data = fs.readFileSync(persistedConnectionsPath, 'utf8');
+        const persistedConnections = JSON.parse(data) as DatabaseConnectionConfig[];
+        
+        logger.info(`Loading ${persistedConnections.length} persisted connections`);
+        
+        for (const config of persistedConnections) {
+          // Only load SQLite connections that still have their database file
+          if (config.type === 'sqlite' && config.config.filename) {
+            if (fs.existsSync(config.config.filename)) {
+              try {
+                const connectionId = await this.createConnection(config);
+                logger.info(`Restored connection: ${config.name} (${connectionId})`);
+              } catch (error) {
+                logger.error(`Failed to restore connection ${config.name}:`, error);
+              }
+            } else {
+              logger.warn(`SQLite file not found for connection ${config.name}: ${config.config.filename}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to load persisted connections:', error);
+    }
+  }
+
+  /**
+   * Persist SQLite connections to disk
+   */
+  private async persistConnections() {
+    try {
+      const connections: DatabaseConnectionConfig[] = [];
+      
+      for (const [id, config] of this.connectionConfigs.entries()) {
+        // Only persist SQLite connections (imported files)
+        if (config.type === 'sqlite') {
+          connections.push({
+            ...config,
+            id // Include the ID for potential future use
+          });
+        }
+      }
+      
+      const persistedConnectionsPath = path.join(process.cwd(), 'data', 'connections.json');
+      const dataDir = path.dirname(persistedConnectionsPath);
+      
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      fs.writeFileSync(persistedConnectionsPath, JSON.stringify(connections, null, 2));
+      logger.info(`Persisted ${connections.length} SQLite connections`);
+    } catch (error) {
+      logger.error('Failed to persist connections:', error);
+    }
+  }
 
   /**
    * Create SSH tunnel if configured
@@ -306,6 +381,12 @@ class DatabaseManager {
 
       logger.info(`Database connection created and stored: ${connectionId} -> ${config.name} (${config.type})`);
       logger.info(`Total connections in memory: ${this.connections.size}`);
+      
+      // Persist SQLite connections to survive server restarts
+      if (config.type === 'sqlite') {
+        await this.persistConnections();
+      }
+      
       return connectionId;
 
     } catch (error) {
@@ -480,6 +561,11 @@ class DatabaseManager {
       this.connectionConfigs.delete(connectionId);
       
       logger.info(`Database connection deleted: ${connectionId}`);
+      
+      // Update persisted connections if it was a SQLite connection
+      if (config?.type === 'sqlite') {
+        await this.persistConnections();
+      }
     }
   }
 
