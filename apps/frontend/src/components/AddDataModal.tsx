@@ -35,7 +35,7 @@ export default function AddDataModal({
       <div className="bg-background rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Add Data</h2>
+          <h2 className="text-lg font-semibold">Add Database or Import Data File</h2>
           <button
             onClick={handleClose}
             className="p-1 hover:bg-muted rounded-md transition-colors"

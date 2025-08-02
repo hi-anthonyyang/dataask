@@ -240,12 +240,10 @@ const DataAskApp: React.FC = () => {
           <ChatPanel
             selectedConnection={selectedConnection}
             connectionType={getSelectedConnectionType()}
-            onQueryExecuted={(query, results) => {
-              setCurrentQuery(query)
+            onQueryUpdate={setCurrentQuery}
+            onQueryExecute={(results: any) => {
               setQueryResults(results)
             }}
-            currentQuery={currentQuery}
-            queryResults={queryResults}
           />
         </div>
 

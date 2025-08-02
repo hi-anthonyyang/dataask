@@ -169,18 +169,12 @@ export default function SchemaBrowser({ selectedConnection, onConnectionSelect, 
           <div className="p-4 text-center text-muted-foreground text-sm">
             <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>No database connections</p>
-            <div className="mt-3 space-y-1">
-              <button 
-                onClick={() => onConnectionsChange && onConnectionsChange()}
-                className="block w-full text-primary hover:underline text-xs"
-              >
-                Add Database Connection
-              </button>
+            <div className="mt-3">
               <button 
                 onClick={() => setShowAddDataModal(true)}
-                className="block w-full text-primary hover:underline text-xs"
+                className="block w-full text-primary hover:underline text-sm"
               >
-                Import CSV/Excel File
+                Add database or import data file
               </button>
             </div>
           </div>
