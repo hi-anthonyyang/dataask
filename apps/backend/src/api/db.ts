@@ -4,6 +4,13 @@ import { DatabaseManager } from '../utils/database';
 import { validateQuery } from '../security/sanitize';
 import { logger } from '../utils/logger';
 import { API_MESSAGES, QUERY_LIMITS } from '../utils/constants';
+import { 
+  handleZodError, 
+  handleDatabaseError, 
+  handleGenericError,
+  createErrorResponse,
+  getConnectionErrorGuidance 
+} from '../utils/errors';
 
 const router = Router();
 
@@ -60,47 +67,18 @@ router.post('/test-connection', async (req, res) => {
     logger.error('Connection test failed:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        success: false,
-        message: API_MESSAGES.INVALID_PARAMS
-      });
+      return handleZodError(res, error, API_MESSAGES.INVALID_PARAMS);
     }
     
     // Return specific error message for database connection issues
-    const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
-    
-    // Provide helpful guidance for common connection errors
-    let guidance: string[] = [];
-    if (errorMessage.includes('ENOTFOUND')) {
-      guidance = [
-        'The hostname could not be resolved. Please check:',
-        '• Verify the hostname spelling in your DBeaver connection',
-        '• Confirm the RDS cluster exists in AWS Console',
-        '• Check if you\'re using the correct AWS region',
-        '• Ensure it\'s the correct endpoint type (cluster vs instance)'
-      ];
-    } else if (errorMessage.includes('ECONNREFUSED')) {
-      guidance = [
-        'Connection was refused. Please check:',
-        '• Security groups allow inbound connections on port 5432',
-        '• RDS instance is in "Available" state',
-        '• Network ACLs allow the connection'
-      ];
-    } else if (errorMessage.includes('timeout')) {
-      guidance = [
-        'Connection timed out. Please check:',
-        '• Security groups and network ACLs',
-        '• RDS instance is running and accessible',
-        '• Network connectivity from this environment to AWS'
-      ];
-    }
+    const errorResponse = createErrorResponse(error, 'Connection test failed', true);
     
     res.json({ 
       success: false,
-      message: errorMessage,
-      error: errorMessage,
-      type: 'connection_test_error',
-      guidance: guidance.length > 0 ? guidance : undefined
+      message: errorResponse.error,
+      error: errorResponse.error,
+      type: errorResponse.type || 'connection_test_error',
+      guidance: errorResponse.guidance
     });
   }
 });
@@ -121,24 +99,15 @@ router.post('/connections', async (req, res) => {
     logger.error('Failed to create connection:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid connection parameters' });
+      return handleZodError(res, error, 'Invalid connection parameters');
     }
     
     // Return enhanced error information for database connection errors
-    if (error instanceof Error && 'code' in error) {
-      const dbError = error as any;
-      return res.status(400).json({ 
-        error: dbError.message,
-        code: dbError.code,
-        type: 'connection_error'
-      });
-    }
-    
-    // Return the actual error message for debugging
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorResponse = createErrorResponse(error, 'Failed to create connection');
     return res.status(400).json({ 
-      error: errorMessage,
-      type: 'connection_error',
+      error: errorResponse.error,
+      code: errorResponse.code,
+      type: errorResponse.type || 'connection_error',
       details: 'Check server logs for more information'
     });
   }
@@ -154,19 +123,7 @@ router.get('/connections/:connectionId/schema', async (req, res) => {
     
     return res.json({ schema });
   } catch (error) {
-    logger.error('Failed to get schema:', error);
-    
-    // Return user-friendly error messages for database errors
-    if (error instanceof Error && 'code' in error) {
-      const dbError = error as any;
-      return res.status(500).json({ 
-        error: 'Failed to retrieve schema',
-        details: dbError.message,
-        code: dbError.code
-      });
-    }
-    
-    return res.status(500).json({ error: 'Failed to retrieve schema' });
+    return handleDatabaseError(res, error, 'schema retrieval');
   }
 });
 
@@ -200,34 +157,23 @@ router.post('/query', async (req, res) => {
       executionTime: result.executionTime
     });
   } catch (error) {
-    logger.error('Query execution failed:', error);
-    
-    // Return enhanced error information for database errors
-    if (error instanceof Error && 'code' in error) {
-      const dbError = error as any;
-      return res.status(500).json({ 
-        error: dbError.message,
-        code: dbError.code,
-        type: 'database_error'
-      });
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error);
     }
     
-    return res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Query execution failed'
-    });
+    return handleDatabaseError(res, error, 'query execution');
   }
 });
 
 // Get list of connections
 router.get('/connections', async (req, res) => {
   try {
-        const dbManager = DatabaseManager.getInstance();
+    const dbManager = DatabaseManager.getInstance();
     const connections = await dbManager.listConnections();
 
     res.json({ connections });
   } catch (error) {
-    logger.error('Failed to list connections:', error);
-    res.status(500).json({ error: 'Failed to retrieve connections' });
+    return handleGenericError(res, error, 'Failed to retrieve connections');
   }
 });
 
@@ -250,13 +196,11 @@ router.put('/connections/:connectionId', async (req, res) => {
       message: 'Connection updated successfully' 
     });
   } catch (error) {
-    logger.error('Failed to update connection:', error);
-    
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid connection parameters' });
+      return handleZodError(res, error, 'Invalid connection parameters');
     }
     
-    return res.status(500).json({ error: 'Failed to update connection' });
+    return handleGenericError(res, error, 'Failed to update connection');
   }
 });
 
@@ -270,8 +214,7 @@ router.delete('/connections/:connectionId', async (req, res) => {
     
     res.json({ message: 'Connection deleted successfully' });
   } catch (error) {
-    logger.error('Failed to delete connection:', error);
-    res.status(500).json({ error: 'Failed to delete connection' });
+    return handleGenericError(res, error, 'Failed to delete connection');
   }
 });
 
@@ -285,8 +228,11 @@ router.post('/table-metadata', async (req, res) => {
     
     res.json(metadata);
   } catch (error) {
-    logger.error('Failed to get table metadata:', error);
-    res.status(500).json({ error: 'Failed to get table metadata' });
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error);
+    }
+    
+    return handleGenericError(res, error, 'Failed to get table metadata');
   }
 });
 
@@ -300,19 +246,11 @@ router.post('/table-columns', async (req, res) => {
     
     return res.json({ columns });
   } catch (error) {
-    logger.error('Failed to get table columns:', error);
-    
-    // Return enhanced error information for database errors
-    if (error instanceof Error && 'code' in error) {
-      const dbError = error as any;
-      return res.status(500).json({ 
-        error: dbError.message,
-        code: dbError.code,
-        type: 'database_error'
-      });
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error);
     }
     
-    return res.status(500).json({ error: 'Failed to get table columns' });
+    return handleDatabaseError(res, error, 'table columns retrieval');
   }
 });
 
@@ -326,19 +264,11 @@ router.post('/table-preview', async (req, res) => {
     
     return res.json(preview);
   } catch (error) {
-    logger.error('Failed to get table preview:', error);
-    
-    // Return enhanced error information for database errors
-    if (error instanceof Error && 'code' in error) {
-      const dbError = error as any;
-      return res.status(500).json({ 
-        error: dbError.message,
-        code: dbError.code,
-        type: 'database_error'
-      });
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error);
     }
     
-    return res.status(500).json({ error: 'Failed to get table preview' });
+    return handleDatabaseError(res, error, 'table preview');
   }
 });
 

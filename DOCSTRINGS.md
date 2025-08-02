@@ -37,7 +37,8 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * and fetch table metadata, column definitions and preview data. Each
      * endpoint validates its payload using zod schemas and delegates the
      * underlying work to the `DatabaseManager`. Queries are sanitized and
-     * validated to ensure they are safe and read‑only.
+     * validated to ensure they are safe and read‑only. Uses centralized error
+     * handling utilities for consistent error responses.
      */
 
 ### `apps/backend/src/api/files.ts`
@@ -67,7 +68,8 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * and summarize queries into concise titles for history display. Implements
      * caching to avoid redundant LLM calls, builds dynamic prompts, validates
      * generated SQL via the sanitization utilities and returns structured
-     * responses.
+     * responses. Uses centralized error handling and common patterns for input
+     * sanitization and response validation.
      */
 
 ### `apps/backend/src/security/sanitize.ts`
@@ -132,6 +134,18 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * differences.
      */
 
+### `apps/backend/src/utils/errors.ts`
+
+    /**
+     * Centralized error handling utilities for the backend API.
+     * 
+     * Provides consistent error responses across all endpoints with proper
+     * logging, status codes, and user-friendly messages. Handles Zod validation
+     * errors, database errors, and generic errors with appropriate HTTP status
+     * codes and response formats. Includes connection error guidance for common
+     * network and database connectivity issues.
+     */
+
 ## Frontend
 
 ### `apps/frontend/src/App.tsx`
@@ -139,12 +153,10 @@ The following docstrings describe the purpose of each module in the DataAsk repo
     /**
      * Top‑level React component that orchestrates the DataAsk UI.
      *
-     * Manages global state such as the currently selected database connection,
-     * the active SQL query and its results, and the sizes of the resizable
-     * panels. Renders the `SchemaBrowser`, `ChatPanel`, `AnalysisPanel` and
-     * `TableDetails` components within a three‑panel layout and handles
-     * connection selection, panel resizing and query execution events. Loads
-     * existing connections from local storage on mount.
+     * Manages authentication routing with protected routes for the main
+     * application. Renders login/register pages for unauthenticated users
+     * and the DataAskApp component for authenticated users. Uses React Router
+     * for navigation and AuthProvider for authentication context.
      */
 
 ### `apps/frontend/src/main.tsx`
@@ -155,6 +167,18 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * Imports global styles and mounts the root `App` component into the DOM.
      * This module is minimal because all logic lives in `App.tsx` and child
      * components.
+     */
+
+### `apps/frontend/src/components/DataAskApp.tsx`
+
+    /**
+     * Main application component for authenticated users.
+     *
+     * Manages the three-panel layout with resizable panels using custom hooks.
+     * Coordinates state between the schema browser, chat panel, and analysis
+     * panel. Handles connection selection, query execution, and result display.
+     * Uses the useResizablePanel hook to provide drag-to-resize functionality
+     * for both side panels with proper constraints and visual feedback.
      */
 
 ### `apps/frontend/src/components/SchemaBrowser.tsx`
@@ -314,6 +338,32 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * converts stored timestamps into `Date` objects when loading.
      */
 
+### `apps/frontend/src/services/api.ts`
+
+    /**
+     * Centralized API service for frontend HTTP requests.
+     * 
+     * Provides a unified interface for making API calls with consistent error
+     * handling, authentication via cookies, and TypeScript type safety. Handles
+     * all HTTP methods (GET, POST, PUT, DELETE) and file uploads with automatic
+     * JSON parsing and error response formatting. All requests include credentials
+     * for cookie-based authentication.
+     */
+
+## Hooks
+
+### `apps/frontend/src/hooks/useResizablePanel.ts`
+
+    /**
+     * Custom React hook for resizable panel functionality.
+     * 
+     * Provides drag-to-resize behavior for UI panels with configurable constraints.
+     * Handles mouse events, boundary enforcement, and text selection prevention
+     * during drag operations. Supports both left and right panel configurations
+     * with automatic cleanup of event listeners. Returns panel width, drag state,
+     * and mouse event handlers for integration with panel components.
+     */
+
 ## Electron
 
 ### `apps/electron-shell/src/main.ts`
@@ -333,7 +383,7 @@ The following docstrings describe the purpose of each module in the DataAsk repo
 ### `apps/electron-shell/src/preload.js`
 
     /**
-     * Preload script executed in Electron’s isolated context before the
+     * Preload script executed in Electron's isolated context before the
      * renderer loads.
      *
      * Uses Electron's `contextBridge` to expose a minimal API (`electronAPI`)

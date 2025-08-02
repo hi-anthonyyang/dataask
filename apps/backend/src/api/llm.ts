@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
@@ -11,6 +11,7 @@ import {
   logSecurityEvent 
 } from '../security/promptSanitize';
 import { LLM_MODEL_CONFIG, LLM_MESSAGES } from '../utils/constants';
+import { handleZodError, handleGenericError } from '../utils/errors';
 
 const router = Router();
 
@@ -44,7 +45,75 @@ const ensureOpenAI = (): OpenAI => {
   return openai;
 };
 
+// Common response for missing API key
+const respondWithMissingApiKey = (res: Response) => {
+  return res.status(500).json({ 
+    error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
+    details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key for AI features.'
+  });
+};
 
+// Common sanitization and validation workflow
+interface SanitizationResult {
+  isValid: boolean;
+  sanitizedInput: string;
+  response?: Response;
+}
+
+const sanitizeAndValidateInput = (
+  input: string, 
+  res: Response, 
+  endpoint: string,
+  options = { maxLength: 1000, strictMode: true }
+): SanitizationResult => {
+  const sanitizationResult = sanitizePromptInput(input, options);
+
+  if (!sanitizationResult.isValid) {
+    logSecurityEvent('prompt_injection', {
+      input,
+      riskLevel: sanitizationResult.riskLevel,
+      patterns: sanitizationResult.errors,
+      endpoint
+    });
+
+    return {
+      isValid: false,
+      sanitizedInput: '',
+      response: res.status(400).json({
+        error: 'Invalid query input',
+        details: 'Query contains potentially unsafe content',
+        riskLevel: sanitizationResult.riskLevel
+      })
+    };
+  }
+
+  return {
+    isValid: true,
+    sanitizedInput: sanitizationResult.sanitizedInput
+  };
+};
+
+// Common LLM response validation
+const validateAndSanitizeResponse = (
+  response: string,
+  endpoint: string
+): string => {
+  const responseValidation = validateLLMResponse(response);
+  
+  if (!responseValidation.isValid) {
+    logSecurityEvent('response_validation', {
+      response,
+      riskLevel: 'medium',
+      endpoint
+    });
+    logger.warn('LLM response validation failed', {
+      warnings: responseValidation.warnings,
+      response: response.substring(0, 200)
+    });
+  }
+
+  return responseValidation.sanitizedResponse;
+};
 
 // MySQL-specific SQL validation and correction
 const validateAndCorrectMySQLSyntax = (sql: string): string => {
@@ -254,122 +323,41 @@ RESPONSE FORMAT:
   }
 };
 
-
-
 // Convert natural language to SQL
 router.post('/nl-to-sql', async (req, res) => {
   try {
     const request = NLQuerySchema.parse(req.body);
     
     if (!openai) {
-      return res.status(500).json({ 
-        error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
-        details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate SQL queries.'
-      });
+      return respondWithMissingApiKey(res);
     }
 
-    // Sanitize user input to prevent prompt injection
-    const sanitizationResult = sanitizePromptInput(request.query, {
-      maxLength: 1000,
-      strictMode: true
-    });
+    // Sanitize user input
+    const sanitization = sanitizeAndValidateInput(request.query, res, '/api/llm/nl-to-sql');
+    if (!sanitization.isValid) return sanitization.response;
 
-    if (!sanitizationResult.isValid) {
-      logSecurityEvent('prompt_injection', {
-        input: request.query,
-        riskLevel: sanitizationResult.riskLevel,
-        patterns: sanitizationResult.errors,
-        endpoint: '/api/llm/nl-to-sql'
-      });
-
-      return res.status(400).json({
-        error: 'Invalid query input',
-        details: 'Query contains potentially unsafe content',
-        riskLevel: sanitizationResult.riskLevel
-      });
-    }
-
-    // Use sanitized input for further processing
-    const sanitizedQuery = sanitizationResult.sanitizedInput;
+    const sanitizedQuery = sanitization.sanitizedInput;
 
     // Use AI to classify query and handle exploratory requests
     const classification = await classifyQuery(sanitizedQuery, request.schema);
     
     if (classification.isVague) {
-              return res.json({
-          isVague: true,
-          message: classification.message,
-          suggestions: classification.suggestions,
-          originalQuery: sanitizedQuery
-        });
-      }
+      return res.json({
+        isVague: true,
+        message: classification.message,
+        suggestions: classification.suggestions,
+        originalQuery: sanitizedQuery
+      });
+    }
 
-      // Check cache first
-      const schemaHash = getOptimizedSchema(request.schema);
-      const cacheKey = llmCache.getCacheKey('sql', sanitizedQuery, `${request.connectionType}-${schemaHash}`);
-      const cached = llmCache.get(cacheKey);
-      if (cached) {
-        logger.info('SQL generation cache hit', { query: sanitizedQuery.substring(0, 50) });
-        return res.json(cached);
-      }
-
-    // Database-specific SQL generation prompt
-    const getDatabaseSpecificRules = (connectionType: string) => {
-      switch (connectionType.toLowerCase()) {
-        case 'mysql':
-          return `🚨 CRITICAL: You are generating MySQL SQL ONLY. PostgreSQL syntax is FORBIDDEN.
-
-⚠️ NEVER USE THESE POSTGRESQL FUNCTIONS IN MYSQL:
-- ❌ DATE_TRUNC() → ✅ Use DATE_FORMAT() instead
-- ❌ EXTRACT() → ✅ Use YEAR(), MONTH(), DAY() instead  
-- ❌ string_agg() → ✅ Use GROUP_CONCAT() instead
-- ❌ INTERVAL '1 year' → ✅ Use INTERVAL 1 YEAR instead
-
-✅ CORRECT MYSQL SYNTAX:
-
-DATE/TIME FUNCTIONS:
-- ✅ DATE_FORMAT(date, '%Y-%m-01') for month grouping
-- ✅ DATE_FORMAT(date, '%Y-01-01') for year grouping  
-- ✅ DATE_SUB(NOW(), INTERVAL 1 YEAR) for time intervals
-- ✅ DATE_ADD(date, INTERVAL 1 MONTH) for date arithmetic
-- ✅ YEAR(date), MONTH(date), DAY(date) for date extraction
-- ✅ NOW() or CURRENT_TIMESTAMP for current time
-
-IDENTIFIERS:
-- ✅ Use backticks (\`) for table/column names if needed
-- ✅ Example: \`table_name\`, \`column name\`
-
-AGGREGATION:
-- ✅ COUNT(*), SUM(), AVG(), MAX(), MIN() as in standard SQL
-- ✅ GROUP_CONCAT(column SEPARATOR ', ') for string aggregation
-
-LIMITS:
-- ✅ Use LIMIT clause at the end: SELECT ... FROM ... WHERE ... LIMIT 100
-
-JOINS:
-- ✅ Standard JOIN syntax: FROM table1 JOIN table2 ON table1.id = table2.id
-- ✅ LEFT JOIN, RIGHT JOIN, INNER JOIN as needed
-
-SUBQUERIES:
-- ✅ Standard subquery syntax with parentheses
-
-WINDOW FUNCTIONS:
-- ✅ ROW_NUMBER(), RANK(), DENSE_RANK() with OVER() clause
-
-🚨 REMEMBER: You are generating MySQL syntax ONLY. PostgreSQL functions are WRONG for MySQL.`;
-        case 'postgresql':
-          return `- Use DATE_TRUNC('month', date) for month grouping
-- Use INTERVAL '1 year' for time intervals
-- Use double quotes (") for table/column names if needed`;
-        case 'sqlite':
-          return `- Use strftime('%Y-%m', date) for month grouping
-- Use datetime('now', '-1 year') for time intervals
-- Use square brackets ([]) for table/column names if needed`;
-        default:
-          return `- Use DATE_TRUNC('month', date) for month grouping
-- Use INTERVAL '1 year' for time intervals`;
-      }
-    };
+    // Check cache first
+    const schemaHash = getOptimizedSchema(request.schema);
+    const cacheKey = llmCache.getCacheKey('sql', sanitizedQuery, `${request.connectionType}-${schemaHash}`);
+    const cached = llmCache.get(cacheKey);
+    if (cached) {
+      logger.info('SQL generation cache hit', { query: sanitizedQuery.substring(0, 50) });
+      return res.json(cached);
+    }
 
     // Use safe prompt construction to prevent injection
     const safePrompt = createSafePrompt('nlToSql', sanitizedQuery, schemaHash, request.connectionType);
@@ -392,22 +380,8 @@ WINDOW FUNCTIONS:
       });
     }
 
-    // Validate LLM response for potential injection content
-    const responseValidation = validateLLMResponse(generatedSQL);
-    if (!responseValidation.isValid) {
-      logSecurityEvent('response_validation', {
-        response: generatedSQL,
-        riskLevel: 'medium',
-        endpoint: '/api/llm/nl-to-sql'
-      });
-      logger.warn('LLM response validation failed', {
-        warnings: responseValidation.warnings,
-        response: generatedSQL.substring(0, 200)
-      });
-    }
-
-    // Use sanitized response
-    generatedSQL = responseValidation.sanitizedResponse;
+    // Validate and sanitize LLM response
+    generatedSQL = validateAndSanitizeResponse(generatedSQL, '/api/llm/nl-to-sql');
 
     // Clean up any unwanted formatting
     generatedSQL = generatedSQL
@@ -452,10 +426,10 @@ WINDOW FUNCTIONS:
     return res.json(result);
 
   } catch (error) {
-    logger.error('NL-to-SQL conversion failed:', error);
-    return res.status(500).json({ 
-      error: error instanceof z.ZodError ? 'Invalid request parameters' : 'Failed to generate SQL'
-    });
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error);
+    }
+    return handleGenericError(res, error, 'Failed to generate SQL');
   }
 });
 
@@ -465,34 +439,14 @@ router.post('/analyze', async (req, res) => {
     const request = AnalysisSchema.parse(req.body);
     
     if (!openai) {
-      return res.status(500).json({ 
-        error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
-        details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate analysis.'
-      });
+      return respondWithMissingApiKey(res);
     }
 
-    // Sanitize user query input to prevent prompt injection
-    const sanitizationResult = sanitizePromptInput(request.query, {
-      maxLength: 1000,
-      strictMode: true
-    });
+    // Sanitize user query input
+    const sanitization = sanitizeAndValidateInput(request.query, res, '/api/llm/analyze');
+    if (!sanitization.isValid) return sanitization.response;
 
-    if (!sanitizationResult.isValid) {
-      logSecurityEvent('prompt_injection', {
-        input: request.query,
-        riskLevel: sanitizationResult.riskLevel,
-        patterns: sanitizationResult.errors,
-        endpoint: '/api/llm/analyze'
-      });
-
-      return res.status(400).json({
-        error: 'Invalid query input',
-        details: 'Query contains potentially unsafe content',
-        riskLevel: sanitizationResult.riskLevel
-      });
-    }
-
-    const sanitizedQuery = sanitizationResult.sanitizedInput;
+    const sanitizedQuery = sanitization.sanitizedInput;
 
     // Check cache first
     const rowCount = request.data.length;
@@ -552,21 +506,8 @@ router.post('/analyze', async (req, res) => {
       });
     }
 
-    // Validate LLM response for potential injection content
-    const responseValidation = validateLLMResponse(analysis);
-    if (!responseValidation.isValid) {
-      logSecurityEvent('response_validation', {
-        response: analysis,
-        riskLevel: 'medium',
-        endpoint: '/api/llm/analyze'
-      });
-      logger.warn('Analysis response validation failed', {
-        warnings: responseValidation.warnings,
-        response: analysis.substring(0, 200)
-      });
-    }
-
-    const sanitizedAnalysis = responseValidation.sanitizedResponse;
+    // Validate and sanitize LLM response
+    const sanitizedAnalysis = validateAndSanitizeResponse(analysis, '/api/llm/analyze');
 
     logger.info('Data analysis generated successfully');
 
@@ -585,10 +526,10 @@ router.post('/analyze', async (req, res) => {
     return res.json(result);
 
   } catch (error) {
-    logger.error('Data analysis failed:', error);
-    return res.status(500).json({ 
-      error: error instanceof z.ZodError ? 'Invalid request parameters' : 'Failed to generate analysis'
-    });
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error);
+    }
+    return handleGenericError(res, error, 'Failed to generate analysis');
   }
 });
 
@@ -598,34 +539,17 @@ router.post('/summarize', async (req, res) => {
     const request = SummarizationSchema.parse(req.body);
     
     if (!openai) {
-      return res.status(500).json({ 
-        error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
-        details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key to generate summaries.'
-      });
+      return respondWithMissingApiKey(res);
     }
 
-    // Sanitize user input to prevent prompt injection
-    const sanitizationResult = sanitizePromptInput(request.query, {
+    // Sanitize user input
+    const sanitization = sanitizeAndValidateInput(request.query, res, '/api/llm/summarize', {
       maxLength: 500,
       strictMode: true
     });
+    if (!sanitization.isValid) return sanitization.response;
 
-    if (!sanitizationResult.isValid) {
-      logSecurityEvent('prompt_injection', {
-        input: request.query,
-        riskLevel: sanitizationResult.riskLevel,
-        patterns: sanitizationResult.errors,
-        endpoint: '/api/llm/summarize'
-      });
-
-      return res.status(400).json({
-        error: 'Invalid query input',
-        details: 'Query contains potentially unsafe content',
-        riskLevel: sanitizationResult.riskLevel
-      });
-    }
-
-    const sanitizedQuery = sanitizationResult.sanitizedInput;
+    const sanitizedQuery = sanitization.sanitizedInput;
 
     // Check cache first
     const cacheKey = llmCache.getCacheKey('summary', sanitizedQuery);
@@ -662,21 +586,8 @@ router.post('/summarize', async (req, res) => {
       });
     }
 
-    // Validate LLM response for potential injection content
-    const responseValidation = validateLLMResponse(title);
-    if (!responseValidation.isValid) {
-      logSecurityEvent('response_validation', {
-        response: title,
-        riskLevel: 'medium',
-        endpoint: '/api/llm/summarize'
-      });
-      logger.warn('Summarization response validation failed', {
-        warnings: responseValidation.warnings,
-        response: title
-      });
-    }
-
-    const sanitizedTitle = responseValidation.sanitizedResponse;
+    // Validate and sanitize LLM response
+    const sanitizedTitle = validateAndSanitizeResponse(title, '/api/llm/summarize');
 
     logger.info('Query summarization successful', { 
       originalQuery: sanitizedQuery.substring(0, 50),
