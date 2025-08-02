@@ -322,10 +322,11 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * Main process script for the Electron desktop application.
      *
      * Creates a browser window with specific dimensions and configuration,
+     * sets Content Security Policy headers to prevent security warnings,
      * loads the React development server during development or the built
-     * frontend in production, shows the window when ready, logs errors on
-     * failed loads and prevents untrusted navigation. Handles application
-     * lifecycle events such as activation and window closure and restricts
+     * frontend in production. Handles SQLite file operations through IPC,
+     * shows the window when ready, logs errors on failed loads and prevents
+     * untrusted navigation. Manages application lifecycle events and restricts
      * external link handling for security.
      */
 
