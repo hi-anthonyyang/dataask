@@ -1,4 +1,5 @@
 import { authService } from './auth';
+import { handleApiError, handleConnectionError, logWarning, logInfo } from './errorService';
 
 export interface UserConnection {
   id: string;
@@ -67,8 +68,8 @@ class UserConnectionsService {
       const result = await response.json();
       return result.connections;
     } catch (error) {
-      console.error('Failed to get connections:', error);
-      throw error;
+      const message = handleApiError(error, 'get connections');
+      throw new Error(message);
     }
   }
 
@@ -89,8 +90,8 @@ class UserConnectionsService {
       const result = await response.json();
       return result.connection;
     } catch (error) {
-      console.error('Failed to get connection:', error);
-      throw error;
+      const message = handleApiError(error, 'get connection');
+      throw new Error(message);
     }
   }
 
@@ -115,8 +116,8 @@ class UserConnectionsService {
 
       return result.connection;
     } catch (error) {
-      console.error('Failed to create connection:', error);
-      throw error;
+      const message = handleConnectionError(error, data.type);
+      throw new Error(message);
     }
   }
 
@@ -144,8 +145,8 @@ class UserConnectionsService {
 
       return result.connection;
     } catch (error) {
-      console.error('Failed to update connection:', error);
-      throw error;
+      const message = handleApiError(error, 'update connection');
+      throw new Error(message);
     }
   }
 
@@ -166,8 +167,8 @@ class UserConnectionsService {
         throw new Error(result.error || 'Failed to delete connection');
       }
     } catch (error) {
-      console.error('Failed to delete connection:', error);
-      throw error;
+      const message = handleApiError(error, 'delete connection');
+      throw new Error(message);
     }
   }
 
@@ -182,10 +183,10 @@ class UserConnectionsService {
 
       if (!response.ok) {
         // Don't throw error for this, it's not critical
-        console.warn('Failed to update connection last used timestamp');
+        logWarning('Failed to update connection last used timestamp');
       }
     } catch (error) {
-      console.warn('Failed to update connection last used:', error);
+      logWarning('Failed to update connection last used', { operation: 'updateLastUsed', connectionId });
       // Don't throw, this is not critical
     }
   }
@@ -211,8 +212,8 @@ class UserConnectionsService {
 
       return result;
     } catch (error) {
-      console.error('Failed to migrate connections:', error);
-      throw error;
+      const message = handleApiError(error, 'migrate connections');
+      throw new Error(message);
     }
   }
 
@@ -237,7 +238,7 @@ class UserConnectionsService {
       const result = await response.json();
       return result.success;
     } catch (error) {
-      console.error('Connection test failed:', error);
+      handleConnectionError(error, config.type);
       return false;
     }
   }
@@ -284,7 +285,7 @@ class UserConnectionsService {
       // Use the existing storage service format
       localStorage.setItem('dataask_connections', JSON.stringify(localStorageData));
     } catch (error) {
-      console.error('Failed to sync with localStorage:', error);
+      logWarning('Failed to sync with localStorage', { operation: 'syncWithLocalStorage' });
       // Don't throw, this is not critical
     }
   }

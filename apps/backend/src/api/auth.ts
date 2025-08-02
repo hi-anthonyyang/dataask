@@ -144,7 +144,7 @@ router.post('/refresh', async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      return res.status(401).json({ error: 'Refresh token required' });
+      return sendUnauthorized(res, 'Refresh token required');
     }
 
     // Verify refresh token
@@ -154,7 +154,7 @@ router.post('/refresh', async (req, res) => {
     const user = await userService.getUserById(payload.userId);
 
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+              return sendUnauthorized(res, 'User not found');
     }
 
     // Generate new tokens
@@ -178,7 +178,7 @@ router.post('/refresh', async (req, res) => {
     // Clear cookies on refresh failure
     AuthService.clearAuthCookies(res);
     
-    res.status(401).json({ error: 'Invalid or expired refresh token' });
+          sendUnauthorized(res, 'Invalid or expired refresh token');
   }
 });
 
@@ -186,14 +186,14 @@ router.post('/refresh', async (req, res) => {
 router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return sendUnauthorized(res, 'User not authenticated');
     }
 
     // Get fresh user data from database
     const user = await userService.getUserById(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+              return sendNotFound(res, 'User');
     }
 
     res.json({
@@ -208,7 +208,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
 
   } catch (error) {
     logger.error('Get user failed:', error);
-    res.status(500).json({ error: 'Failed to get user information' });
+          sendServerError(res, error, 'Failed to get user information');
   }
 });
 

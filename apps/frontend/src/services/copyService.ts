@@ -1,6 +1,8 @@
 // Universal copy service with button-based feedback
 // Provides elegant copy functionality across all DataAsk components
 
+import { logError } from './errorService'
+
 export interface CopyResult {
   success: boolean
   message: string
@@ -17,7 +19,7 @@ export const copyToClipboard = async (text: string, successMessage?: string): Pr
     const message = successMessage || 'Copied to clipboard!'
     return { success: true, message }
   } catch (error) {
-    console.error('Copy failed:', error)
+    logError('Copy failed', error, { operation: 'copyToClipboard' })
     return { success: false, message: 'Failed to copy to clipboard' }
   }
 }
@@ -51,7 +53,7 @@ export const copyTableAsCSV = async (data: Record<string, unknown>[], fields: Ar
     const csvContent = [headers, ...rows].join('\n')
     return await copyToClipboard(csvContent, `Copied ${data.length} rows as CSV`)
   } catch (error) {
-    console.error('CSV generation failed:', error)
+    logError('CSV generation failed', error, { operation: 'copyTableAsCSV' })
     return { success: false, message: 'Failed to generate CSV' }
   }
 }
@@ -79,7 +81,7 @@ export const copyTableAsTSV = async (data: Record<string, unknown>[], fields: Ar
     const tsvContent = [headers, ...rows].join('\n')
     return await copyToClipboard(tsvContent, `Copied ${data.length} rows as TSV`)
   } catch (error) {
-    console.error('TSV generation failed:', error)
+    logError('TSV generation failed', error, { operation: 'copyTableAsTSV' })
     return { success: false, message: 'Failed to generate TSV' }
   }
 }
@@ -135,13 +137,13 @@ export const copyChartAsImage = async (chartElement: HTMLElement): Promise<CopyR
           
           resolve({ success: true, message: 'Chart copied as image!' })
         } catch (error) {
-          console.error('Image copy failed:', error)
+          logError('Image copy failed', error, { operation: 'copyChartAsImage' })
           resolve({ success: false, message: 'Failed to copy chart image' })
         }
       }, 'image/png')
     })
   } catch (error) {
-    console.error('Chart capture failed:', error)
+    logError('Chart capture failed', error, { operation: 'copyChartAsImage' })
     return { success: false, message: 'Failed to capture chart' }
   }
 }

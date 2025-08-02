@@ -12,6 +12,7 @@ import {
   DatabaseField,
   DatabaseSchema
 } from '../types'
+import { api } from './api'
 
 const isElectron = () => {
   return typeof window !== 'undefined' && window.electronAPI
@@ -19,7 +20,6 @@ const isElectron = () => {
 
 // SQLite connection constants
 const SQLITE_CONNECTION_ID = 'sqlite_file' as const
-const HTTP_HEADERS = { 'Content-Type': 'application/json' } as const
 
 // For SQLite in Electron, we store the current file path instead of connection IDs
 let currentSQLiteFile: string | null = null
@@ -36,21 +36,18 @@ export const databaseService = {
       }
     } else {
       // Web mode or non-SQLite - use HTTP API
-      const response = await fetch(API_ENDPOINTS.DATABASE.TEST_CONNECTION, {
-        method: 'POST',
-        headers: HTTP_HEADERS,
-        body: JSON.stringify(config)
-      })
-      
-      if (!response.ok) {
-        const errorResult = await response.json().catch(() => ({ error: 'Unknown error' }))
+      try {
+        return await api.post<TestConnectionResponse>(
+          API_ENDPOINTS.DATABASE.TEST_CONNECTION,
+          config
+        )
+      } catch (error) {
         return {
           success: false,
-          message: errorResult.error || `Server error (${response.status}): ${response.statusText}`
+          message: (error as any)?.error || ERROR_MESSAGES.NETWORK_ERROR,
+          error: (error as any)?.error
         }
       }
-      
-      return await response.json()
     }
   },
 
@@ -70,18 +67,14 @@ export const databaseService = {
       }
     } else {
       // Web mode or non-SQLite - use HTTP API
-      const response = await fetch(API_ENDPOINTS.DATABASE.CREATE_CONNECTION, {
-        method: 'POST',
-        headers: HTTP_HEADERS,
-        body: JSON.stringify(config)
-      })
-      
-      if (!response.ok) {
-        const errorResult = await response.json().catch(() => ({ error: 'Unknown error' }))
-        return { error: errorResult.error || ERROR_MESSAGES.CONNECTION_FAILED }
+      try {
+        return await api.post<CreateConnectionResponse>(
+          API_ENDPOINTS.DATABASE.CREATE_CONNECTION,
+          config
+        )
+      } catch (error) {
+        return { error: (error as any)?.error || ERROR_MESSAGES.CONNECTION_FAILED }
       }
-      
-      return await response.json()
     }
   },
 
@@ -91,13 +84,11 @@ export const databaseService = {
       return await window.electronAPI!.sqlite.getSchema(currentSQLiteFile)
     } else {
       // Web mode or non-SQLite - use HTTP API
-      const response = await fetch(`/api/db/connections/${connectionId}/schema`)
-      
-      if (!response.ok) {
+      try {
+        return await api.get<SchemaResponse>(`/api/db/connections/${connectionId}/schema`)
+      } catch (error) {
         return { error: 'Failed to retrieve schema' }
       }
-      
-      return await response.json()
     }
   },
 
@@ -107,22 +98,14 @@ export const databaseService = {
       return await window.electronAPI!.sqlite.executeQuery(currentSQLiteFile, sql, params)
     } else {
       // Web mode or non-SQLite - use HTTP API
-      const response = await fetch(API_ENDPOINTS.DATABASE.EXECUTE_QUERY, {
-        method: 'POST',
-        headers: HTTP_HEADERS,
-        body: JSON.stringify({
-          connectionId,
-          sql,
-          params
-        })
-      })
-      
-      if (!response.ok) {
-        const errorResult = await response.json().catch(() => ({ error: ERROR_MESSAGES.QUERY_FAILED }))
-        return { error: errorResult.error || ERROR_MESSAGES.QUERY_FAILED }
+      try {
+        return await api.post<QueryResponse>(
+          API_ENDPOINTS.DATABASE.EXECUTE_QUERY,
+          { connectionId, sql, params }
+        )
+      } catch (error) {
+        return { error: (error as any)?.error || ERROR_MESSAGES.QUERY_FAILED }
       }
-      
-      return await response.json()
     }
   },
 
@@ -140,13 +123,11 @@ export const databaseService = {
       }
     } else {
       // Web mode - use HTTP API
-      const response = await fetch(API_ENDPOINTS.DATABASE.LIST_CONNECTIONS)
-      
-      if (!response.ok) {
+      try {
+        return await api.get<ConnectionListResponse>(API_ENDPOINTS.DATABASE.LIST_CONNECTIONS)
+      } catch (error) {
         return { connections: [] }
       }
-      
-      return await response.json()
     }
   },
 
@@ -158,15 +139,11 @@ export const databaseService = {
       return { message: 'SQLite file connection cleared' }
     } else {
       // Web mode - use HTTP API
-      const response = await fetch(`/api/db/connections/${connectionId}`, {
-        method: 'DELETE'
-      })
-      
-      if (!response.ok) {
+      try {
+        return await api.delete<{ message: string }>(`/api/db/connections/${connectionId}`)
+      } catch (error) {
         return { message: 'Failed to delete connection', error: 'HTTP error' }
       }
-      
-      return await response.json()
     }
   }
 }

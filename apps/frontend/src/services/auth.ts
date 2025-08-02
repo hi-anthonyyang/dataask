@@ -1,3 +1,5 @@
+import { handleAuthError, logInfo } from './errorService';
+
 interface User {
   id: string;
   email: string;
@@ -77,8 +79,8 @@ class AuthService {
 
       return result;
     } catch (error) {
-      console.error('Registration failed:', error);
-      throw error;
+      const message = handleAuthError(error, 'registration');
+      throw new Error(message);
     }
   }
 
@@ -107,8 +109,8 @@ class AuthService {
 
       return result;
     } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
+      const message = handleAuthError(error, 'login');
+      throw new Error(message);
     }
   }
 
@@ -125,7 +127,7 @@ class AuthService {
       this.user = null;
       this.notifyListeners();
     } catch (error) {
-      console.error('Logout failed:', error);
+      handleAuthError(error, 'logout');
       // Still clear local state even if server logout fails
       this.user = null;
       this.notifyListeners();
@@ -161,7 +163,7 @@ class AuthService {
 
       return result.user;
     } catch (error) {
-      console.error('Failed to get current user:', error);
+      handleAuthError(error, 'get current user');
       this.user = null;
       this.notifyListeners();
       return null;
@@ -190,7 +192,7 @@ class AuthService {
 
       return true;
     } catch (error) {
-      console.error('Token refresh failed:', error);
+      handleAuthError(error, 'token refresh');
       this.user = null;
       this.notifyListeners();
       return false;

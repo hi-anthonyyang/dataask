@@ -1,6 +1,7 @@
 // Local storage service for persisting app state (DBeaver-style)
 import CryptoJS from 'crypto-js'
 import { STORAGE_KEYS, DATABASE_TYPES } from '../utils/constants'
+import { logWarning } from './errorService'
 
 // Secure encryption key derivation
 const getEncryptionKey = (): string => {
@@ -103,7 +104,7 @@ class StorageService {
         lastConnected: conn.lastConnected ? new Date(conn.lastConnected) : undefined
       }))
     } catch (error) {
-      console.warn('Failed to load connections:', error)
+      logWarning('Failed to load connections', { operation: 'loadConnections' })
       return []
     }
   }
@@ -133,7 +134,7 @@ class StorageService {
       
       localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections))
     } catch (error) {
-      console.warn('Failed to save connection:', error)
+      logWarning('Failed to save connection', { operation: 'saveConnection', connectionId: connection.id })
     }
   }
   
@@ -142,7 +143,7 @@ class StorageService {
       const connections = this.getConnections().filter(c => c.id !== connectionId)
       localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections))
     } catch (error) {
-      console.warn('Failed to remove connection:', error)
+      logWarning('Failed to remove connection', { operation: 'removeConnection', connectionId })
     }
   }
   
@@ -155,7 +156,7 @@ class StorageService {
         this.saveConnection(connection)
       }
     } catch (error) {
-      console.warn('Failed to update connection timestamp:', error)
+      logWarning('Failed to update connection timestamp', { operation: 'updateConnectionTimestamp', connectionId })
     }
   }
   
@@ -166,7 +167,7 @@ class StorageService {
       const newState = { ...currentState, ...state }
       localStorage.setItem(STORAGE_KEYS.APP_STATE, JSON.stringify(newState))
     } catch (error) {
-      console.warn('Failed to save app state:', error)
+      logWarning('Failed to save app state', { operation: 'saveAppState' })
     }
   }
   
@@ -187,7 +188,7 @@ class StorageService {
       
       return { ...this.getDefaultAppState(), ...state }
     } catch (error) {
-      console.warn('Failed to load app state:', error)
+      logWarning('Failed to load app state', { operation: 'getAppState' })
       return this.getDefaultAppState()
     }
   }
@@ -221,7 +222,7 @@ class StorageService {
       
       this.saveAppState({ queryHistory: state.queryHistory })
     } catch (error) {
-      console.warn('Failed to save query to history:', error)
+      logWarning('Failed to save query to history', { operation: 'saveQueryToHistory', connectionId })
     }
   }
   
@@ -233,7 +234,7 @@ class StorageService {
         .map(h => ({ query: h.query, timestamp: h.timestamp }))
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
     } catch (error) {
-      console.warn('Failed to load query history:', error)
+      logWarning('Failed to load query history', { operation: 'getQueryHistory', connectionId })
       return []
     }
   }
@@ -244,7 +245,7 @@ class StorageService {
       localStorage.removeItem(STORAGE_KEYS.CONNECTIONS)
       localStorage.removeItem(STORAGE_KEYS.APP_STATE)
     } catch (error) {
-      console.warn('Failed to clear storage:', error)
+      logWarning('Failed to clear storage', { operation: 'clearAll' })
     }
   }
   
@@ -264,7 +265,7 @@ class StorageService {
       }))
       return JSON.stringify(exportData, null, 2)
     } catch (error) {
-      console.warn('Failed to export connections:', error)
+      logWarning('Failed to export connections', { operation: 'exportConnections' })
       return '[]'
     }
   }

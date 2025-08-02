@@ -14,6 +14,11 @@ import {
   FileImportResponse,
   ColumnType
 } from '../types';
+import {
+  handleZodError,
+  sendBadRequest,
+  sendServerError
+} from '../utils/errors';
 
 const router = express.Router();
 
@@ -60,14 +65,12 @@ const handleMulterError = (err: Error & { code?: string }, req: express.Request,
   if (err) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       const maxSize = Math.round((50 * 1024 * 1024) / (1024 * 1024)); // Convert to MB
-      return res.status(400).json({ 
-        error: `File too large. Maximum size is ${maxSize}MB. Please compress your file or split it into smaller parts.` 
-      });
+      return sendBadRequest(res, `File too large. Maximum size is ${maxSize}MB. Please compress your file or split it into smaller parts.`);
     }
     if (err.message.includes('Invalid file type')) {
-      return res.status(400).json({ error: err.message });
+      return sendBadRequest(res, err.message);
     }
-    return res.status(400).json({ error: err.message || 'File upload failed' });
+          return sendBadRequest(res, err.message || 'File upload failed');
   }
   next();
 };
@@ -76,7 +79,7 @@ const handleMulterError = (err: Error & { code?: string }, req: express.Request,
 router.post('/upload', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded. Please select a file and try again.' });
+      return sendBadRequest(res, 'No file uploaded. Please select a file and try again.');
     }
 
     const filePath = req.file.path;

@@ -19,6 +19,11 @@ export interface ApiError {
 export class ApiService {
   private static async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
+      // Special handling for 401 - let it bubble up for token refresh
+      if (response.status === 401) {
+        throw { status: 401, error: 'Unauthorized' };
+      }
+      
       let errorData: ApiError;
       try {
         errorData = await response.json();
@@ -103,6 +108,37 @@ export class ApiService {
     });
 
     return this.handleResponse<T>(response);
+  }
+
+  /**
+   * Make an API request with automatic token refresh on 401
+   */
+  static async request<T>(
+    url: string,
+    options: RequestInit & { refreshToken?: () => Promise<boolean> }
+  ): Promise<T> {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        credentials: 'include'
+      });
+      
+      return this.handleResponse<T>(response);
+    } catch (error: any) {
+      // If unauthorized and we have a refresh function, try to refresh
+      if (error?.status === 401 && options.refreshToken) {
+        const refreshed = await options.refreshToken();
+        if (refreshed) {
+          // Retry the original request
+          const retryResponse = await fetch(url, {
+            ...options,
+            credentials: 'include'
+          });
+          return this.handleResponse<T>(retryResponse);
+        }
+      }
+      throw error;
+    }
   }
 }
 
