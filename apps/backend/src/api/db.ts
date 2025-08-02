@@ -27,19 +27,13 @@ import {
 const router = Router();
 
 // Database types enum for validation
-const DATABASE_TYPES: DatabaseType[] = ['postgresql', 'sqlite', 'mysql'];
+const DATABASE_TYPES: DatabaseType[] = ['sqlite'];
 
 // Connection schema validation
 const ConnectionSchema = z.object({
   type: z.enum(DATABASE_TYPES),
   name: z.string().min(1),
   config: z.object({
-    // PostgreSQL and MySQL config
-    host: z.string().optional(),
-    port: z.number().optional(),
-    database: z.string().optional(),
-    username: z.string().optional(),
-    password: z.string().optional(),
     // SQLite config
     filename: z.string().optional(),
   })

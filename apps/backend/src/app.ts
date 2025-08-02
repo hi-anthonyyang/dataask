@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { Pool } from 'pg';
+// import { Pool } from 'pg'; // Removed PostgreSQL support
 import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
 import { createAuthRouter } from './api/auth';

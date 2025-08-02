@@ -170,14 +170,10 @@ class AuthFlowTester {
   async testCreateConnection(): Promise<string | null> {
     try {
       const connectionData = {
-        name: 'Test PostgreSQL Connection',
-        type: 'postgresql',
+              name: 'Test SQLite Connection',
+      type: 'sqlite',
         config: {
-          host: 'localhost',
-          port: 5432,
-          database: 'testdb',
-          username: 'testuser',
-          password: 'testpass123',
+          filename: '/tmp/test.db',
         },
       };
 

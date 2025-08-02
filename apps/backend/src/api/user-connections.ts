@@ -21,34 +21,10 @@ let userService: UserService;
 // Validation schemas
 const CreateConnectionSchema = z.object({
   name: z.string().min(1).max(255),
-  type: z.enum(['postgresql', 'mysql', 'sqlite']),
+  type: z.enum(['sqlite']),
   config: z.object({
-    // PostgreSQL & MySQL
-    host: z.string().optional(),
-    port: z.number().min(1).max(65535).optional(),
-    database: z.string().optional(),
-    username: z.string().optional(),
-    password: z.string().optional(),
     // SQLite
     filename: z.string().optional(),
-    // SSL Configuration
-    sslEnabled: z.boolean().optional(),
-    sslMode: z.enum(['require', 'prefer', 'allow', 'disable']).optional(),
-    sslCa: z.string().optional(),
-    sslCert: z.string().optional(),
-    sslKey: z.string().optional(),
-    sslRejectUnauthorized: z.boolean().optional(),
-    // Connection Timeouts
-    connectionTimeout: z.number().min(1000).max(300000).optional(), // 1s to 5min
-    queryTimeout: z.number().min(1000).max(3600000).optional(), // 1s to 1hour
-    // SSH Tunnel Configuration
-    sshEnabled: z.boolean().optional(),
-    sshHost: z.string().optional(),
-    sshPort: z.number().min(1).max(65535).optional(),
-    sshUsername: z.string().optional(),
-    sshPassword: z.string().optional(),
-    sshPrivateKey: z.string().optional(),
-    sshPassphrase: z.string().optional(),
   })
 });
 
@@ -142,15 +118,9 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
 
     const connectionData = CreateConnectionSchema.parse(req.body);
 
-    // Validate required fields based on connection type
-    if (connectionData.type === 'sqlite') {
-      if (!connectionData.config.filename) {
-        return res.status(400).json({ error: 'SQLite filename is required' });
-      }
-    } else {
-      if (!connectionData.config.host || !connectionData.config.database) {
-        return res.status(400).json({ error: 'Host and database are required for PostgreSQL/MySQL connections' });
-      }
+    // Validate required fields
+    if (!connectionData.config.filename) {
+      return res.status(400).json({ error: 'SQLite filename is required' });
     }
 
     const connection = await userService.createConnection(req.user.id, connectionData);
@@ -207,15 +177,9 @@ router.put('/:connectionId', async (req: AuthenticatedRequest, res) => {
     const { connectionId } = req.params;
     const connectionData = UpdateConnectionSchema.parse(req.body);
 
-    // Validate required fields based on connection type
-    if (connectionData.type === 'sqlite') {
-      if (!connectionData.config.filename) {
-        return res.status(400).json({ error: 'SQLite filename is required' });
-      }
-    } else {
-      if (!connectionData.config.host || !connectionData.config.database) {
-        return res.status(400).json({ error: 'Host and database are required for PostgreSQL/MySQL connections' });
-      }
+    // Validate required fields
+    if (!connectionData.config.filename) {
+      return res.status(400).json({ error: 'SQLite filename is required' });
     }
 
     const connection = await userService.updateConnection(req.user.id, connectionId, connectionData);

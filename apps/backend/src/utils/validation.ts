@@ -82,17 +82,11 @@ export function sanitizeTableName(tableName: string): string {
 /**
  * Quote table name for SQL
  */
-export function quoteTableName(tableName: string, dbType: 'postgresql' | 'mysql' | 'sqlite'): string {
+export function quoteTableName(tableName: string, dbType: 'sqlite'): string {
   const sanitized = sanitizeTableName(tableName);
   
-  switch (dbType) {
-    case 'mysql':
-      return `\`${sanitized}\``;
-    case 'postgresql':
-    case 'sqlite':
-    default:
-      return `"${sanitized}"`;
-  }
+  // SQLite uses double quotes for identifiers
+  return `"${sanitized}"`;
 }
 
 /**
@@ -211,35 +205,11 @@ export function convertValueToType(value: unknown, type: ColumnType): unknown {
  * Connection configuration validation
  */
 export const ConnectionConfigSchema = z.object({
-  type: z.enum(['postgresql', 'mysql', 'sqlite']),
+  type: z.enum(['sqlite']),
   name: z.string().min(1).max(255),
   config: z.object({
-    // PostgreSQL & MySQL
-    host: z.string().optional(),
-    port: z.number().optional(),
-    database: z.string().optional(),
-    username: z.string().optional(),
-    password: z.string().optional(),
     // SQLite
     filename: z.string().optional(),
-    // SSL Configuration
-    sslEnabled: z.boolean().optional(),
-    sslMode: z.enum(['require', 'prefer', 'allow', 'disable']).optional(),
-    sslCa: z.string().optional(),
-    sslCert: z.string().optional(),
-    sslKey: z.string().optional(),
-    sslRejectUnauthorized: z.boolean().optional(),
-    // Connection Timeouts
-    connectionTimeout: z.number().optional(),
-    queryTimeout: z.number().optional(),
-    // SSH Tunnel Configuration
-    sshEnabled: z.boolean().optional(),
-    sshHost: z.string().optional(),
-    sshPort: z.number().optional(),
-    sshUsername: z.string().optional(),
-    sshPassword: z.string().optional(),
-    sshPrivateKey: z.string().optional(),
-    sshPassphrase: z.string().optional(),
   })
 });
 

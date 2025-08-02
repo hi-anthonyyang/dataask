@@ -83,20 +83,11 @@ const SUSPICIOUS_KEYWORDS = [
  * This covers MySQL, PostgreSQL, SQLite, and common SQL standards
  */
 const DATABASE_SAFE_CHARACTERS = {
-  // Core SQL characters (all databases) - includes basic math operators
+  // Core SQL characters - includes basic math operators
   core: '`%$[]@#|&~*/\\^+-',
   
-  // MySQL specific
-  mysql: '`%',
-  
-  // PostgreSQL specific  
-  postgresql: '$::|~#',
-  
   // SQLite specific
-  sqlite: '[]`',
-  
-  // SQL Server (for future expansion)
-  sqlserver: '[]@#'
+  sqlite: '[]`'
 };
 
 /**
@@ -146,59 +137,12 @@ function appearsToBeSQLQuery(input: string): boolean {
 
 // Database-specific rules for safe SQL generation
 const getDatabaseSpecificRules = (connectionType: string) => {
-  switch (connectionType.toLowerCase()) {
-    case 'mysql':
-      return `🚨 CRITICAL: You are generating MySQL SQL ONLY. PostgreSQL syntax is FORBIDDEN.
-
-⚠️ NEVER USE THESE POSTGRESQL FUNCTIONS IN MYSQL:
-- ❌ DATE_TRUNC() → ✅ Use DATE_FORMAT() instead
-- ❌ EXTRACT() → ✅ Use YEAR(), MONTH(), DAY() instead  
-- ❌ string_agg() → ✅ Use GROUP_CONCAT() instead
-- ❌ INTERVAL '1 year' → ✅ Use INTERVAL 1 YEAR instead
-
-✅ CORRECT MYSQL SYNTAX:
-DATE/TIME FUNCTIONS:
-- ✅ DATE_FORMAT(date, '%Y-%m-01') for month grouping
-- ✅ DATE_FORMAT(date, '%Y-01-01') for year grouping  
-- ✅ DATE_SUB(NOW(), INTERVAL 1 YEAR) for time intervals
-- ✅ DATE_ADD(date, INTERVAL 1 MONTH) for date arithmetic
-- ✅ YEAR(date), MONTH(date), DAY(date) for date extraction
-- ✅ NOW() or CURRENT_TIMESTAMP for current time
-
-IDENTIFIERS:
-- ✅ Use backticks (\`) for table/column names if needed
-- ✅ Example: \`table_name\`, \`column name\`
-
-AGGREGATION:
-- ✅ COUNT(*), SUM(), AVG(), MAX(), MIN() as in standard SQL
-- ✅ GROUP_CONCAT(column SEPARATOR ', ') for string aggregation
-
-LIMITS:
-- ✅ Use LIMIT clause at the end: SELECT ... FROM ... WHERE ... LIMIT 100
-
-JOINS:
-- ✅ Standard JOIN syntax: FROM table1 JOIN table2 ON table1.id = table2.id
-- ✅ LEFT JOIN, RIGHT JOIN, INNER JOIN as needed
-
-SUBQUERIES:
-- ✅ Standard subquery syntax with parentheses
-
-WINDOW FUNCTIONS:
-- ✅ ROW_NUMBER(), RANK(), DENSE_RANK() with OVER() clause
-
-🚨 REMEMBER: You are generating MySQL syntax ONLY. PostgreSQL functions are WRONG for MySQL.`;
-    case 'postgresql':
-      return `- Use DATE_TRUNC('month', date) for month grouping
-- Use INTERVAL '1 year' for time intervals
-- Use double quotes (") for table/column names if needed`;
-    case 'sqlite':
-      return `- Use strftime('%Y-%m', date) for month grouping
+  // Only SQLite is supported now
+  return `- Use strftime('%Y-%m', date) for month grouping
 - Use datetime('now', '-1 year') for time intervals
-- Use square brackets ([]) for table/column names if needed`;
-    default:
-      return `- Use DATE_TRUNC('month', date) for month grouping
-- Use INTERVAL '1 year' for time intervals`;
-  }
+- Use square brackets ([]) or double quotes (") for table/column names if needed
+- Use CAST() for type conversions
+- Remember SQLite is case-insensitive for LIKE comparisons`;
 };
 
 // Safe prompt construction templates

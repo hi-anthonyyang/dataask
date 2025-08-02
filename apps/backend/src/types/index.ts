@@ -249,15 +249,7 @@ export interface ImportProgress {
   error?: string;
 }
 
-// SSH Tunnel Types
-export interface SSHTunnelConfig {
-  host: string;
-  port: number;
-  username: string;
-  password?: string;
-  privateKey?: string;
-  passphrase?: string;
-}
+// SSH Tunnel Types - removed (no longer supported)
 
 // Rate Limit Types
 export interface RateLimitConfig {

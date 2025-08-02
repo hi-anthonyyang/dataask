@@ -1,18 +1,6 @@
 // Database connection constants
 export const DB_CONSTANTS = {
-  DEFAULT_PORT: {
-    POSTGRESQL: 5432,
-    MYSQL: 3306,
-  },
-  DEFAULT_HOST: 'localhost',
-  DEFAULT_DATABASE: 'dataask_dev',
-  DEFAULT_USER: 'dataask_user',
-  DEFAULT_PASSWORD: 'dataask_dev_password',
-  POOL: {
-    MAX_CONNECTIONS: 20,
-    IDLE_TIMEOUT_MS: 30000,
-    CONNECTION_TIMEOUT_MS: 10000,
-  },
+  CONNECTION_TIMEOUT_MS: 10000,
 } as const;
 
 // API response messages

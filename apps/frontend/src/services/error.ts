@@ -130,8 +130,6 @@ class ErrorService {
     // Add connection-specific guidance
     if (connectionType === 'sqlite' && baseMessage.includes('connect')) {
       return `${baseMessage} For SQLite, ensure the file path is correct and the file exists.`;
-    } else if ((connectionType === 'postgresql' || connectionType === 'mysql') && baseMessage.includes('connect')) {
-      return `${baseMessage} Ensure the database server is running and accessible.`;
     }
     
     return baseMessage;
