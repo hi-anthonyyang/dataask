@@ -80,14 +80,14 @@ class DatabaseManager {
         const connections: DatabaseConnectionConfig[] = JSON.parse(data);
         
         for (const config of connections) {
-          if (config.type === 'sqlite' && config.config?.filename) {
+          if (config.type === 'sqlite' && config.filename) {
             try {
               // Verify file exists
-              if (fs.existsSync(config.config.filename)) {
+              if (fs.existsSync(config.filename)) {
                 this.connectionConfigs.set(config.id, config);
                 logger.info(`Loaded persisted SQLite connection: ${config.name}`);
               } else {
-                logger.warn(`SQLite file not found for connection ${config.name}: ${config.config.filename}`);
+                logger.warn(`SQLite file not found for connection ${config.name}: ${config.filename}`);
               }
             } catch (error) {
               logger.error(`Failed to load connection ${config.name}:`, error);
@@ -260,7 +260,9 @@ class DatabaseManager {
         id,
         name: config.name,
         type: config.type,
-        config: config.config
+        config: {
+          filename: config.filename
+        }
       });
     }
 
@@ -297,17 +299,17 @@ class DatabaseManager {
   // SQLite-specific methods
 
   private async testSQLiteConnection(config: ConnectionConfig): Promise<boolean> {
-    if (!config.config?.filename) {
+    if (!config.filename) {
       throw new Error('SQLite filename is required');
     }
 
     // Check if file exists
-    if (!fs.existsSync(config.config.filename)) {
-      throw new Error(`SQLite file not found: ${config.config.filename}`);
+    if (!fs.existsSync(config.filename)) {
+      throw new Error(`SQLite file not found: ${config.filename}`);
     }
 
     return new Promise((resolve) => {
-      const db = new sqlite3.Database(config.config!.filename!, sqlite3.OPEN_READONLY, (err) => {
+      const db = new sqlite3.Database(config.filename!, sqlite3.OPEN_READONLY, (err) => {
         if (err) {
           logger.error('SQLite connection test failed:', err);
           resolve(false);
@@ -324,12 +326,12 @@ class DatabaseManager {
   }
 
   private async createSQLiteConnection(config: DatabaseConnectionConfig): Promise<sqlite3.Database> {
-    if (!config.config?.filename) {
+    if (!config.filename) {
       throw new Error('SQLite filename is required');
     }
 
     return new Promise((resolve, reject) => {
-      const db = new sqlite3.Database(config.config!.filename!, (err) => {
+      const db = new sqlite3.Database(config.filename!, (err) => {
         if (err) {
           reject(err);
         } else {
@@ -365,7 +367,7 @@ class DatabaseManager {
           } else {
             // Get column info from the first row
             const fields: DatabaseField[] = rows.length > 0
-              ? Object.keys(rows[0]).map(name => ({ name, type: 'TEXT' }))
+              ? Object.keys(rows[0] as any).map(name => ({ name, type: 'TEXT' }))
               : [];
 
             resolve({

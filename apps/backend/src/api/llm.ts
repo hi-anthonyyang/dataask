@@ -124,7 +124,7 @@ const validateAndSanitizeResponse = (
 };
 
 // Legacy MySQL-specific SQL validation - no longer used
-// const validateAndCorrectMySQLSyntax = (sql: string): string => {
+/* const validateAndCorrectMySQLSyntax = (sql: string): string => {
   let correctedSQL = sql;
   
   // Common PostgreSQL to MySQL conversions

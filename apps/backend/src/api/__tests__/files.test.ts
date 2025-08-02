@@ -206,7 +206,7 @@ describe('File Import API', () => {
         if (query.includes('INSERT INTO')) {
           throw new Error('Insert failed');
         }
-        return Promise.resolve({ rows: [], fields: [], rowCount: 0 });
+        return Promise.resolve({ rows: [], fields: [], rowCount: 0, executionTime: 0 });
       });
 
       const testCSV = 'Column1\nValue1';
