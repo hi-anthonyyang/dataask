@@ -26,7 +26,7 @@ export interface ErrorResponse {
 export interface DatabaseErrorInfo {
   code?: string;
   message: string;
-  originalError?: any;
+  originalError?: Error | unknown;
 }
 
 /**
@@ -133,7 +133,7 @@ export function createErrorResponse(
   };
   
   if (error instanceof Error && 'code' in error) {
-    response.code = (error as any).code;
+    response.code = (error as Error & { code?: string }).code;
     response.type = 'database_error';
   }
   
@@ -145,4 +145,44 @@ export function createErrorResponse(
   }
   
   return response;
+}
+
+/**
+ * Standard error response functions for consistent API error handling
+ */
+
+export function sendBadRequest(res: Response, message: string, details?: unknown): Response {
+  logger.warn(`Bad request: ${message}`, details);
+  return res.status(400).json({ error: message });
+}
+
+export function sendUnauthorized(res: Response, message = 'Unauthorized'): Response {
+  logger.warn(`Unauthorized access attempt: ${message}`);
+  return res.status(401).json({ error: message });
+}
+
+export function sendForbidden(res: Response, message = 'Forbidden'): Response {
+  logger.warn(`Forbidden access attempt: ${message}`);
+  return res.status(403).json({ error: message });
+}
+
+export function sendNotFound(res: Response, resource: string): Response {
+  const message = `${resource} not found`;
+  logger.warn(message);
+  return res.status(404).json({ error: message });
+}
+
+export function sendConflict(res: Response, message: string): Response {
+  logger.warn(`Conflict: ${message}`);
+  return res.status(409).json({ error: message });
+}
+
+export function sendServerError(res: Response, error: unknown, message: string, details?: unknown): Response {
+  logger.error(`${message}:`, error, details);
+  
+  // In production, don't expose internal error details
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const errorMessage = isDevelopment && error instanceof Error ? error.message : message;
+  
+  return res.status(500).json({ error: errorMessage });
 }

@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
 import { createAuthRouter } from './api/auth';
-import { createUserConnectionsRouter } from './api/userConnections';
+import { createUserConnectionsRouter } from './api/user-connections';
 import filesRouter from './api/files';
 import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';
@@ -174,7 +174,7 @@ app.get('/health/db', async (req, res) => {
 });
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error & { statusCode?: number; status?: number }, req: express.Request, res: express.Response, next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
   
   // Don't expose internal errors in production

@@ -4,6 +4,14 @@ import { Pool } from 'pg';
 import { UserService, CreateConnectionData } from '../utils/userService';
 import { authenticateToken, AuthenticatedRequest } from '../utils/auth';
 import { logger } from '../utils/logger';
+import {
+  handleZodError,
+  sendBadRequest,
+  sendUnauthorized,
+  sendNotFound,
+  sendConflict,
+  sendServerError
+} from '../utils/errors';
 
 const router = Router();
 
@@ -53,7 +61,7 @@ router.use(authenticateToken);
 router.get('/', async (req: AuthenticatedRequest, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return sendUnauthorized(res, 'User not authenticated');
     }
 
     const connections = await userService.getUserConnections(req.user.id);
@@ -81,7 +89,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 
   } catch (error) {
     logger.error('Failed to get user connections:', error);
-    res.status(500).json({ error: 'Failed to retrieve connections' });
+    sendServerError(res, error, 'Failed to retrieve connections');
   }
 });
 
@@ -89,14 +97,14 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 router.get('/:connectionId', async (req: AuthenticatedRequest, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return sendUnauthorized(res, 'User not authenticated');
     }
 
     const { connectionId } = req.params;
     const connection = await userService.getUserConnection(req.user.id, connectionId);
 
     if (!connection) {
-      return res.status(404).json({ error: 'Connection not found' });
+      return sendNotFound(res, 'Connection');
     }
 
     // Remove sensitive data from response

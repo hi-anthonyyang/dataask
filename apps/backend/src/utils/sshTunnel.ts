@@ -90,7 +90,7 @@ export class SSHTunnelManager {
       });
 
       // Prepare connection config
-      const connectConfig: any = {
+      const connectConfig: Record<string, unknown> = {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
@@ -182,7 +182,7 @@ export class SSHTunnelManager {
       });
 
       // Same connection logic as createTunnel
-      const connectConfig: any = {
+      const connectConfig: Record<string, unknown> = {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,

@@ -12,7 +12,7 @@ interface QueryResultField {
 }
 
 interface QueryResult {
-  rows: Record<string, any>[];
+  rows: Record<string, unknown>[];
   fields: QueryResultField[];
   rowCount: number;
   executionTime?: number;

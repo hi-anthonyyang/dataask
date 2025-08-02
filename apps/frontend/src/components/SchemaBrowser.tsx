@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight, ChevronLeft, Database, Table, Columns, Plus, Trash2, Edit, User, LogOut } from 'lucide-react'
 import { Connection } from '../types'
-import { databaseService } from '../services/databaseService'
+import { databaseService } from '../services/database'
 
 interface SchemaTable {
   name: string

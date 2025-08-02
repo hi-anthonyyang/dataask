@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 interface CachedResponse {
-  data: any;
+  data: unknown;
   timestamp: number;
   ttl: number; // Time to live in milliseconds
 }
@@ -19,7 +19,7 @@ class LLMCache {
     return crypto.createHash('sha256').update(combined.toLowerCase().trim()).digest('hex');
   }
 
-  set(key: string, data: any, ttl: number = this.DEFAULT_TTL): void {
+  set(key: string, data: unknown, ttl: number = this.DEFAULT_TTL): void {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
@@ -32,7 +32,7 @@ class LLMCache {
     }
   }
 
-  get(key: string): any | null {
+  get(key: string): unknown | null {
     const cached = this.cache.get(key);
     
     if (!cached) {

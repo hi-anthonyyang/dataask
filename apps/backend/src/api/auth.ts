@@ -5,6 +5,14 @@ import { UserService, CreateUserData } from '../utils/userService';
 import { AuthService, authenticateToken, AuthenticatedRequest } from '../utils/auth';
 import { logger } from '../utils/logger';
 import { applyRateLimiting } from '../security/rateLimiter';
+import { 
+  handleZodError,
+  sendBadRequest,
+  sendUnauthorized,
+  sendNotFound,
+  sendConflict,
+  sendServerError
+} from '../utils/errors';
 
 const router = Router();
 
@@ -60,15 +68,15 @@ router.post('/register', async (req, res) => {
 
     if (error instanceof Error) {
       if (error.message.includes('already exists')) {
-        return res.status(409).json({ error: 'User already exists with this email' });
+        return sendConflict(res, 'User already exists with this email');
       }
       
       if (error.message.includes('Password validation failed')) {
-        return res.status(400).json({ error: error.message });
+        return sendBadRequest(res, error.message);
       }
     }
 
-    res.status(500).json({ error: 'Registration failed' });
+          sendServerError(res, error, 'Registration failed');
   }
 });
 
@@ -82,7 +90,7 @@ router.post('/login', async (req, res) => {
 
     if (!user) {
       // Use generic message to prevent email enumeration
-      return res.status(401).json({ error: 'Invalid email or password' });
+      return sendUnauthorized(res, 'Invalid email or password');
     }
 
     // Generate tokens
@@ -113,7 +121,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    res.status(500).json({ error: 'Login failed' });
+          sendServerError(res, error, 'Login failed');
   }
 });
 
@@ -126,7 +134,7 @@ router.post('/logout', (req, res) => {
     res.json({ message: 'Logout successful' });
   } catch (error) {
     logger.error('Logout failed:', error);
-    res.status(500).json({ error: 'Logout failed' });
+          sendServerError(res, error, 'Logout failed');
   }
 });
 
@@ -136,7 +144,7 @@ router.post('/refresh', async (req, res) => {
     const refreshToken = req.cookies.refreshToken;
 
     if (!refreshToken) {
-      return res.status(401).json({ error: 'Refresh token required' });
+      return sendUnauthorized(res, 'Refresh token required');
     }
 
     // Verify refresh token
@@ -146,7 +154,7 @@ router.post('/refresh', async (req, res) => {
     const user = await userService.getUserById(payload.userId);
 
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+              return sendUnauthorized(res, 'User not found');
     }
 
     // Generate new tokens
@@ -170,7 +178,7 @@ router.post('/refresh', async (req, res) => {
     // Clear cookies on refresh failure
     AuthService.clearAuthCookies(res);
     
-    res.status(401).json({ error: 'Invalid or expired refresh token' });
+          sendUnauthorized(res, 'Invalid or expired refresh token');
   }
 });
 
@@ -178,14 +186,14 @@ router.post('/refresh', async (req, res) => {
 router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      return sendUnauthorized(res, 'User not authenticated');
     }
 
     // Get fresh user data from database
     const user = await userService.getUserById(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+              return sendNotFound(res, 'User');
     }
 
     res.json({
@@ -200,7 +208,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res) => {
 
   } catch (error) {
     logger.error('Get user failed:', error);
-    res.status(500).json({ error: 'Failed to get user information' });
+          sendServerError(res, error, 'Failed to get user information');
   }
 });
 

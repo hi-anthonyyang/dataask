@@ -7,6 +7,24 @@ import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { DatabaseManager } from '../utils/database';
+import {
+  FileImportColumn,
+  FileImportConfig,
+  FileImportProgress,
+  FileImportResponse,
+  ColumnType
+} from '../types';
+import {
+  handleZodError,
+  sendBadRequest,
+  sendServerError
+} from '../utils/errors';
+import {
+  detectColumnType,
+  convertValueToType,
+  isValidDate,
+  sanitizeTableName
+} from '../utils/validation';
 
 const router = express.Router();
 
@@ -49,18 +67,16 @@ const ImportRequestSchema = z.object({
 });
 
 // Error handling middleware for multer
-const handleMulterError = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+const handleMulterError = (err: Error & { code?: string }, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       const maxSize = Math.round((50 * 1024 * 1024) / (1024 * 1024)); // Convert to MB
-      return res.status(400).json({ 
-        error: `File too large. Maximum size is ${maxSize}MB. Please compress your file or split it into smaller parts.` 
-      });
+      return sendBadRequest(res, `File too large. Maximum size is ${maxSize}MB. Please compress your file or split it into smaller parts.`);
     }
     if (err.message.includes('Invalid file type')) {
-      return res.status(400).json({ error: err.message });
+      return sendBadRequest(res, err.message);
     }
-    return res.status(400).json({ error: err.message || 'File upload failed' });
+          return sendBadRequest(res, err.message || 'File upload failed');
   }
   next();
 };
@@ -69,7 +85,7 @@ const handleMulterError = (err: any, req: express.Request, res: express.Response
 router.post('/upload', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded. Please select a file and try again.' });
+      return sendBadRequest(res, 'No file uploaded. Please select a file and try again.');
     }
 
     const filePath = req.file.path;
@@ -128,7 +144,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
 
     // Auto-detect column types
     const columns = headers.map((header, index) => {
-      const columnData = dataRows.map(row => (row as any[])[index]).filter(val => val != null && val !== '');
+      const columnData = dataRows.map(row => (row as unknown[])[index]).filter(val => val != null && val !== '');
       const detectedType = detectColumnType(columnData);
       
       return {
@@ -219,7 +235,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
 
     // Auto-detect column types
     const columns = headers.map((header, index) => {
-      const columnData = dataRows.slice(0, 100).map(row => (row as any[])[index]);
+              const columnData = dataRows.slice(0, 100).map(row => (row as unknown[])[index]);
       return {
         name: header,
         type: detectColumnType(columnData),
@@ -271,7 +287,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
         
         for (const row of batch) {
           const values = columns.map((col, index) => {
-            const value = (row as any[])[index];
+            const value = (row as unknown[])[index];
             return convertValueToType(value, col.type);
           });
           
@@ -392,7 +408,7 @@ router.post('/import-old', async (req, res) => {
     // Prepare data rows for bulk insert
     const preparedRows = dataRows.map(row => {
       return columns.map((col, index) => {
-        const value = (row as any[])[index];
+        const value = (row as unknown[])[index];
         return convertValueToType(value, col.type);
       });
     });
@@ -435,65 +451,8 @@ router.post('/import-old', async (req, res) => {
   }
 });
 
-// Utility functions
-function detectColumnType(values: any[]): 'TEXT' | 'INTEGER' | 'REAL' | 'DATE' {
-  if (values.length === 0) return 'TEXT';
 
-  let integerCount = 0;
-  let realCount = 0;
-  let dateCount = 0;
-  
-  for (const value of values) {
-    const strValue = String(value).trim();
-    
-    // Check for integer
-    if (/^-?\d+$/.test(strValue)) {
-      integerCount++;
-    }
-    // Check for real number
-    else if (/^-?\d*\.?\d+([eE][+-]?\d+)?$/.test(strValue)) {
-      realCount++;
-    }
-    // Check for date
-    else if (isValidDate(strValue)) {
-      dateCount++;
-    }
-  }
 
-  const total = values.length;
-  // For small datasets, require 100% consistency to prevent edge cases with mixed types
-  // This prevents cases like ['1', '2', '3', '4', 'five'] being detected as INTEGER
-  const threshold = values.length < 5 ? 1.0 : 0.8;
 
-  if (dateCount / total >= threshold) return 'DATE';
-  if (integerCount / total >= threshold) return 'INTEGER';
-  if ((integerCount + realCount) / total >= threshold) return 'REAL';
-  
-  return 'TEXT';
-}
-
-function isValidDate(value: string): boolean {
-  const date = new Date(value);
-  return !isNaN(date.getTime()) && value.length > 6; // Avoid matching simple numbers
-}
-
-function convertValueToType(value: any, type: 'TEXT' | 'INTEGER' | 'REAL' | 'DATE'): any {
-  if (value == null || value === '') return null;
-
-  switch (type) {
-    case 'INTEGER':
-      const intValue = parseInt(String(value));
-      return isNaN(intValue) ? null : intValue;
-    case 'REAL':
-      const realValue = parseFloat(String(value));
-      return isNaN(realValue) ? null : realValue;
-    case 'DATE':
-      const dateValue = new Date(String(value));
-      return isNaN(dateValue.getTime()) ? String(value) : dateValue.toISOString();
-    case 'TEXT':
-    default:
-      return String(value);
-  }
-}
 
 export default router;

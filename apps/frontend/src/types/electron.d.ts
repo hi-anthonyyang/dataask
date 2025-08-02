@@ -1,4 +1,5 @@
 // TypeScript declarations for Electron APIs exposed via preload script
+import type { DatabaseSchema, DatabaseField } from './index'
 
 interface ElectronAPI {
   platform: string
@@ -32,13 +33,13 @@ interface ElectronAPI {
       error?: string
     }>
     getSchema: (filePath: string) => Promise<{
-      schema?: { tables: any[] }
+      schema?: DatabaseSchema
       error?: string
     }>
-    executeQuery: (filePath: string, sql: string, params?: any[]) => Promise<{
-      data?: any[]
-      rowCount?: number
-      fields?: any[]
+          executeQuery: (filePath: string, sql: string, params?: unknown[]) => Promise<{
+        data?: Record<string, unknown>[]
+        rowCount?: number
+        fields?: DatabaseField[]
       executionTime?: number
       error?: string
     }>

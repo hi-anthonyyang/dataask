@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Database, TestTube, Loader2 } from 'lucide-react'
 import { Connection } from '../types'
-import { databaseService } from '../services/databaseService'
+import { databaseService } from '../services/database'
 import '../types/electron.d.ts'
 
 // File validation component for SQLite files

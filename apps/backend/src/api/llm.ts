@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
-import { validateQuery } from '../security/sanitize';
+import { validateSQLQuery } from '../utils/validation';
 import { llmCache } from '../utils/cache';
 import { 
   sanitizePromptInput, 
@@ -12,6 +12,14 @@ import {
 } from '../security/promptSanitize';
 import { LLM_MODEL_CONFIG, LLM_MESSAGES } from '../utils/constants';
 import { handleZodError, handleGenericError } from '../utils/errors';
+import {
+  DatabaseSchema,
+  ClassificationResult,
+  NaturalLanguageToSqlResponse,
+  AnalysisResult,
+  ChartConfiguration,
+  DatabaseType
+} from '../types';
 
 const router = Router();
 
@@ -185,9 +193,9 @@ const validateAndCorrectMySQLSyntax = (sql: string): string => {
 };
 
 // Enhanced schema with relationship hints for better SQL generation
-const getOptimizedSchema = (schema: any): string => {
-  return schema.tables.map((table: any) => {
-    const columns = table.columns.map((col: any) => {
+const getOptimizedSchema = (schema: DatabaseSchema): string => {
+  return schema.tables.map((table) => {
+    const columns = (table.columns || []).map((col) => {
       // Keep essential type info but compress common patterns
       let type = col.type.toLowerCase();
       type = type.replace(/varchar\(\d+\)/g, 'varchar')
@@ -227,7 +235,7 @@ const NLQuerySchema = z.object({
 
 // Schema for analysis requests
 const AnalysisSchema = z.object({
-  data: z.array(z.record(z.any())),
+  data: z.array(z.record(z.unknown())),
   query: z.string(),
   context: z.string().optional()
 });
@@ -238,7 +246,7 @@ const SummarizationSchema = z.object({
 });
 
 // AI-powered query classification with caching and compression
-const classifyQuery = async (query: string, schema: any): Promise<{
+const classifyQuery = async (query: string, schema: DatabaseSchema): Promise<{
   isVague: boolean;
   queryType: 'specific' | 'exploratory' | 'unclear';
   suggestions?: string[];
@@ -396,7 +404,7 @@ router.post('/nl-to-sql', async (req, res) => {
     }
 
     // Validate the generated SQL for security
-    const validationResult = validateQuery(generatedSQL);
+          const validationResult = validateSQLQuery(generatedSQL);
     if (!validationResult.isValid) {
       logger.warn('LLM generated invalid SQL:', { 
         query: generatedSQL.substring(0, 200), 
@@ -462,7 +470,7 @@ router.post('/analyze', async (req, res) => {
     const sampleValues = columns.reduce((acc, col) => {
       acc[col] = [...new Set(request.data.slice(0, 3).map(row => row[col]))];
       return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, unknown[]>);
 
     // Sanitize data information to prevent context injection
     const dataInfo = `Results: ${rowCount} rows, ${columns.length} columns. Columns: ${columns.join(', ')}. Sample values: ${JSON.stringify(sampleValues)}`;
