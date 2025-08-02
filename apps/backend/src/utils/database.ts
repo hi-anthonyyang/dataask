@@ -286,6 +286,8 @@ class DatabaseManager {
   async createConnection(config: DatabaseConnectionConfig): Promise<string> {
     const connectionId = uuidv4();
     
+    logger.info(`Creating connection ${connectionId} for ${config.name} (${config.type})`);
+    
     try {
       let connection: Pool | sqlite3.Database | mysql.Pool;
 
@@ -302,7 +304,8 @@ class DatabaseManager {
       this.connections.set(connectionId, connection);
       this.connectionConfigs.set(connectionId, config);
 
-      logger.info(`Database connection created: ${config.name} (${config.type})`);
+      logger.info(`Database connection created and stored: ${connectionId} -> ${config.name} (${config.type})`);
+      logger.info(`Total connections in memory: ${this.connections.size}`);
       return connectionId;
 
     } catch (error) {
@@ -399,10 +402,14 @@ class DatabaseManager {
    * Get database schema information
    */
   async getSchema(connectionId: string): Promise<DatabaseSchema> {
+    logger.info(`Getting schema for connection ${connectionId}`);
+    logger.info(`Total connections in memory: ${this.connections.size}`);
+    
     const connection = this.connections.get(connectionId);
     const config = this.connectionConfigs.get(connectionId);
 
     if (!connection || !config) {
+      logger.error(`Connection ${connectionId} not found. Available connections: ${Array.from(this.connections.keys()).join(', ')}`);
       throw new Error('Database connection not found');
     }
 
@@ -882,11 +889,14 @@ Suggestions:
     const allAsync = promisify(db.all.bind(db));
     
     try {
+      logger.info('Getting SQLite schema...');
       const tablesResult = await allAsync(`
         SELECT name FROM sqlite_master 
         WHERE type='table' AND name NOT LIKE 'sqlite_%'
         ORDER BY name
       `) as Array<{name: string}>;
+      
+      logger.info(`Found ${tablesResult.length} tables in SQLite database`);
 
       const tables: TableInfo[] = [];
 

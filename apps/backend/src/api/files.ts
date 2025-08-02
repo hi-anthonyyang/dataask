@@ -233,6 +233,8 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     const headers = jsonData[0] as string[];
     const dataRows = jsonData.slice(1);
 
+    logger.info(`Starting import: ${dataRows.length} rows to import into table "${cleanTableName}"`);
+
     // Auto-detect column types
     const columns = headers.map((header, index) => {
               const columnData = dataRows.slice(0, 100).map(row => (row as unknown[])[index]);
@@ -262,6 +264,8 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       config: { filename: dbPath }
     });
 
+    logger.info(`Created connection ${connectionId} with database at ${dbPath}`);
+
     // Create table with proper column types
     const columnDefinitions = columns.map(col => 
       `"${col.name}" ${col.type}${col.nullable ? '' : ' NOT NULL'}`
@@ -269,6 +273,8 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     
     const createTableSQL = `CREATE TABLE "${cleanTableName}" (${columnDefinitions})`;
     await dbManager.executeQuery(connectionId, createTableSQL, []);
+    
+    logger.info(`Created table "${cleanTableName}" with ${columns.length} columns`);
 
     // Insert data using batch insertion
     const placeholders = columns.map(() => '?').join(', ');
@@ -277,6 +283,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     // Process data in batches
     const batchSize = 1000;
     const totalRows = dataRows.length;
+    let insertedRows = 0;
     
     // Begin transaction
     await dbManager.executeQuery(connectionId, 'BEGIN TRANSACTION', []);
@@ -292,11 +299,21 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
           });
           
           await dbManager.executeQuery(connectionId, insertSQL, values);
+          insertedRows++;
         }
+        
+        logger.info(`Inserted batch: ${insertedRows}/${totalRows} rows`);
       }
       
       // Commit transaction
       await dbManager.executeQuery(connectionId, 'COMMIT', []);
+      
+      logger.info(`Import completed: ${insertedRows} rows inserted into "${cleanTableName}"`);
+      
+      // Verify the data was inserted
+      const countResult = await dbManager.executeQuery(connectionId, `SELECT COUNT(*) as count FROM "${cleanTableName}"`, []);
+      const actualCount = countResult.rows[0]?.count || 0;
+      logger.info(`Verification: Table "${cleanTableName}" contains ${actualCount} rows`);
     } catch (error) {
       // Rollback on error
       await dbManager.executeQuery(connectionId, 'ROLLBACK', []);

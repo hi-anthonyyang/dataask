@@ -129,8 +129,12 @@ router.get('/connections/:connectionId/schema', async (req, res) => {
   try {
     const { connectionId } = req.params;
     
+    logger.info(`Getting schema for connection: ${connectionId}`);
+    
     const dbManager = DatabaseManager.getInstance();
     const schema = await dbManager.getSchema(connectionId);
+    
+    logger.info(`Schema retrieved for ${connectionId}: ${schema.tables.length} tables found`);
     
     return res.json({ schema });
   } catch (error) {
