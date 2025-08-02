@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Connection } from '../types'
 import { databaseService } from '../services/databaseService'
+import { useResizablePanel } from '../hooks/useResizablePanel'
 
 const DataAskApp: React.FC = () => {
   const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
@@ -17,17 +18,28 @@ const DataAskApp: React.FC = () => {
   const [queryResults, setQueryResults] = useState<any>(null)
   const [showAddDataModal, setShowAddDataModal] = useState(false)
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null)
-  const [leftPanelWidth, setLeftPanelWidth] = useState(320) // 25% of ~1280px
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
-  const [rightPanelWidth, setRightPanelWidth] = useState(400) // ~30% of ~1280px
-  const [isDraggingLeft, setIsDraggingLeft] = useState(false)
-  const [isDraggingRight, setIsDraggingRight] = useState(false)
   const [connections, setConnections] = useState<Connection[]>([])
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
 
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+
+  // Use custom hook for resizable panels
+  const leftPanel = useResizablePanel({
+    initialWidth: 320,
+    minWidth: 200,
+    maxWidth: 600,
+    direction: 'left'
+  })
+
+  const rightPanel = useResizablePanel({
+    initialWidth: 400,
+    minWidth: 300,
+    maxWidth: 700,
+    direction: 'right'
+  })
 
   // Load connections on mount
   useEffect(() => {
@@ -42,71 +54,6 @@ const DataAskApp: React.FC = () => {
       console.error('Failed to load connections:', error)
     }
   }
-
-  const handleLeftMouseDown = (e: React.MouseEvent) => {
-    setIsDraggingLeft(true)
-    e.preventDefault()
-    e.stopPropagation()
-    // Prevent text selection during drag
-    document.body.style.userSelect = 'none'
-  }
-
-  const handleRightMouseDown = (e: React.MouseEvent) => {
-    setIsDraggingRight(true)
-    e.preventDefault()
-    e.stopPropagation()
-    // Prevent text selection during drag
-    document.body.style.userSelect = 'none'
-  }
-
-  const handleLeftMouseMove = (e: MouseEvent) => {
-    if (!isDraggingLeft) return
-    const newWidth = Math.max(200, Math.min(600, e.clientX))
-    setLeftPanelWidth(newWidth)
-  }
-
-  const handleRightMouseMove = (e: MouseEvent) => {
-    if (!isDraggingRight) return
-    const windowWidth = window.innerWidth
-    const newWidth = Math.max(300, Math.min(700, windowWidth - e.clientX))
-    setRightPanelWidth(newWidth)
-  }
-
-  const handleLeftMouseUp = () => {
-    setIsDraggingLeft(false)
-    // Restore text selection
-    document.body.style.userSelect = ''
-  }
-
-  const handleRightMouseUp = () => {
-    setIsDraggingRight(false)
-    // Restore text selection
-    document.body.style.userSelect = ''
-  }
-
-  // Add global mouse event listeners for left panel
-  useEffect(() => {
-    if (isDraggingLeft) {
-      document.addEventListener('mousemove', handleLeftMouseMove)
-      document.addEventListener('mouseup', handleLeftMouseUp)
-      return () => {
-        document.removeEventListener('mousemove', handleLeftMouseMove)
-        document.removeEventListener('mouseup', handleLeftMouseUp)
-      }
-    }
-  }, [isDraggingLeft])
-
-  // Add global mouse event listeners for right panel
-  useEffect(() => {
-    if (isDraggingRight) {
-      document.addEventListener('mousemove', handleRightMouseMove)
-      document.addEventListener('mouseup', handleRightMouseUp)
-      return () => {
-        document.removeEventListener('mousemove', handleRightMouseMove)
-        document.removeEventListener('mouseup', handleRightMouseUp)
-      }
-    }
-  }, [isDraggingRight])
 
   const toggleLeftPanel = () => {
     setIsLeftPanelMinimized(!isLeftPanelMinimized)
@@ -125,8 +72,6 @@ const DataAskApp: React.FC = () => {
     setSelectedConnection(connectionId)
   }
 
-
-
   const handleConnectionUpdated = (connectionId: string) => {
     setShowAddDataModal(false)
     setEditingConnection(null)
@@ -144,8 +89,6 @@ const DataAskApp: React.FC = () => {
     return connection?.type || null
   }
 
-
-
   const handleLogout = () => {
     logout()
     navigate('/login')
@@ -154,10 +97,10 @@ const DataAskApp: React.FC = () => {
   return (
     <div 
       className={`h-screen bg-gray-50 flex flex-col ${
-        isDraggingLeft || isDraggingRight ? 'cursor-col-resize' : ''
+        leftPanel.isDragging || rightPanel.isDragging ? 'cursor-col-resize' : ''
       }`}
       style={{
-        ...(isDraggingLeft || isDraggingRight ? { userSelect: 'none' } : {})
+        ...(leftPanel.isDragging || rightPanel.isDragging ? { userSelect: 'none' } : {})
       }}
     >
       {/* Header */}
@@ -182,7 +125,7 @@ const DataAskApp: React.FC = () => {
         {/* Left Panel */}
         <div
           className="bg-white border-r border-gray-200 flex flex-col transition-all duration-200 flex-shrink-0"
-          style={{ width: isLeftPanelMinimized ? '48px' : `${leftPanelWidth}px` }}
+          style={{ width: isLeftPanelMinimized ? '48px' : `${leftPanel.width}px` }}
         >
           {isLeftPanelMinimized ? (
             <div className="flex flex-col h-full">
@@ -198,44 +141,18 @@ const DataAskApp: React.FC = () => {
               </div>
               
               {/* Add Connection Button */}
-              <div className="p-2 border-b border-gray-200 flex justify-center">
+              <div className="p-2">
                 <button
                   onClick={() => setShowAddDataModal(true)}
                   className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Add database connection"
+                  title="Add data source"
                 >
                   <Plus className="w-4 h-4 text-gray-600" />
                 </button>
               </div>
               
-              {/* Database Icons */}
-              <div className="flex-1 overflow-y-auto scrollbar-thin py-2">
-                {connections.map((connection) => (
-                  <button
-                    key={connection.id}
-                    onClick={() => handleConnectionSelect(
-                      selectedConnection === connection.id ? null : connection.id
-                    )}
-                    className={`w-full p-2 mb-1 flex justify-center hover:bg-gray-100 transition-colors ${
-                      selectedConnection === connection.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''
-                    }`}
-                    title={connection.name}
-                  >
-                    <Database className={`w-5 h-5 ${
-                      selectedConnection === connection.id ? 'text-blue-600' : 'text-gray-600'
-                    }`} />
-                  </button>
-                ))}
-              </div>
-              
-              {/* User Profile */}
-              <div className="p-2 border-t border-gray-200 flex flex-col items-center space-y-2">
-                <button
-                  title={user?.email}
-                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  <User className="w-4 h-4 text-gray-600" />
-                </button>
+              {/* User Menu */}
+              <div className="mt-auto p-2 border-t border-gray-200">
                 <button
                   onClick={handleLogout}
                   className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
@@ -246,90 +163,126 @@ const DataAskApp: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin">
-              <SchemaBrowser
-                connections={connections}
-                selectedConnection={selectedConnection}
-                onConnectionSelect={handleConnectionSelect}
-                selectedTable={selectedTable}
-                onTableSelect={setSelectedTable}
-                showAddDataModal={showAddDataModal}
-                setShowAddDataModal={setShowAddDataModal}
-                onConnectionsChange={loadConnections}
-                onEditConnection={handleEditConnection}
-                onTogglePanel={toggleLeftPanel}
-                isPanelMinimized={isLeftPanelMinimized}
-                userEmail={user?.email}
-                onLogout={handleLogout}
-              />
-            </div>
+            <>
+              {/* Schema Browser Header */}
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-sm font-medium text-gray-700">Connections</h2>
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={() => setShowAddDataModal(true)}
+                    className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Add data source"
+                  >
+                    <Plus className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={toggleLeftPanel}
+                    className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Minimize panel"
+                  >
+                    <ChevronRight className="w-4 h-4 text-gray-600 rotate-180" />
+                  </button>
+                </div>
+              </div>
+              
+              {/* Schema Browser Content */}
+              <div className="flex-1 overflow-hidden">
+                <SchemaBrowser
+                  selectedConnection={selectedConnection}
+                  onConnectionSelect={handleConnectionSelect}
+                  onTableSelect={setSelectedTable}
+                  selectedTable={selectedTable}
+                  connections={connections}
+                  onConnectionsChange={loadConnections}
+                  onEditConnection={handleEditConnection}
+                />
+              </div>
+              
+              {/* User Info Footer */}
+              <div className="p-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                      <User className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-900">{user?.email}</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
-        {/* Resize Handle for Left Panel */}
+        {/* Drag Handle for Left Panel */}
         {!isLeftPanelMinimized && (
           <div
             ref={leftDragRef}
-            className={`w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors flex-shrink-0 ${
-              isDraggingLeft ? 'bg-blue-500' : ''
+            onMouseDown={leftPanel.handleMouseDown}
+            className={`w-1 hover:bg-blue-500 transition-colors cursor-col-resize ${
+              leftPanel.isDragging ? 'bg-blue-500' : 'bg-gray-200'
             }`}
-            onMouseDown={handleLeftMouseDown}
           />
         )}
 
-        {/* Center Panel */}
-        <div 
-          className={`flex-1 flex flex-col min-w-0 relative transition-colors`}
+        {/* Center Panel - Chat */}
+        <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
+          <ChatPanel
+            selectedConnection={selectedConnection}
+            connectionType={getSelectedConnectionType()}
+            onQueryExecuted={(query, results) => {
+              setCurrentQuery(query)
+              setQueryResults(results)
+            }}
+            currentQuery={currentQuery}
+            queryResults={queryResults}
+          />
+        </div>
+
+        {/* Drag Handle for Right Panel */}
+        <div
+          ref={rightDragRef}
+          onMouseDown={rightPanel.handleMouseDown}
+          className={`w-1 hover:bg-blue-500 transition-colors cursor-col-resize ${
+            rightPanel.isDragging ? 'bg-blue-500' : 'bg-gray-200'
+          }`}
+        />
+
+        {/* Right Panel - Analysis */}
+        <div
+          className="bg-white border-l border-gray-200 flex flex-col flex-shrink-0"
+          style={{ width: `${rightPanel.width}px` }}
         >
           <AnalysisPanel
             queryResults={queryResults}
             currentQuery={currentQuery}
-            selectedConnection={selectedConnection}
             selectedTable={selectedTable}
-            onTableClose={() => setSelectedTable(null)}
+            selectedConnection={selectedConnection}
           />
-          
-        </div>
-
-        {/* Resize Handle for Right Panel */}
-        <div
-          ref={rightDragRef}
-          className={`w-1 bg-gray-200 hover:bg-blue-500 cursor-col-resize transition-colors flex-shrink-0 ${
-            isDraggingRight ? 'bg-blue-500' : ''
-          }`}
-          onMouseDown={handleRightMouseDown}
-        />
-
-        {/* Right Panel */}
-        <div
-          className="bg-white border-l border-gray-200 flex flex-col flex-shrink-0"
-          style={{ width: `${rightPanelWidth}px` }}
-        >
-          <div className="flex-1 overflow-y-auto scrollbar-thin">
-            <ChatPanel
-              selectedConnection={selectedConnection}
-              connectionType={getSelectedConnectionType()}
-              onQueryUpdate={setCurrentQuery}
-              onQueryExecute={setQueryResults}
-              onTableClose={() => setSelectedTable(null)}
-            />
-          </div>
         </div>
       </div>
 
-
-
-      {/* Connection Modal */}
-      <AddDataModal
-        isOpen={showAddDataModal}
-        onClose={() => {
-          setShowAddDataModal(false)
-          setEditingConnection(null)
-        }}
-        onConnectionAdded={handleConnectionAdded}
-        onConnectionUpdated={handleConnectionUpdated}
-        editingConnection={editingConnection}
-      />
+      {/* Add Data Modal */}
+      {showAddDataModal && (
+        <AddDataModal
+          isOpen={showAddDataModal}
+          onClose={() => {
+            setShowAddDataModal(false)
+            setEditingConnection(null)
+          }}
+          onConnectionAdded={handleConnectionAdded}
+          onConnectionUpdated={handleConnectionUpdated}
+          editingConnection={editingConnection}
+        />
+      )}
     </div>
   )
 }
