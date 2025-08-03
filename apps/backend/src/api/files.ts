@@ -278,6 +278,12 @@ router.post('/import', authenticate, upload.single('file'), handleMulterError, a
 
     logger.info(`Created connection ${connectionId} with database at ${dbPath}`);
     
+    // Verify the database file was created
+    if (!fs.existsSync(dbPath)) {
+      logger.error(`Database file was not created at ${dbPath}`);
+      throw new Error('Failed to create database file');
+    }
+    
     // Also register with DataSourceManager for new architecture
     const dataSourceManager = DataSourceManager.getInstance();
     await dataSourceManager.registerSQLite(dbPath, cleanTableName);
@@ -339,6 +345,18 @@ router.post('/import', authenticate, upload.single('file'), handleMulterError, a
     // Clean up temp file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
+    }
+
+    // Wait a moment to ensure persistence is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify the connection is listed
+    const connections = await dbManager.listConnections();
+    const connectionExists = connections.some(c => c.id === connectionId);
+    if (!connectionExists) {
+      logger.error(`Connection ${connectionId} was created but not found in list`);
+    } else {
+      logger.info(`Connection ${connectionId} verified in connections list`);
     }
 
     res.json({
@@ -461,6 +479,18 @@ router.post('/upload-sqlite', authenticate, upload.single('file'), async (req, r
     // Clean up temp file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
+    }
+
+    // Wait a moment to ensure persistence is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify the connection is listed
+    const connections = await dbManager.listConnections();
+    const connectionExists = connections.some(c => c.id === connectionId);
+    if (!connectionExists) {
+      logger.error(`Connection ${connectionId} was created but not found in list`);
+    } else {
+      logger.info(`Connection ${connectionId} verified in connections list`);
     }
 
     res.json({
