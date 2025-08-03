@@ -149,6 +149,42 @@ function setupIpcHandlers(): void {
     }
   })
 
+  // File system handlers
+  ipcMain.handle('fs:fileExists', async (event, filePath) => {
+    try {
+      return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
+    } catch {
+      return false
+    }
+  })
+
+  ipcMain.handle('fs:getFileStats', async (event, filePath) => {
+    try {
+      const stats = fs.statSync(filePath)
+      return {
+        exists: true,
+        size: stats.size,
+        isFile: stats.isFile(),
+        isDirectory: stats.isDirectory(),
+        readable: true,
+        path: path.resolve(filePath)
+      }
+    } catch (error) {
+      return {
+        exists: false,
+        error: error.message
+      }
+    }
+  })
+
+  ipcMain.handle('fs:resolvePath', async (event, filePath) => {
+    return path.resolve(filePath)
+  })
+
+  ipcMain.handle('fs:getHomeDirectory', async () => {
+    return require('os').homedir()
+  })
+
   // Simple SQLite file validation
   ipcMain.handle('sqlite:validateFile', async (event, filePath) => {
     return validateSQLiteFile(filePath)

@@ -105,7 +105,7 @@ class DatabaseManager {
   /**
    * Persist SQLite connections to disk
    */
-  private async persistConnections() {
+  async persistConnections(): Promise<void> {
     try {
       const connections: DatabaseConnectionConfig[] = [];
       
@@ -128,9 +128,17 @@ class DatabaseManager {
       }
       
       fs.writeFileSync(persistedConnectionsPath, JSON.stringify(connections, null, 2));
-      logger.info(`Persisted ${connections.length} SQLite connections`);
+      logger.info(`Persisted ${connections.length} SQLite connections to ${persistedConnectionsPath}`);
+      
+      // Verify the file was written
+      if (fs.existsSync(persistedConnectionsPath)) {
+        const fileContent = fs.readFileSync(persistedConnectionsPath, 'utf-8');
+        const savedConnections = JSON.parse(fileContent);
+        logger.info(`Verified persistence: ${savedConnections.length} connections saved`);
+      }
     } catch (error) {
       logger.error('Failed to persist connections:', error);
+      throw error; // Re-throw to ensure caller knows persistence failed
     }
   }
 

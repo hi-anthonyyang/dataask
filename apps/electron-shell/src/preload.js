@@ -2,8 +2,6 @@
 // This runs in a sandboxed context before the web page loads
 
 const { contextBridge, ipcRenderer } = require('electron')
-const fs = require('fs')
-const path = require('path')
 
 // Expose minimal APIs to the renderer process if needed
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -15,41 +13,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileSystem: {
     // Check if a file exists and is accessible
     fileExists: (filePath) => {
-      try {
-        return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
-      } catch {
-        return false
-      }
+      return ipcRenderer.invoke('fs:fileExists', filePath)
     },
     
     // Get file stats (size, permissions, etc.)
     getFileStats: (filePath) => {
-      try {
-        const stats = fs.statSync(filePath)
-        return {
-          exists: true,
-          size: stats.size,
-          isFile: stats.isFile(),
-          isDirectory: stats.isDirectory(),
-          readable: true, // We'll assume readable if we can stat it
-          path: path.resolve(filePath)
-        }
-      } catch (error) {
-        return {
-          exists: false,
-          error: error.message
-        }
-      }
+      return ipcRenderer.invoke('fs:getFileStats', filePath)
     },
     
     // Normalize and resolve file paths across platforms
     resolvePath: (filePath) => {
-      return path.resolve(filePath)
+      return ipcRenderer.invoke('fs:resolvePath', filePath)
     },
     
     // Get user's home directory
     getHomeDirectory: () => {
-      return require('os').homedir()
+      return ipcRenderer.invoke('fs:getHomeDirectory')
     }
   },
   
