@@ -184,7 +184,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
       }
     }
     
-    res.status(500).json({ error: 'File upload failed. Please try again or contact support if the problem persists.' });
+    return sendServerError(res, error, 'File upload failed. Please try again or contact support if the problem persists.');
   }
 });
 
@@ -252,12 +252,6 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     const dbFilename = `import_${uuidv4()}.sqlite`;
     const dbPath = path.join(process.cwd(), 'data', dbFilename);
     
-    // Ensure data directory exists
-    const dataDir = path.dirname(dbPath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
     // Create the database connection using the simplified DatabaseManager
     const dbManager = DatabaseManager.getInstance();
     const connectionId = await dbManager.createConnection({
@@ -368,9 +362,11 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
       }
     }
     
-    res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'File import failed. Please try again.' 
-    });
+    if (error instanceof z.ZodError) {
+      return handleZodError(res, error, 'Invalid import parameters');
+    }
+    
+    return sendServerError(res, error, 'File import failed. Please try again or contact support if the problem persists.');
   }
 });
 
@@ -491,13 +487,10 @@ router.post('/import-old', async (req, res) => {
     logger.error('File import failed:', error);
     
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        error: 'Invalid import parameters',
-        details: error.errors 
-      });
+      return handleZodError(res, error, 'Invalid import parameters');
     }
 
-    res.status(500).json({ error: 'File import failed. Please try again or contact support if the problem persists.' });
+    return sendServerError(res, error, 'File import failed. Please try again or contact support if the problem persists.');
   }
 });
 

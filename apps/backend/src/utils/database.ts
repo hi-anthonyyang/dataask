@@ -1,6 +1,7 @@
 import sqlite3 from 'sqlite3';
 import { promisify } from 'util';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
 import { logger } from './logger';
 import { limitQueryResult, validateQueryResult } from '../security/sanitize';
 import { sanitizeParameters, sanitizeTableName, quoteTableName } from './validation';
@@ -15,7 +16,6 @@ import {
   DatabaseSchema,
   SavedConnection
 } from '../types';
-import path from 'path';
 import fs from 'fs';
 
 /**
@@ -314,11 +314,35 @@ class DatabaseManager {
       throw new Error('SQLite filename is required');
     }
 
-    // Check if file exists
+    // For new SQLite files being created during import, create an empty database file
     if (!fs.existsSync(config.filename)) {
-      throw new Error(`SQLite file not found: ${config.filename}`);
+      const dir = path.dirname(config.filename);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      // Create an empty SQLite database file
+      return new Promise((resolve, reject) => {
+        const db = new sqlite3.Database(config.filename!, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+          if (err) {
+            logger.error('Failed to create SQLite file:', err);
+            reject(err);
+          } else {
+            db.close((closeErr) => {
+              if (closeErr) {
+                logger.error('Error closing newly created database:', closeErr);
+                resolve(false);
+              } else {
+                logger.info(`Created new SQLite database: ${config.filename}`);
+                resolve(true);
+              }
+            });
+          }
+        });
+      });
     }
 
+    // Test existing SQLite file
     return new Promise((resolve) => {
       const db = new sqlite3.Database(config.filename!, sqlite3.OPEN_READONLY, (err) => {
         if (err) {
