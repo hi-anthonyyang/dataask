@@ -123,75 +123,6 @@ const validateAndSanitizeResponse = (
   return responseValidation.sanitizedResponse;
 };
 
-// Legacy MySQL-specific SQL validation - no longer used
-/* const validateAndCorrectMySQLSyntax = (sql: string): string => {
-  let correctedSQL = sql;
-  
-  // Common PostgreSQL to MySQL conversions
-  const conversions = [
-    // DATE_TRUNC to DATE_FORMAT
-    {
-      pattern: /DATE_TRUNC\s*\(\s*'month'\s*,\s*([^)]+)\s*\)/gi,
-      replacement: "DATE_FORMAT($1, '%Y-%m-01')"
-    },
-    {
-      pattern: /DATE_TRUNC\s*\(\s*'year'\s*,\s*([^)]+)\s*\)/gi,
-      replacement: "DATE_FORMAT($1, '%Y-01-01')"
-    },
-    {
-      pattern: /DATE_TRUNC\s*\(\s*'day'\s*,\s*([^)]+)\s*\)/gi,
-      replacement: "DATE($1)"
-    },
-    
-    // INTERVAL syntax
-    {
-      pattern: /INTERVAL\s+'(\d+)\s+(year|month|day|hour|minute|second)s?'/gi,
-      replacement: "INTERVAL $1 $2"
-    },
-    
-    // EXTRACT to MySQL date functions
-    {
-      pattern: /EXTRACT\s*\(\s*YEAR\s+FROM\s+([^)]+)\s*\)/gi,
-      replacement: "YEAR($1)"
-    },
-    {
-      pattern: /EXTRACT\s*\(\s*MONTH\s+FROM\s+([^)]+)\s*\)/gi,
-      replacement: "MONTH($1)"
-    },
-    {
-      pattern: /EXTRACT\s*\(\s*DAY\s+FROM\s+([^)]+)\s*\)/gi,
-      replacement: "DAY($1)"
-    },
-    
-    // string_agg to GROUP_CONCAT
-    {
-      pattern: /string_agg\s*\(\s*([^,]+),\s*'([^']+)'\s*\)/gi,
-      replacement: "GROUP_CONCAT($1 SEPARATOR '$2')"
-    },
-    
-    // Remove PostgreSQL-specific functions that don't exist in MySQL
-    {
-      pattern: /\bpg_\w+\s*\([^)]*\)/gi,
-      replacement: ""
-    }
-  ];
-  
-  // Apply conversions
-  for (const conversion of conversions) {
-    correctedSQL = correctedSQL.replace(conversion.pattern, conversion.replacement);
-  }
-  
-  // Log if any conversions were made
-  if (correctedSQL !== sql) {
-    logger.info('MySQL syntax corrections applied:', {
-      original: sql.substring(0, 100),
-      corrected: correctedSQL.substring(0, 100)
-    });
-  }
-  
-  return correctedSQL;
-}; */
-
 // Enhanced schema with relationship hints for better SQL generation
 const getOptimizedSchema = (schema: DatabaseSchema): string => {
   return schema.tables.map((table) => {
@@ -415,11 +346,6 @@ router.post('/nl-to-sql', async (req, res) => {
       .replace(/```\n?/g, '')     // Remove any remaining code block markers
       .replace(/^[^\w\s]*/, '')   // Remove any leading non-word characters
       .trim();
-
-    // MySQL-specific SQL validation and correction - removed
-    // if (request.connectionType.toLowerCase() === 'mysql') {
-    //   generatedSQL = validateAndCorrectMySQLSyntax(generatedSQL);
-    // }
 
     // Validate the generated SQL for security
           const validationResult = validateSQLQuery(generatedSQL);
