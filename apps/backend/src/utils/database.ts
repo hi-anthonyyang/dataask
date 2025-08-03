@@ -160,7 +160,7 @@ class DatabaseManager {
 
     try {
       // Create the actual database connection
-      await this.getConnection(connectionId);
+      await this.getOrCreateSQLiteConnection(connectionId);
       logger.info(`Connection created successfully: ${connectionId}`);
       
       // Persist SQLite connections

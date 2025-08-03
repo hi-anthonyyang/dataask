@@ -9,6 +9,7 @@ import { logger } from '../utils/logger';
 import { DatabaseManager } from '../utils/database';
 import { DataSourceManager } from '../services/dataSourceManager';
 import { ImportPipeline } from '../services/importPipeline';
+import { authenticate } from '../middleware/auth';
 import {
   FileImportColumn,
   FileImportConfig,
@@ -191,7 +192,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
 });
 
 // Combined upload and import endpoint
-router.post('/import', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
+router.post('/import', authenticate, upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   let tempFilePath: string | undefined;
   
   try {
@@ -382,7 +383,7 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
 /**
  * Upload SQLite database file
  */
-router.post('/upload-sqlite', upload.single('file'), async (req, res) => {
+router.post('/upload-sqlite', authenticate, upload.single('file'), async (req, res) => {
   let tempFilePath: string | undefined;
   
   try {
