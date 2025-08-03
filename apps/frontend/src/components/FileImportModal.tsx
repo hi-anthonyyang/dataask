@@ -63,13 +63,22 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
     setSelectedFile(file)
     setError(null)
     
-    // Auto-generate table name from filename
-    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
-    const cleanName = nameWithoutExt
-      .replace(/[^a-zA-Z0-9_]/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .toLowerCase()
-    setTableName(cleanName || 'imported_data')
+    // Check if it's a SQLite database file
+    const fileExtension = file.name.split('.').pop()?.toLowerCase()
+    const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
+    
+    if (!isSQLiteFile) {
+      // Auto-generate table name from filename for CSV/Excel files
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
+      const cleanName = nameWithoutExt
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .toLowerCase()
+      setTableName(cleanName || 'imported_data')
+    } else {
+      // Clear table name for SQLite files
+      setTableName('')
+    }
   }
 
   const trackImportProgress = async (importId: string) => {
@@ -116,8 +125,18 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
   }
 
   const handleImport = async () => {
-    if (!selectedFile || !tableName.trim()) {
-      setError('Please select a file and provide a table name')
+    if (!selectedFile) {
+      setError('Please select a file')
+      return
+    }
+    
+    // Check if it's a SQLite database file
+    const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase()
+    const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
+    
+    // Only require table name for CSV/Excel files
+    if (!isSQLiteFile && !tableName.trim()) {
+      setError('Please provide a table name')
       return
     }
 
@@ -129,7 +148,17 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
     try {
       const formData = new FormData()
       formData.append('file', selectedFile)
-      formData.append('tableName', tableName.trim())
+      
+      // Check if it's a SQLite database file
+      const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase()
+      const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
+      
+      let endpoint = '/api/files/import'
+      if (isSQLiteFile) {
+        endpoint = '/api/files/upload-sqlite'
+      } else {
+        formData.append('tableName', tableName.trim())
+      }
 
       // Use XMLHttpRequest for upload progress tracking
       const response = await new Promise<Response>((resolve, reject) => {
@@ -162,7 +191,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
         xhr.onerror = () => reject(new Error('Network error during import'))
         xhr.ontimeout = () => reject(new Error('Import timed out'))
 
-        xhr.open('POST', '/api/files/import')
+        xhr.open('POST', endpoint)
         xhr.send(formData)
       })
 
@@ -174,7 +203,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
       const result = await response.json()
       console.log('Import result:', result)
       
-      // Start tracking import progress
+      // Start tracking import progress (only for CSV/Excel imports)
       if (result.importId) {
         await trackImportProgress(result.importId)
       }
@@ -199,16 +228,23 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
           if (importProgress?.status === 'completed') {
             onConnectionAdded(result.connectionId)
             resetModal()
+          } else if (importProgress?.status === 'failed') {
+            throw new Error(importProgress.error || 'Import failed')
           }
         }
       } else {
-        throw new Error('No connection ID returned')
+        throw new Error('No connection ID returned from import')
       }
-    } catch (error) {
-      console.error('Import error:', error)
-      setError(error instanceof Error ? error.message : 'Failed to import file')
+    } catch (err) {
+      console.error('Import error:', err)
+      setError(err instanceof Error ? err.message : 'Import failed')
     } finally {
       setIsImporting(false)
+      setIsUploading(false)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
     }
   }
 
@@ -218,9 +254,9 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-4">
           <div className="text-center space-y-2 mb-6">
-            <h3 className="text-lg font-medium">Import CSV or Excel File</h3>
+            <h3 className="text-lg font-medium">Import Data File</h3>
             <p className="text-sm text-muted-foreground">
-              Upload your data file to create a queryable table. Supports CSV, XLS, and XLSX formats.
+              Upload your data file to create a queryable table. Supports CSV, Excel, and SQLite database files.
             </p>
           </div>
 
@@ -243,21 +279,31 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
                 </div>
               </div>
 
-              {/* Table Name */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium">Table Name</label>
-                <input
-                  type="text"
-                  value={tableName}
-                  onChange={(e) => setTableName(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Enter table name"
-                  maxLength={50}
-                />
-                <p className="text-xs text-muted-foreground">
-                  This will be the name of your queryable table.
-                </p>
-              </div>
+              {/* Table Name - only show for CSV/Excel files */}
+              {(() => {
+                const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase()
+                const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
+                
+                if (!isSQLiteFile) {
+                  return (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium">Table Name</label>
+                      <input
+                        type="text"
+                        value={tableName}
+                        onChange={(e) => setTableName(e.target.value)}
+                        className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="Enter table name"
+                        disabled={isImporting}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        This will be the name of the table in your database
+                      </p>
+                    </div>
+                  )
+                }
+                return null
+              })()}
             </div>
           )}
 

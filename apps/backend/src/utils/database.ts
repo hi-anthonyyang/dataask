@@ -148,33 +148,36 @@ class DatabaseManager {
   /**
    * Create a new database connection
    */
-  async createConnection(config: ConnectionConfig): Promise<string> {
-    if (config.type !== 'sqlite') {
-      throw new Error('Only SQLite connections are supported');
-    }
-
+  async createConnection(config: DatabaseConnectionConfig): Promise<string> {
     const connectionId = config.id || uuidv4();
-    const connectionConfig: DatabaseConnectionConfig = {
+    const connectionConfig = {
       ...config,
       id: connectionId
     };
 
-    // Test connection first
-    const isValid = await this.testConnection(config);
-    if (!isValid) {
-      throw new Error('Failed to establish database connection');
-    }
-
-    // Store configuration
+    // Store the configuration
     this.connectionConfigs.set(connectionId, connectionConfig);
-    
-    // Persist SQLite connections
-    if (config.type === 'sqlite') {
-      await this.persistConnections();
-    }
 
-    logger.info(`Created ${config.type} connection: ${connectionId}`);
-    return connectionId;
+    try {
+      // Create the actual database connection
+      await this.getConnection(connectionId);
+      logger.info(`Connection created successfully: ${connectionId}`);
+      
+      // Ensure the connection is fully registered and accessible
+      const verifyConnection = await this.listConnections();
+      const found = verifyConnection.find(c => c.id === connectionId);
+      if (!found) {
+        logger.error(`Connection ${connectionId} not found after creation`);
+        throw new Error('Connection registration failed');
+      }
+      
+      return connectionId;
+    } catch (error) {
+      // Remove the config if connection creation failed
+      this.connectionConfigs.delete(connectionId);
+      logger.error(`Failed to create connection ${connectionId}:`, error);
+      throw error;
+    }
   }
 
   /**

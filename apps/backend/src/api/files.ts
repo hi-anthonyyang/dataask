@@ -40,17 +40,19 @@ const upload = multer({
     const allowedTypes = [
       'text/csv',
       'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/x-sqlite3',
+      'application/vnd.sqlite3',
+      'application/octet-stream' // SQLite files sometimes come as binary
     ];
     
-    const allowedExtensions = ['.csv', '.xls', '.xlsx'];
+    const allowedExtensions = ['.csv', '.xls', '.xlsx', '.db', '.sqlite', '.sqlite3'];
     const fileExtension = path.extname(file.originalname).toLowerCase();
     
     if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
       cb(null, true);
     } else {
-      const detectedExt = fileExtension || 'unknown';
-      cb(new Error(`Invalid file type '${detectedExt}'. Please use CSV, XLS, or XLSX files.`));
+      cb(new Error('Invalid file type. Allowed types: CSV, Excel, SQLite'));
     }
   }
 });
@@ -369,6 +371,95 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
     return sendServerError(res, error, 'File import failed. Please try again or contact support if the problem persists.');
   }
 });
+
+/**
+ * Upload SQLite database file
+ */
+router.post('/upload-sqlite', upload.single('file'), async (req, res) => {
+  let tempFilePath: string | undefined;
+  
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    tempFilePath = req.file.path;
+    const fileExtension = path.extname(req.file.originalname).toLowerCase();
+    
+    if (!['.db', '.sqlite', '.sqlite3'].includes(fileExtension)) {
+      return res.status(400).json({ error: 'Invalid file type. Please upload a SQLite database file.' });
+    }
+
+    // Verify it's a valid SQLite file
+    const sqlite3 = require('sqlite3').verbose();
+    const testDb = new sqlite3.Database(tempFilePath, sqlite3.OPEN_READONLY, (err: any) => {
+      if (err) {
+        return res.status(400).json({ error: 'Invalid SQLite database file' });
+      }
+    });
+
+    // Close test connection
+    testDb.close();
+
+    // Move the file to the data directory
+    const dbFilename = `upload_${uuidv4()}.sqlite`;
+    const dbPath = path.join(process.cwd(), 'data', dbFilename);
+    
+    // Ensure data directory exists
+    const dataDir = path.dirname(dbPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    // Copy the file
+    fs.copyFileSync(tempFilePath, dbPath);
+    
+    // Create connection name from original filename
+    const nameWithoutExt = path.basename(req.file.originalname, fileExtension);
+    const connectionName = nameWithoutExt.replace(/[^a-zA-Z0-9_]/g, '_');
+    
+    // Register the database connection
+    const dbManager = DatabaseManager.getInstance();
+    const connectionId = await dbManager.createConnection({
+      type: 'sqlite',
+      name: connectionName,
+      filename: dbPath
+    });
+
+    logger.info(`SQLite database uploaded and registered: ${connectionId} at ${dbPath}`);
+    
+    // Also register with DataSourceManager
+    const dataSourceManager = DataSourceManager.getInstance();
+    await dataSourceManager.registerSQLite(dbPath, connectionName);
+
+    // Clean up temp file
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+
+    res.json({
+      connectionId,
+      name: connectionName,
+      type: 'sqlite'
+    });
+    
+  } catch (error) {
+    logger.error('Failed to upload SQLite database:', error);
+    
+    // Clean up temp file on error
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+    
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Failed to upload SQLite database' 
+    });
+  }
+});
+
+/**
+ * Get import progress
+ */
 
 // Import file as table endpoint (OLD - keeping for backward compatibility)
 router.post('/import-old', async (req, res) => {

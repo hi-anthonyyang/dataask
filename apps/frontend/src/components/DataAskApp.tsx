@@ -72,41 +72,61 @@ const DataAskApp: React.FC = () => {
     setShowAddDataModal(false)
     
     try {
-      // Add a small delay to ensure the backend has fully registered the connection
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Retry logic with exponential backoff
+      let retries = 0;
+      const maxRetries = 5;
+      let connection = null;
       
-      // Load the updated connections list
-      const data = await databaseService.listConnections()
-      console.log('New connections after import:', data.connections)
-      
-      // Update connections state
-      setConnections(data.connections)
-      
-      // Find and save the new connection to localStorage
-      const connection = data.connections.find(c => c.id === connectionId)
-      if (connection) {
-        console.log('Found new connection:', connection)
-        StorageService.saveConnection({
-          id: connection.id,
-          name: connection.name,
-          type: connection.type as DatabaseType,
-          config: {
-            filename: connection.config?.filename
-          }
-        })
+      while (retries < maxRetries && !connection) {
+        // Add delay with exponential backoff
+        const delay = Math.min(500 * Math.pow(2, retries), 3000);
+        await new Promise(resolve => setTimeout(resolve, delay));
         
-        // Set the new connection as selected after state update
-        // Using setTimeout to ensure the connections list renders first
-        setTimeout(() => {
-          console.log('Setting selected connection to:', connectionId)
-          setSelectedConnection(connectionId)
-        }, 100)
-      } else {
-        console.error('New connection not found in list:', connectionId)
-        console.error('Available connections:', data.connections.map(c => ({ id: c.id, name: c.name })))
+        // Load the updated connections list
+        const data = await databaseService.listConnections()
+        console.log(`Attempt ${retries + 1}: Loaded ${data.connections.length} connections`)
+        
+        // Find the new connection
+        connection = data.connections.find(c => c.id === connectionId)
+        
+        if (connection) {
+          console.log('Found new connection:', connection)
+          // Update connections state
+          setConnections(data.connections)
+          
+          // Save to localStorage
+          StorageService.saveConnection({
+            id: connection.id,
+            name: connection.name,
+            type: connection.type as DatabaseType,
+            config: {
+              filename: connection.config?.filename
+            }
+          })
+          
+          // Set the new connection as selected after state update
+          setTimeout(() => {
+            console.log('Setting selected connection to:', connectionId)
+            setSelectedConnection(connectionId)
+          }, 100)
+          
+          break;
+        }
+        
+        retries++;
+        console.log(`Connection ${connectionId} not found yet, retrying... (${retries}/${maxRetries})`)
+      }
+      
+      if (!connection) {
+        console.error('Failed to find connection after all retries:', connectionId)
+        console.error('Final connections list:', connections.map(c => ({ id: c.id, name: c.name })))
+        
+        // Show error to user
+        alert('Failed to load the imported data. Please refresh the page and try again.')
       }
     } catch (error) {
       console.error('Failed to handle connection added:', error)
+      alert('An error occurred while loading the imported data. Please refresh the page.')
     }
   }
 

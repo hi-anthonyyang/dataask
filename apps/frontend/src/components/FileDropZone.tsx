@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Upload, FileText, FileSpreadsheet } from 'lucide-react'
+import { Upload, FileText, FileSpreadsheet, Database } from 'lucide-react'
 
 interface FileDropZoneProps {
   onFileSelect: (file: File) => void
@@ -11,7 +11,7 @@ interface FileDropZoneProps {
 
 export default function FileDropZone({ 
   onFileSelect, 
-  accept = '.csv,.xlsx,.xls', 
+  accept = '.csv,.xlsx,.xls,.db,.sqlite,.sqlite3', 
   maxSize = 50 * 1024 * 1024, // 50MB
   disabled = false,
   className = ''
@@ -30,7 +30,7 @@ export default function FileDropZone({
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
     
     if (!allowedExtensions.includes(fileExtension)) {
-      return 'Only CSV and Excel files (.csv, .xlsx, .xls) are supported'
+      return 'Only CSV, Excel (.csv, .xlsx, .xls) and SQLite database (.db, .sqlite) files are supported'
     }
 
     return null
@@ -114,7 +114,7 @@ export default function FileDropZone({
           
           <div>
             <p className="text-sm font-medium">
-              {isDragOver ? 'Drop file here' : 'Drop CSV or Excel file here'}
+              {isDragOver ? 'Drop file here' : 'Drop CSV, Excel or SQLite file here'}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               or click to browse files
@@ -129,6 +129,10 @@ export default function FileDropZone({
             <div className="flex items-center gap-1">
               <FileSpreadsheet className="h-4 w-4" />
               <span>Excel</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Database className="h-4 w-4" />
+              <span>SQLite</span>
             </div>
           </div>
         </div>
