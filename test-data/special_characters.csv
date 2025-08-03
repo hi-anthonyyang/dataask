@@ -1,0 +1,7 @@
+id,description,notes,value
+1,"Item with ""quotes""","Contains, commas",123.45
+2,"Item with
+newline",Contains	tabs,678.9
+3,Item with 中文 characters,Unicode test 🚀,111.11
+4,Item with 'single quotes',Special chars: @#$%^&*(),222.22
+5,,,0

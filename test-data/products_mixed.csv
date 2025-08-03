@@ -1,0 +1,6 @@
+product_id,product_name,price,quantity,in_stock,last_updated
+P001,Widget,19.99,100,true,2024-08-01 10:30:00
+P002,Gadget,29.99,,false,2024-08-02 14:15:00
+P003,Doohickey,,50,true,
+P004,Thingamajig,39.99,0,false,2024-08-03 09:45:00
+P005,,49.99,25,true,2024-08-04 16:20:00
