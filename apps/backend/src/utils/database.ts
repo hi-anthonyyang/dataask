@@ -373,8 +373,18 @@ class DatabaseManager {
       throw new Error('SQLite filename is required');
     }
 
+    // Ensure the database file exists
+    if (!fs.existsSync(config.filename)) {
+      const dir = path.dirname(config.filename);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      logger.info(`Creating new SQLite database file: ${config.filename}`);
+    }
+
     return new Promise((resolve, reject) => {
-      const db = new sqlite3.Database(config.filename!, (err) => {
+      // Use OPEN_READWRITE | OPEN_CREATE to create file if it doesn't exist
+      const db = new sqlite3.Database(config.filename!, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
         if (err) {
           reject(err);
         } else {
@@ -388,6 +398,7 @@ class DatabaseManager {
             }
           });
 
+          logger.info(`SQLite connection established: ${config.filename}`);
           resolve(db);
         }
       });

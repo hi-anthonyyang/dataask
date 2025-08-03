@@ -262,6 +262,12 @@ router.post('/import', authenticate, upload.single('file'), handleMulterError, a
       fs.mkdirSync(dataDir, { recursive: true });
     }
 
+    // Add debug logging
+    logger.info(`Creating SQLite database at: ${dbPath}`);
+    logger.info(`Workspace root: ${workspaceRoot}`);
+    logger.info(`Data directory: ${dataDir}`);
+    logger.info(`Data directory exists: ${fs.existsSync(dataDir)}`);
+
     // Create the database connection using the simplified DatabaseManager
     const dbManager = DatabaseManager.getInstance();
     const connectionId = await dbManager.createConnection({
@@ -271,6 +277,12 @@ router.post('/import', authenticate, upload.single('file'), handleMulterError, a
     });
 
     logger.info(`Created connection ${connectionId} with database at ${dbPath}`);
+    
+    // Verify the database file was created
+    if (!fs.existsSync(dbPath)) {
+      logger.error(`Database file was not created at ${dbPath}`);
+      throw new Error('Failed to create database file');
+    }
     
     // Also register with DataSourceManager for new architecture
     const dataSourceManager = DataSourceManager.getInstance();
@@ -333,6 +345,18 @@ router.post('/import', authenticate, upload.single('file'), handleMulterError, a
     // Clean up temp file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
+    }
+
+    // Wait a moment to ensure persistence is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify the connection is listed
+    const connections = await dbManager.listConnections();
+    const connectionExists = connections.some(c => c.id === connectionId);
+    if (!connectionExists) {
+      logger.error(`Connection ${connectionId} was created but not found in list`);
+    } else {
+      logger.info(`Connection ${connectionId} verified in connections list`);
     }
 
     res.json({
@@ -400,14 +424,25 @@ router.post('/upload-sqlite', authenticate, upload.single('file'), async (req, r
 
     // Verify it's a valid SQLite file
     const sqlite3 = require('sqlite3').verbose();
-    const testDb = new sqlite3.Database(tempFilePath, sqlite3.OPEN_READONLY, (err: any) => {
-      if (err) {
-        return res.status(400).json({ error: 'Invalid SQLite database file' });
-      }
+    const isValidDb = await new Promise<boolean>((resolve) => {
+      const testDb = new sqlite3.Database(tempFilePath, sqlite3.OPEN_READONLY, (err: any) => {
+        if (err) {
+          logger.error('Invalid SQLite database file:', err);
+          resolve(false);
+        } else {
+          testDb.close((closeErr) => {
+            if (closeErr) {
+              logger.error('Error closing test database:', closeErr);
+            }
+            resolve(true);
+          });
+        }
+      });
     });
 
-    // Close test connection
-    testDb.close();
+    if (!isValidDb) {
+      return res.status(400).json({ error: 'Invalid SQLite database file' });
+    }
 
     // Move the file to the data directory
     const dbFilename = `upload_${uuidv4()}.sqlite`;
@@ -444,6 +479,18 @@ router.post('/upload-sqlite', authenticate, upload.single('file'), async (req, r
     // Clean up temp file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
+    }
+
+    // Wait a moment to ensure persistence is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify the connection is listed
+    const connections = await dbManager.listConnections();
+    const connectionExists = connections.some(c => c.id === connectionId);
+    if (!connectionExists) {
+      logger.error(`Connection ${connectionId} was created but not found in list`);
+    } else {
+      logger.info(`Connection ${connectionId} verified in connections list`);
     }
 
     res.json({

@@ -232,7 +232,7 @@ router.get('/connections', async (req, res) => {
 
     logger.info(`Listing connections: found ${connections.length} connections`);
     connections.forEach(conn => {
-      logger.info(`Connection: ${conn.id} - ${conn.name} (${conn.type})`);
+      logger.info(`Connection: ${conn.id} - ${conn.name} (${conn.type}) - ${conn.config?.filename || 'no filename'}`);
     });
 
     res.json({ connections });
@@ -249,7 +249,7 @@ router.get('/list-connections', async (req, res) => {
 
     logger.info(`Listing connections (via list-connections): found ${connections.length} connections`);
     connections.forEach(conn => {
-      logger.info(`Connection: ${conn.id} - ${conn.name} (${conn.type})`);
+      logger.info(`Connection: ${conn.id} - ${conn.name} (${conn.type}) - ${conn.config?.filename || 'no filename'}`);
     });
 
     res.json({ connections });
