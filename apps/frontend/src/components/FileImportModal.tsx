@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, FileText, Loader2 } from 'lucide-react'
 import FileDropZone from './FileDropZone'
+import { authService } from '../services/auth'
 
 interface FileImportModalProps {
   isOpen: boolean
@@ -192,6 +193,13 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded, is
         xhr.ontimeout = () => reject(new Error('Import timed out'))
 
         xhr.open('POST', endpoint)
+        
+        // Add authentication header
+        const accessToken = authService.getAccessToken()
+        if (accessToken) {
+          xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`)
+        }
+        
         xhr.send(formData)
       })
 
