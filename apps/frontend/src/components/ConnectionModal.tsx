@@ -61,17 +61,39 @@ export default function ConnectionModal({
     setTestStatus('idle')
   }
 
-  const handleFileSelect = () => {
-    fileInputRef.current?.click()
+  const handleFileSelect = async () => {
+    // Check if we're in Electron and have the dialog API
+    if (window.electronAPI?.dialog) {
+      try {
+        const result = await window.electronAPI.dialog.openFile()
+        if (result.success && result.filePath) {
+          handleInputChange('filename', result.filePath)
+          // Use the filename without extension as the default name
+          const defaultName = result.fileName?.replace(/\.(db|sqlite|sqlite3)$/i, '') || 'SQLite Database'
+          if (!formData.name || formData.name === 'SQLite Database') {
+            handleInputChange('name', defaultName)
+          }
+        }
+      } catch (error) {
+        console.error('Error opening file dialog:', error)
+        // Fall back to HTML file input
+        fileInputRef.current?.click()
+      }
+    } else {
+      // Web mode - use HTML file input
+      fileInputRef.current?.click()
+    }
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      // In a real implementation, this would handle file upload
-      // For now, we'll just use the file path
+      // In web mode, we can only get the file name, not the full path
       handleInputChange('filename', file.name)
-      handleInputChange('name', file.name.replace(/\.(db|sqlite|sqlite3)$/i, ''))
+      const defaultName = file.name.replace(/\.(db|sqlite|sqlite3)$/i, '')
+      if (!formData.name || formData.name === 'SQLite Database') {
+        handleInputChange('name', defaultName)
+      }
     }
   }
 
@@ -207,7 +229,7 @@ export default function ConnectionModal({
                 value={formData.filename}
                 onChange={(e) => handleInputChange('filename', e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="/path/to/database.sqlite"
+                placeholder={window.electronAPI ? "/path/to/database.sqlite" : "database.sqlite"}
                 required
               />
               <input
@@ -216,6 +238,7 @@ export default function ConnectionModal({
                 onChange={handleFileChange}
                 accept=".db,.sqlite,.sqlite3"
                 className="hidden"
+                data-testid="file-input"
               />
               <button
                 type="button"

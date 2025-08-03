@@ -56,8 +56,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File dialog APIs
   dialog: {
     // Open file dialog for SQLite databases
-    openDatabase: () => {
-      return ipcRenderer.invoke('dialog:openDatabase')
+    openFile: () => {
+      return ipcRenderer.invoke('dialog:openFile')
     }
   },
 

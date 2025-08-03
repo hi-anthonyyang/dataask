@@ -21,9 +21,11 @@ interface ElectronAPI {
   }
   
   dialog: {
-    openDatabase: () => Promise<{
-      canceled: boolean
+    openFile: () => Promise<{
+      success: boolean
+      canceled?: boolean
       filePath?: string
+      fileName?: string
     }>
   }
 

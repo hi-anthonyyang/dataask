@@ -199,6 +199,30 @@ function setupIpcHandlers(): void {
 
     return await executeSQLiteQuery(filePath, sql, params)
   })
+
+  // Open file dialog for SQLite files
+  ipcMain.handle('dialog:openFile', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Select SQLite Database',
+      filters: [
+        { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      const filePath = result.filePaths[0]
+      const fileName = path.basename(filePath)
+      return { 
+        success: true, 
+        filePath,
+        fileName
+      }
+    }
+
+    return { success: false, canceled: true }
+  })
 }
 
 function createWindow(): void {
