@@ -163,6 +163,11 @@ class DatabaseManager {
       await this.getConnection(connectionId);
       logger.info(`Connection created successfully: ${connectionId}`);
       
+      // Persist SQLite connections
+      if (config.type === 'sqlite') {
+        await this.persistConnections();
+      }
+      
       // Ensure the connection is fully registered and accessible
       const verifyConnection = await this.listConnections();
       const found = verifyConnection.find(c => c.id === connectionId);

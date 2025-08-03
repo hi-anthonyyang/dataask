@@ -131,23 +131,37 @@ export const databaseService = {
 
   // List active connections
   async listConnections(): Promise<ConnectionListResponse> {
-    if (isElectron() && currentSQLiteFile) {
-      // For SQLite in Electron, return the current file as a connection
-      return {
-        connections: [{
-          id: SQLITE_CONNECTION_ID,
-          name: `SQLite: ${currentSQLiteFile.split('/').pop() || 'Database'}`,
-          type: DATABASE_TYPES.SQLITE,
-          config: { filename: currentSQLiteFile }
-        }]
+    // Always fetch connections from backend to get imported connections
+    try {
+      const response = await api.get<ConnectionListResponse>(API_ENDPOINTS.DATABASE.LIST_CONNECTIONS)
+      
+      // In Electron mode, also add the current SQLite file if it exists and isn't already in the list
+      if (isElectron() && currentSQLiteFile) {
+        const existingConnection = response.connections.find(c => c.config?.filename === currentSQLiteFile)
+        if (!existingConnection) {
+          response.connections.push({
+            id: SQLITE_CONNECTION_ID,
+            name: `SQLite: ${currentSQLiteFile.split('/').pop() || 'Database'}`,
+            type: DATABASE_TYPES.SQLITE,
+            config: { filename: currentSQLiteFile }
+          })
+        }
       }
-    } else {
-      // Web mode - use HTTP API
-      try {
-        return await api.get<ConnectionListResponse>(API_ENDPOINTS.DATABASE.LIST_CONNECTIONS)
-      } catch (error) {
-        return { connections: [] }
+      
+      return response
+    } catch (error) {
+      // If backend is not available, return current SQLite file in Electron mode
+      if (isElectron() && currentSQLiteFile) {
+        return {
+          connections: [{
+            id: SQLITE_CONNECTION_ID,
+            name: `SQLite: ${currentSQLiteFile.split('/').pop() || 'Database'}`,
+            type: DATABASE_TYPES.SQLITE,
+            config: { filename: currentSQLiteFile }
+          }]
+        }
       }
+      return { connections: [] }
     }
   },
 

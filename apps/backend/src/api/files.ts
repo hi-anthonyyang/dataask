@@ -252,8 +252,15 @@ router.post('/import', upload.single('file'), handleMulterError, async (req: exp
 
     // Create SQLite database file for this import (for backward compatibility)
     const dbFilename = `import_${uuidv4()}.sqlite`;
-    const dbPath = path.join(process.cwd(), 'data', dbFilename);
+    const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..');
+    const dbPath = path.join(workspaceRoot, 'data', dbFilename);
     
+    // Ensure data directory exists
+    const dataDir = path.dirname(dbPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
     // Create the database connection using the simplified DatabaseManager
     const dbManager = DatabaseManager.getInstance();
     const connectionId = await dbManager.createConnection({
@@ -403,7 +410,8 @@ router.post('/upload-sqlite', upload.single('file'), async (req, res) => {
 
     // Move the file to the data directory
     const dbFilename = `upload_${uuidv4()}.sqlite`;
-    const dbPath = path.join(process.cwd(), 'data', dbFilename);
+    const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..');
+    const dbPath = path.join(workspaceRoot, 'data', dbFilename);
     
     // Ensure data directory exists
     const dataDir = path.dirname(dbPath);
