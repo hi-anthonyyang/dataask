@@ -20,8 +20,8 @@ import {
 
 // Create database pool for user management
 const createDatabasePool = (): any | null => {
-  // PostgreSQL support has been removed - user authentication is disabled
-  logger.info('PostgreSQL support has been removed - user authentication is disabled');
+  // User authentication is currently disabled
+  logger.info('User authentication is currently disabled');
   return null;
 };
 

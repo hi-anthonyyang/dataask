@@ -28,7 +28,7 @@ const formatDateForDisplay = (dateValue: any): string => {
     if (dateValue instanceof Date) {
       date = dateValue
     } else if (typeof dateValue === 'string') {
-      // Handle ISO strings, MySQL dates, etc.
+      // Handle ISO strings and various date formats
       date = new Date(dateValue)
     } else if (typeof dateValue === 'number') {
       // Handle timestamps

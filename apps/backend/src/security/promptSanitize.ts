@@ -80,7 +80,7 @@ const SUSPICIOUS_KEYWORDS = [
 
 /**
  * Database-specific special characters that should be allowed in SQL queries
- * This covers MySQL, PostgreSQL, SQLite, and common SQL standards
+ * This covers SQLite and common SQL standards
  */
 const DATABASE_SAFE_CHARACTERS = {
   // Core SQL characters - includes basic math operators

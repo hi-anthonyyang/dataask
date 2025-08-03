@@ -5,7 +5,7 @@ AI-native, minimal SQL data analysis tool
 ## Features
 
 - **Natural Language to SQL**: Convert plain English questions into SQL queries
-- **Multi-Database Support**: Works with PostgreSQL, MySQL, and SQLite
+- **SQLite Support**: Works with SQLite databases for local data analysis
 - **AI-Powered Analysis**: Get insights and explanations from your query results
 - **Secure by Design**: Built-in SQL injection protection and input sanitization
 - **Cross-Platform**: Desktop app with web interface
@@ -135,7 +135,7 @@ dataask/
 - **Backend**: Express.js API server
 - **Desktop**: Electron wrapper
 - **AI**: OpenAI GPT models for natural language processing
-- **Databases**: Support for PostgreSQL, MySQL, SQLite
+- **Database**: SQLite for local data storage and analysis
 
 ## Development
 
@@ -165,8 +165,6 @@ cd apps/frontend && npm run lint  # ESLint for frontend
 DataAsk provides enterprise-grade database connectivity options:
 
 ### Connection Types
-- **PostgreSQL**: Full support with connection pooling
-- **MySQL**: Complete compatibility with performance optimizations  
 - **SQLite**: Embedded database support for local files
 - **File Import**: CSV and Excel file import with automatic schema detection
 
