@@ -1,20 +1,8 @@
 [
   {
     "type": "sqlite",
-    "name": "test_products",
-    "filename": "/workspace/data/import_01174796-1c4d-4f56-a76e-7b2d7e6a19eb.sqlite",
-    "id": "5c80c212-1fc6-4662-ac55-de66f21693e7"
-  },
-  {
-    "type": "sqlite",
-    "name": "sales_data",
-    "filename": "/workspace/data/import_5cb19213-13a9-4f11-b298-c04e93417431.sqlite",
-    "id": "a8d54c14-a175-40a4-8c7e-6eaaff50996c"
-  },
-  {
-    "type": "sqlite",
-    "name": "employees",
-    "filename": "/workspace/data/import_bad3c4e0-7b68-42f2-b71d-3eaad55c0b16.sqlite",
-    "id": "23175a25-7b46-467e-a950-8b50743aa791"
+    "name": "cursor_usage_details_2025_07_30",
+    "filename": "/Users/anthonyyang/Downloads/Ant/dataask/data/import_c7165351-18d4-46bf-9f5a-a8d62ccbb86f.sqlite",
+    "id": "2964817b-73bc-49e2-912c-2958ae5d0013"
   }
 ]

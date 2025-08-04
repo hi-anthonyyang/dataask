@@ -38,6 +38,19 @@
         "tableCount": 0
       },
       "status": "ready"
+    },
+    {
+      "id": "a1227748-1171-4281-83a2-2b58e320b4e7",
+      "name": "cursor_usage_details_2025_07_30",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/Users/anthonyyang/Downloads/Ant/dataask/data/import_c7165351-18d4-46bf-9f5a-a8d62ccbb86f.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:17:52.003Z",
+        "lastAccessed": "2025-08-04T23:17:52.003Z",
+        "tableCount": 0
+      },
+      "status": "ready"
     }
   ],
   "version": "1.0.0"

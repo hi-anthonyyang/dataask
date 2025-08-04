@@ -16,9 +16,9 @@ export const API_MESSAGES = {
 // Server configuration
 export const SERVER_CONFIG = {
   DEFAULT_PORT: 3001,
-  DEFAULT_CORS_ORIGIN: 'http://localhost:3000',
-  JSON_LIMIT: '10mb',
+  JSON_LIMIT: '50mb',
   CORS_SUCCESS_STATUS: 200,
+  DEFAULT_CORS_ORIGIN: ['http://localhost:3000', 'http://localhost:5173'],
 } as const;
 
 // Application metadata

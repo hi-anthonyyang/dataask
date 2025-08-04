@@ -81,7 +81,9 @@ app.use(applyRateLimiting);
 
 // CORS configuration with credentials support
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || SERVER_CONFIG.DEFAULT_CORS_ORIGIN,
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    : true, // Allow all origins in development
   credentials: true, // Enable credentials for cookie authentication
   optionsSuccessStatus: SERVER_CONFIG.CORS_SUCCESS_STATUS,
 };

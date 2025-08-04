@@ -8,6 +8,8 @@
  * for cookie-based authentication.
  */
 
+import { API_BASE_URL } from '../config';
+
 export interface ApiError {
   error: string;
   details?: string | string[];
@@ -17,6 +19,15 @@ export interface ApiError {
 }
 
 export class ApiService {
+  private static getFullUrl(url: string): string {
+    // If URL is already absolute, return as is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // Otherwise, prepend the base URL
+    return `${API_BASE_URL}${url.startsWith('/') ? url : `/${url}`}`;
+  }
+
   private static async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       // Special handling for 401 - let it bubble up for token refresh
@@ -58,7 +69,8 @@ export class ApiService {
   }
 
   static async get<T>(url: string): Promise<T> {
-    const response = await fetch(url, {
+    const fullUrl = this.getFullUrl(url);
+    const response = await fetch(fullUrl, {
       method: 'GET',
       headers: this.getHeaders(),
       credentials: 'include'
@@ -68,7 +80,8 @@ export class ApiService {
   }
 
   static async post<T>(url: string, data?: unknown): Promise<T> {
-    const response = await fetch(url, {
+    const fullUrl = this.getFullUrl(url);
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: this.getHeaders(),
       credentials: 'include',
@@ -79,7 +92,8 @@ export class ApiService {
   }
 
   static async put<T>(url: string, data: unknown): Promise<T> {
-    const response = await fetch(url, {
+    const fullUrl = this.getFullUrl(url);
+    const response = await fetch(fullUrl, {
       method: 'PUT',
       headers: this.getHeaders(),
       credentials: 'include',
@@ -90,7 +104,8 @@ export class ApiService {
   }
 
   static async delete<T>(url: string): Promise<T> {
-    const response = await fetch(url, {
+    const fullUrl = this.getFullUrl(url);
+    const response = await fetch(fullUrl, {
       method: 'DELETE',
       headers: this.getHeaders(),
       credentials: 'include'
@@ -100,7 +115,8 @@ export class ApiService {
   }
 
   static async upload<T>(url: string, formData: FormData): Promise<T> {
-    const response = await fetch(url, {
+    const fullUrl = this.getFullUrl(url);
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: this.getHeaders(false), // Don't set Content-Type for multipart
       credentials: 'include',
@@ -117,8 +133,9 @@ export class ApiService {
     url: string,
     options: RequestInit & { refreshToken?: () => Promise<boolean> }
   ): Promise<T> {
+    const fullUrl = this.getFullUrl(url);
     try {
-      const response = await fetch(url, {
+      const response = await fetch(fullUrl, {
         ...options,
         credentials: 'include'
       });
@@ -130,7 +147,7 @@ export class ApiService {
         const refreshed = await options.refreshToken();
         if (refreshed) {
           // Retry the original request
-          const retryResponse = await fetch(url, {
+          const retryResponse = await fetch(fullUrl, {
             ...options,
             credentials: 'include'
           });
