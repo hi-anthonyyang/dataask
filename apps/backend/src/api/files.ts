@@ -86,6 +86,84 @@ const handleMulterError = (err: Error & { code?: string }, req: express.Request,
   next();
 };
 
+// Handle SQLite file import
+const handleSQLiteImport = async (req: express.Request, res: express.Response, tempFilePath: string) => {
+  try {
+    const originalFilename = req.file?.originalname || 'database.sqlite';
+    
+    // Verify it's a valid SQLite file
+    const sqlite3 = require('sqlite3').verbose();
+    const isValidDb = await new Promise<boolean>((resolve) => {
+      const testDb = new sqlite3.Database(tempFilePath, sqlite3.OPEN_READONLY, (err: any) => {
+        if (err) {
+          logger.error('Invalid SQLite database file:', err);
+          resolve(false);
+        } else {
+          testDb.close((closeErr) => {
+            if (closeErr) {
+              logger.error('Error closing test database:', closeErr);
+            }
+            resolve(true);
+          });
+        }
+      });
+    });
+
+    if (!isValidDb) {
+      fs.unlinkSync(tempFilePath);
+      return res.status(400).json({ error: 'Invalid SQLite database file' });
+    }
+
+    // Move the file to the data directory
+    const dbFilename = `import_${uuidv4()}.sqlite`;
+    const workspaceRoot = path.resolve(__dirname, '..', '..', '..', '..');
+    const dbPath = path.join(workspaceRoot, 'data', dbFilename);
+    
+    // Ensure data directory exists
+    const dataDir = path.dirname(dbPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+
+    // Move the file
+    fs.renameSync(tempFilePath, dbPath);
+    logger.info(`Moved SQLite file to: ${dbPath}`);
+
+    // Extract database name from filename
+    const dbName = originalFilename.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_');
+
+    // Create the database connection using DatabaseManager
+    const dbManager = DatabaseManager.getInstance();
+    const connectionId = await dbManager.createConnection({
+      type: 'sqlite',
+      name: dbName,
+      filename: dbPath
+    });
+
+    logger.info(`Created SQLite connection ${connectionId} for database ${dbName}`);
+    
+    // Verify the connection is accessible
+    const connections = await dbManager.listConnections();
+    const connectionExists = connections.some(c => c.id === connectionId);
+    if (!connectionExists) {
+      logger.error(`Connection ${connectionId} was created but not found in list`);
+    }
+
+    res.json({
+      connectionId,
+      tableName: dbName,
+      message: 'SQLite database imported successfully'
+    });
+    
+  } catch (error) {
+    logger.error('SQLite import failed:', error);
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+    return sendServerError(res, error, 'SQLite import failed');
+  }
+};
+
 // File upload and preview endpoint (DEPRECATED - use /import instead)
 router.post('/upload', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   try {
@@ -192,7 +270,7 @@ router.post('/upload', upload.single('file'), handleMulterError, async (req: exp
 });
 
 // Combined upload and import endpoint
-router.post('/import', authenticate, upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
+router.post('/import', upload.single('file'), handleMulterError, async (req: express.Request, res: express.Response) => {
   let tempFilePath: string | undefined;
   
   try {
@@ -200,22 +278,34 @@ router.post('/import', authenticate, upload.single('file'), handleMulterError, a
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { tableName } = req.body;
-    if (!tableName || typeof tableName !== 'string') {
-      return res.status(400).json({ error: 'Table name is required' });
-    }
-
-    // Validate table name
-    const cleanTableName = tableName.trim().replace(/[^a-zA-Z0-9_]/g, '_');
-    if (!cleanTableName) {
-      return res.status(400).json({ error: 'Invalid table name' });
+    const fileExtension = path.extname(req.file.originalname).toLowerCase();
+    
+    // SQLite files don't need a table name
+    if (!['.db', '.sqlite', '.sqlite3'].includes(fileExtension)) {
+      const { tableName } = req.body;
+      if (!tableName || typeof tableName !== 'string') {
+        return res.status(400).json({ error: 'Table name is required' });
+      }
     }
 
     tempFilePath = req.file.path;
-    const fileExtension = path.extname(req.file.originalname).toLowerCase();
+    
+    // Check if it's a SQLite file
+    if (['.db', '.sqlite', '.sqlite3'].includes(fileExtension)) {
+      // Handle SQLite file import
+      return handleSQLiteImport(req, res, tempFilePath);
+    }
+    
+    // Get table name for CSV/Excel files
+    const { tableName } = req.body;
+    const cleanTableName = tableName ? tableName.trim().replace(/[^a-zA-Z0-9_]/g, '_') : '';
     
     if (!['.csv', '.xlsx', '.xls'].includes(fileExtension)) {
-      return res.status(400).json({ error: 'Unsupported file format. Please upload a CSV, XLS, or XLSX file.' });
+      return res.status(400).json({ error: 'Unsupported file format. Please upload a CSV, XLS, XLSX, or SQLite database file.' });
+    }
+    
+    if (!cleanTableName) {
+      return res.status(400).json({ error: 'Invalid table name' });
     }
 
     // Read and parse file
@@ -407,7 +497,7 @@ router.post('/import', authenticate, upload.single('file'), handleMulterError, a
 /**
  * Upload SQLite database file
  */
-router.post('/upload-sqlite', authenticate, upload.single('file'), async (req, res) => {
+router.post('/upload-sqlite', upload.single('file'), async (req, res) => {
   let tempFilePath: string | undefined;
   
   try {

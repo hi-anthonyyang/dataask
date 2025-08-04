@@ -1,0 +1,14 @@
+[
+  {
+    "type": "sqlite",
+    "name": "test_users",
+    "filename": "/workspace/data/import_6ecb78b8-bf2b-4ec0-a9a2-f88ef31d440f.sqlite",
+    "id": "cd0d62b1-45d1-407d-950d-33e187a904ea"
+  },
+  {
+    "type": "sqlite",
+    "name": "test_products",
+    "filename": "/workspace/data/import_01174796-1c4d-4f56-a76e-7b2d7e6a19eb.sqlite",
+    "id": "5c80c212-1fc6-4662-ac55-de66f21693e7"
+  }
+]

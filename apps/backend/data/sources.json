@@ -1,0 +1,18 @@
+{
+  "sources": [
+    {
+      "id": "6eb661a2-8f71-493c-8067-fa6ff94e80aa",
+      "name": "test_users",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/workspace/data/import_6ecb78b8-bf2b-4ec0-a9a2-f88ef31d440f.sqlite",
+        "size": 0,
+        "created": "2025-08-04T22:11:08.746Z",
+        "lastAccessed": "2025-08-04T22:11:08.746Z",
+        "tableCount": 0
+      },
+      "status": "ready"
+    }
+  ],
+  "version": "1.0.0"
+}

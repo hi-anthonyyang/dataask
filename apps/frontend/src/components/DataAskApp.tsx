@@ -4,9 +4,7 @@ import AnalysisPanel from './AnalysisPanel'
 import ChatPanel from './ChatPanel'
 import AddDataModal from './AddDataModal'
 import ConnectionStatus from './ConnectionStatus'
-import { Database, ChevronRight, LogOut, Plus } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { Database, ChevronRight, Plus } from 'lucide-react'
 import { Connection, QueryResult, DatabaseType } from '../types'
 import { databaseService } from '../services/database'
 import StorageService from '../services/storage'
@@ -24,8 +22,7 @@ const DataAskApp: React.FC = () => {
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
 
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+
 
   // Use custom hook for resizable panels
   const leftPanel = useResizablePanel({
@@ -147,10 +144,7 @@ const DataAskApp: React.FC = () => {
     return connection?.type || null
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+
 
   return (
     <div 
@@ -208,17 +202,6 @@ const DataAskApp: React.FC = () => {
                   <Plus className="w-4 h-4 text-gray-600" />
                 </button>
               </div>
-              
-              {/* User Menu */}
-              <div className="mt-auto p-2 border-t border-gray-200">
-                <button
-                  onClick={handleLogout}
-                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
             </div>
           ) : (
             <div className="flex-1 overflow-hidden">
@@ -234,8 +217,7 @@ const DataAskApp: React.FC = () => {
                 onEditConnection={handleEditConnection}
                 onTogglePanel={toggleLeftPanel}
                 isPanelMinimized={isLeftPanelMinimized}
-                userEmail={user?.email}
-                onLogout={handleLogout}
+
               />
             </div>
           )}

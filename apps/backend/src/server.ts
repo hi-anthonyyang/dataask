@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { app, initializeApp } from './app';
 import { logger } from './utils/logger';
+import fs from 'fs';
+import path from 'path';
 
 // Load environment variables
 dotenv.config();
@@ -9,6 +11,13 @@ const PORT = process.env.PORT || 3001;
 
 async function startServer() {
   try {
+    // Ensure data directory exists
+    const dataDir = path.join(__dirname, '..', '..', '..', 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      logger.info(`📁 Created data directory at ${dataDir}`);
+    }
+    
     // Initialize app and auth service
     await initializeApp();
     
