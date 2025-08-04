@@ -126,7 +126,7 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      * Singleton `DatabaseManager` class responsible for managing database
      * connections and executing queries.
      *
-     * Supports PostgreSQL, SQLite and MySQL drivers. Provides methods to test
+     * Supports SQLite databases and file imports. Provides methods to test
      * connectivity, create and delete saved connections, execute sanitized
      * read‑only queries with timing and database‑specific error mapping and
      * inspect database schemas (table names, metadata, column definitions and
@@ -245,7 +245,7 @@ The following docstrings describe the purpose of each module in the DataAsk repo
      *
      * Features tabbed interface with:
      * - File Import tab: Upload CSV/Excel files to create queryable tables
-     * - Database Connection tab: Connect to PostgreSQL, MySQL, or SQLite databases
+     * - Database Connection tab: Connect to SQLite databases or browse SQLite files
      * 
      * Embeds FileImportModal and ConnectionModal components in a unified interface.
      * Defaults to file import tab for easier data onboarding.

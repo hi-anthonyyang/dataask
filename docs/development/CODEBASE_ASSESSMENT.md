@@ -10,7 +10,7 @@ After a thorough analysis of the DataAsk codebase, I've identified a critical is
 - **Frontend**: React with TypeScript, Vite build system
 - **Backend**: Express.js with TypeScript
 - **Desktop**: Electron wrapper
-- **Databases**: PostgreSQL, MySQL, SQLite support
+- **Database**: SQLite for data storage and queries
 - **File Processing**: XLSX library for CSV/Excel parsing
 - **State Management**: React hooks and context (no Redux/MobX)
 
@@ -83,7 +83,7 @@ Beyond the route mismatch, there are architectural concerns:
 
 1. **Dual Connection Systems**:
    - **DatabaseManager**: In-memory connection storage (`connectionConfigs` Map)
-   - **UserService**: Database-backed connection storage (PostgreSQL)
+   - **UserService**: Database-backed connection storage (SQLite)
    - File imports create connections in DatabaseManager but not in UserService
 
 2. **Persistence Gap**:

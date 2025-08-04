@@ -138,8 +138,8 @@ const connections = await userConnectionsService.getConnections();
 // Create new connection
 const newConnection = await userConnectionsService.createConnection({
   name: 'My Database',
-  type: 'postgresql',
-  config: { host: 'localhost', database: 'mydb', ... }
+  type: 'sqlite',
+  config: { filename: '/path/to/database.db' }
 });
 ```
 

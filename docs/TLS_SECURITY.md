@@ -6,13 +6,13 @@ This document describes the TLS/HTTPS security improvements implemented in DataA
 
 ## Database Connection Security
 
-### SSL/TLS Configuration
+### SQLite Security
 
-**PostgreSQL & MySQL connections now support SSL/TLS encryption:**
+**SQLite database security measures:**
 
-- **Production**: SSL/TLS is automatically enabled with certificate validation
-- **Development**: SSL can be optionally enabled with `DB_SSL_ENABLED=true`
-- **Certificates**: Support for custom CA, client certificates, and private keys
+- **File Permissions**: Database files should have restricted permissions (600)
+- **Directory Security**: Store database files in a secure directory
+- **Encryption**: Consider using SQLite encryption extensions for sensitive data
 
 ### Environment Variables
 
