@@ -24,20 +24,10 @@ JWT_SECRET=generate-64-character-cryptographically-secure-secret
 JWT_REFRESH_SECRET=different-64-character-secure-refresh-secret
 ENCRYPTION_KEY=exactly-32-character-encryption-key!!
 
-# Database (Production)
-POSTGRES_HOST=your-production-db-host
-POSTGRES_DB=dataask_prod
-POSTGRES_USER=dataask_prod_user
-POSTGRES_PASSWORD=very-secure-production-password
-
 # Server
 NODE_ENV=production
 PORT=3001
 CORS_ORIGIN=https://yourdomain.com
-
-# SSL/TLS (Production)
-DB_SSL_ENABLED=true
-DB_SSL_REJECT_UNAUTHORIZED=true
 ```
 
 ### **Security Key Generation**
@@ -52,11 +42,10 @@ openssl rand -base64 24 | head -c 32
 ## 🗄️ Database Setup
 
 ### **Production Database**
-- [ ] **PostgreSQL 13+ Installed**: Version compatibility verified
-- [ ] **Database Created**: `dataask_prod` database exists
-- [ ] **User Created**: Dedicated user with minimal privileges
-- [ ] **SSL Configured**: TLS encryption for database connections
-- [ ] **Backups Configured**: Automated backup strategy in place
+- [ ] **SQLite Database Location**: Secure directory with proper permissions
+- [ ] **Database File Permissions**: Read/write for app user only (chmod 600)
+- [ ] **Backup Strategy**: Regular SQLite database file backups configured
+- [ ] **Database Directory**: Ensure parent directory has appropriate permissions
 
 ### **Migration Execution**
 ```bash
@@ -187,7 +176,9 @@ artillery quick --count 100 --num 10 https://yourdomain.com/api/health
 # Daily backup script
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
-pg_dump dataask_prod > /backups/dataask_${DATE}.sql
+cp /path/to/dataask.db /backups/dataask_${DATE}.db
+# Optional: compress the backup
+gzip /backups/dataask_${DATE}.db
 ```
 
 ### **Application Backups**

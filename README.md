@@ -15,7 +15,6 @@ AI-native, minimal SQL data analysis tool
 ### Prerequisites
 
 - Node.js 18+ and npm 9+
-- Docker and Docker Compose (for databases)
 - **OpenAI API Key** (required for AI features)
 
 ### Setup
@@ -124,7 +123,6 @@ dataask/
 │   └── ...                 # Other technical docs
 ├── scripts/                # Utility scripts
 │   └── deploy.sh          # Production deployment script
-├── docker/                 # Docker configuration
 ├── env.example            # Environment variables template
 └── package.json           # Root package configuration
 ```

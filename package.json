@@ -13,10 +13,7 @@
     "dev:frontend": "npm run dev --workspace=apps/frontend",
     "dev:electron": "npm run dev --workspace=apps/electron-shell",
     "build": "npm run build --workspaces",
-    "clean": "npm run clean --workspaces",
-    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker compose -f docker/docker-compose.yml down",
-    "setup": "npm install && npm run docker:up"
+    "clean": "npm run clean --workspaces"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -31,13 +31,6 @@ cp env.example .env
 
 **Required Environment Variables:**
 ```bash
-# Database Configuration
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=dataask_dev
-POSTGRES_USER=dataask_user
-POSTGRES_PASSWORD=your-secure-password
-
 # Security (CHANGE THESE IN PRODUCTION!)
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_REFRESH_SECRET=your-super-secret-refresh-jwt-key-change-in-production
@@ -46,12 +39,9 @@ ENCRYPTION_KEY=your-32-character-encryption-key-here!!
 
 ### 2. Database Setup
 
-Start the PostgreSQL database:
-```bash
-npm run docker:up
-```
+The application uses SQLite for authentication data. The database file will be created automatically when the application starts.
 
-Run database migrations:
+Initialize the database:
 ```bash
 cd apps/backend
 npm run migrate

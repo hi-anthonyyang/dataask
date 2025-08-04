@@ -9,7 +9,6 @@
     "start": "node dist/server.js",
     "clean": "rm -rf dist/",
     "type-check": "tsc --noEmit",
-    "migrate": "tsx scripts/migrate.ts",
     "test:auth": "tsx scripts/test-auth-flow.ts",
     "test": "jest",
     "test:watch": "jest --watch",

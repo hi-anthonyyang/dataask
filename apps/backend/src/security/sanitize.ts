@@ -38,11 +38,7 @@ const DANGEROUS_PATTERNS = [
   /UNION.*?(INSERT|UPDATE|DELETE|DROP)/i,
   /-{2}.*?(INSERT|UPDATE|DELETE|DROP)/i, // SQL comments trying to hide malicious code
   /\/\*.*?(INSERT|UPDATE|DELETE|DROP).*?\*\//i, // Block comments
-  /xp_cmdshell/i, // SQL Server command execution
-  /sp_executesql/i, // SQL Server dynamic SQL execution
   /\bCHAR\s*\(\s*\d+\s*\)/i, // CHAR() function often used in injections
-  /\bSLEEP\s*\(/i, // MySQL SLEEP function
-  /\bBENCHMARK\s*\(/i, // MySQL BENCHMARK function
 ];
 
 /**

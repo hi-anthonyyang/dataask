@@ -73,22 +73,22 @@
 
 #### Login/Registration Fails
 **Solutions**:
-- Check PostgreSQL database is running
 - Verify JWT secrets are configured
 - Check CORS settings for frontend domain
 - Review server logs for detailed errors
+- Ensure SQLite database file has proper permissions
 
 ## Getting Help
 
 ### Log Files
 - Backend logs: Check console output or PM2 logs
 - Frontend logs: Check browser developer console
-- Database logs: Check PostgreSQL/MySQL server logs
+- SQLite logs: Check application logs for database queries
 
 ### Environment Check
 ```bash
 # Verify environment variables
-cat .env | grep -E "(JWT_SECRET|POSTGRES_|DB_)"
+cat .env | grep -E "(JWT_SECRET|DB_)"
 
 # Check file permissions
 ls -la uploads/ data/
