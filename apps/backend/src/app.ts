@@ -131,8 +131,11 @@ app.get('/', (req, res) => {
   });
 });
 
-// Enhanced health check endpoint with rate limit configuration
+// Health check endpoint
 app.get('/health', healthCheck);
+
+// API health check endpoint (for compatibility)
+app.get('/api/health', healthCheck);
 
 // Database health check
 app.get('/health/db', async (req, res) => {

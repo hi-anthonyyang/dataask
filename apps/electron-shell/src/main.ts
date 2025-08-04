@@ -2,70 +2,12 @@ import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import * as path from 'path'
 import * as sqlite3 from 'sqlite3'
 import * as fs from 'fs'
-import { spawn, ChildProcess } from 'child_process'
 
 const isDev = process.env.NODE_ENV === 'development'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001'
+const FRONTEND_URL = isDev ? 'http://localhost:3000' : `file://${path.join(__dirname, '../../frontend/dist/index.html')}`
 
-console.log('🔧 Electron starting...', { isDev, NODE_ENV: process.env.NODE_ENV })
-
-// Backend server process management
-let backendProcess: ChildProcess | null = null
-
-function startBackendServer(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    console.log('🚀 Starting backend server...')
-    
-    const backendPath = path.join(__dirname, '../../backend')
-    const command = isDev ? 'npm' : 'node'
-    const args = isDev ? ['run', 'dev'] : ['dist/server.js']
-    
-    backendProcess = spawn(command, args, {
-      cwd: backendPath,
-      env: { ...process.env, PORT: '3001' },
-      shell: true
-    })
-    
-    backendProcess.stdout?.on('data', (data) => {
-      console.log(`[Backend] ${data}`)
-      // Look for server ready message
-      if (data.toString().includes('server running on port')) {
-        console.log('✅ Backend server ready')
-        resolve()
-      }
-    })
-    
-    backendProcess.stderr?.on('data', (data) => {
-      console.error(`[Backend Error] ${data}`)
-    })
-    
-    backendProcess.on('error', (error) => {
-      console.error('❌ Failed to start backend server:', error)
-      reject(error)
-    })
-    
-    backendProcess.on('exit', (code, signal) => {
-      console.log(`Backend server exited with code ${code} and signal ${signal}`)
-      backendProcess = null
-    })
-    
-    // Set a timeout for server startup
-    setTimeout(() => {
-      if (backendProcess && !backendProcess.killed) {
-        resolve() // Assume server started even if we didn't see the message
-      } else {
-        reject(new Error('Backend server startup timeout'))
-      }
-    }, 10000) // 10 second timeout
-  })
-}
-
-function stopBackendServer(): void {
-  if (backendProcess && !backendProcess.killed) {
-    console.log('🛑 Stopping backend server...')
-    backendProcess.kill('SIGTERM')
-    backendProcess = null
-  }
-}
+console.log('🔧 Electron starting...', { isDev, NODE_ENV: process.env.NODE_ENV, BACKEND_URL, FRONTEND_URL })
 
 // Simple SQLite operations - no connection management needed
 function validateSQLiteFile(filePath: string): { valid: boolean; error?: string } {
@@ -298,13 +240,7 @@ function createWindow(): void {
   })
 
   // Load the React app
-  if (isDev) {
-    console.log('🌐 Loading development server: http://localhost:3000')
-    mainWindow.loadURL('http://localhost:3000')
-  } else {
-    console.log('📁 Loading production build')
-    mainWindow.loadFile(path.join(__dirname, '../../frontend/dist/index.html'))
-  }
+  mainWindow.loadURL(FRONTEND_URL)
 
   // Handle load failures
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
@@ -325,15 +261,9 @@ function createWindow(): void {
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(async () => {
-  console.log('🚀 Electron app ready, setting up IPC handlers...')
-  
-  // Start backend server first
-  try {
-    await startBackendServer()
-  } catch (error) {
-    console.error('Failed to start backend server:', error)
-    dialog.showErrorBox('Backend Server Error', 'Failed to start the backend server. The application may not work properly.')
-  }
+  console.log('🚀 Electron app ready')
+  console.log(`📡 Expecting backend at: ${BACKEND_URL}`)
+  console.log(`🌐 Loading frontend from: ${FRONTEND_URL}`)
   
   setupIpcHandlers()
   createWindow()
@@ -347,7 +277,6 @@ app.whenReady().then(async () => {
 // Quit when all windows are closed, except on macOS
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    stopBackendServer()
     app.quit()
   }
 })
@@ -373,19 +302,16 @@ app.on('web-contents-created', (event, contents) => {
 
 // Clean up on app quit
 app.on('before-quit', () => {
-  console.log('🔴 App quitting, cleaning up...')
-  stopBackendServer()
+  console.log('🔴 App quitting')
 })
 
 // Handle process termination
 process.on('SIGINT', () => {
   console.log('Received SIGINT')
-  stopBackendServer()
   app.quit()
 })
 
 process.on('SIGTERM', () => {
   console.log('Received SIGTERM')
-  stopBackendServer()
   app.quit()
 }) 

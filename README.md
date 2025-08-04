@@ -47,9 +47,9 @@ AI-native, minimal SQL data analysis tool
 
 #### Backend Connection Errors (500 errors)
 
-**Note:** As of the latest update, the Electron app now automatically manages the backend server process. The backend will start automatically when you launch the Electron app and stop when you close it.
+**Note:** The application uses a shared backend architecture. Make sure the backend is running before starting the frontend or Electron app.
 
-If you still encounter connection errors:
+If you encounter connection errors:
 
 If you see 500 errors when trying to connect to databases or import files:
 
@@ -137,16 +137,45 @@ dataask/
 
 ## Development
 
+### Architecture Overview
+
+DataAsk uses a **shared backend architecture** where:
+- The backend runs as a standalone service (port 3001)
+- The frontend connects to the backend API (port 3000 in dev)
+- Electron acts as a desktop shell, connecting to the same backend
+- No duplicate backend processes or port conflicts
+
+### Starting the Application
+
 ```bash
-# Start all services in development mode
+# Start backend and frontend (recommended for web development)
 npm run dev
 
-# Start individual services
-npm run dev:backend    # API server on port 3001
-npm run dev:frontend   # React app on port 3000
-npm run dev:electron   # Desktop app
+# Start all services including Electron
+npm run dev:all
 
-# Build for production
+# Start services individually
+npm run backend        # Backend API server on port 3001
+npm run frontend       # React app on port 3000
+npm run electron       # Electron app (requires backend and frontend running)
+
+# Alternative: Start each service in separate terminals
+npm run dev:backend    # Terminal 1: Backend API
+npm run dev:frontend   # Terminal 2: React frontend
+npm run dev:electron   # Terminal 3: Electron (waits for backend/frontend)
+```
+
+### Development Workflow
+
+1. **Backend First**: Always start the backend before other services
+2. **Health Check**: Backend provides `/api/health` endpoint for service discovery
+3. **Shared State**: All clients (web/electron) share the same backend state
+4. **Hot Reload**: Frontend and backend support hot reloading in development
+
+### Build for Production
+
+```bash
+# Build all services
 npm run build
 
 # Run tests
@@ -204,11 +233,11 @@ See `AUTHENTICATION.md`, `PROMPT_INJECTION_SECURITY.md`, and `TLS_SECURITY.md` f
 
 ## Recent Updates
 
-### Backend Server Management
-- The Electron app now automatically manages the backend server process
-- Backend starts automatically when launching the app
-- Backend stops gracefully when closing the app
-- No need to manually run separate backend server in development
+### Shared Backend Architecture
+- Backend runs as a standalone service shared by all clients
+- Web frontend and Electron app connect to the same backend instance
+- No duplicate backend processes or port conflicts
+- Backend must be started before running frontend or Electron app
 
 ### UI Improvements
 - Merged redundant "Connections" and "Database" sections into a single "Database" panel
