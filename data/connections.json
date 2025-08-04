@@ -1,14 +1,20 @@
 [
   {
     "type": "sqlite",
-    "name": "test_users",
-    "filename": "/workspace/data/import_6ecb78b8-bf2b-4ec0-a9a2-f88ef31d440f.sqlite",
-    "id": "cd0d62b1-45d1-407d-950d-33e187a904ea"
-  },
-  {
-    "type": "sqlite",
     "name": "test_products",
     "filename": "/workspace/data/import_01174796-1c4d-4f56-a76e-7b2d7e6a19eb.sqlite",
     "id": "5c80c212-1fc6-4662-ac55-de66f21693e7"
+  },
+  {
+    "type": "sqlite",
+    "name": "sales_data",
+    "filename": "/workspace/data/import_5cb19213-13a9-4f11-b298-c04e93417431.sqlite",
+    "id": "a8d54c14-a175-40a4-8c7e-6eaaff50996c"
+  },
+  {
+    "type": "sqlite",
+    "name": "employees",
+    "filename": "/workspace/data/import_bad3c4e0-7b68-42f2-b71d-3eaad55c0b16.sqlite",
+    "id": "23175a25-7b46-467e-a950-8b50743aa791"
   }
 ]

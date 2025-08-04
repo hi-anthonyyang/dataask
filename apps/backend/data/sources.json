@@ -12,6 +12,32 @@
         "tableCount": 0
       },
       "status": "ready"
+    },
+    {
+      "id": "69396177-2c67-4949-9e86-f753c6df8e41",
+      "name": "sales_data",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/workspace/data/import_5cb19213-13a9-4f11-b298-c04e93417431.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:01:49.069Z",
+        "lastAccessed": "2025-08-04T23:01:49.069Z",
+        "tableCount": 0
+      },
+      "status": "ready"
+    },
+    {
+      "id": "05adc4a3-1c31-47da-8b83-3caac98c9e99",
+      "name": "employees",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/workspace/data/import_bad3c4e0-7b68-42f2-b71d-3eaad55c0b16.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:02:26.066Z",
+        "lastAccessed": "2025-08-04T23:02:26.066Z",
+        "tableCount": 0
+      },
+      "status": "ready"
     }
   ],
   "version": "1.0.0"
