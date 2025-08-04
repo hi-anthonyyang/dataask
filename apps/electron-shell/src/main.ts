@@ -172,7 +172,7 @@ function setupIpcHandlers(): void {
     } catch (error) {
       return {
         exists: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Unknown error'
       }
     }
   })
