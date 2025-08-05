@@ -80,42 +80,14 @@ const DataAskApp: React.FC = () => {
           className="bg-white border-r border-gray-200 flex flex-col transition-all duration-200 flex-shrink-0"
           style={{ width: isLeftPanelMinimized ? '48px' : `${leftPanel.width}px` }}
         >
-          {isLeftPanelMinimized ? (
-            <div className="flex flex-col h-full">
-              {/* Minimized Header with Expand Button */}
-              <div className="p-2 border-b border-gray-200 flex justify-center">
-                <button
-                  onClick={toggleLeftPanel}
-                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Expand panel"
-                >
-                  <ChevronRight className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-              
-              {/* Upload File Button */}
-              <div className="p-2">
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Upload file"
-                >
-                  <Plus className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-hidden">
-              <DataFrameBrowser
-                selectedDataFrame={selectedDataFrame}
-                onDataFrameSelect={handleDataFrameSelect}
-                onFileUpload={() => setShowUploadModal(true)}
-                onTogglePanel={toggleLeftPanel}
-                isPanelMinimized={isLeftPanelMinimized}
-                refreshTrigger={refreshTrigger} // Pass refreshTrigger
-              />
-            </div>
-          )}
+          <DataFrameBrowser
+            selectedDataFrame={selectedDataFrame}
+            onDataFrameSelect={handleDataFrameSelect}
+            onFileUpload={() => setShowUploadModal(true)}
+            onTogglePanel={toggleLeftPanel}
+            isPanelMinimized={isLeftPanelMinimized}
+            refreshTrigger={refreshTrigger}
+          />
         </div>
 
         {/* Drag Handle for Left Panel */}

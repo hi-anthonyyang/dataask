@@ -11,6 +11,130 @@ interface DataFrameBrowserProps {
   refreshTrigger?: number // Add this to trigger refreshes
 }
 
+// Minimized DataFrame Browser Component
+function MinimizedDataFrameBrowser({
+  selectedDataFrame,
+  onDataFrameSelect,
+  onFileUpload,
+  onTogglePanel,
+  refreshTrigger
+}: DataFrameBrowserProps) {
+  const [dataframes, setDataframes] = useState<DataFrame[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadDataFrames()
+  }, [refreshTrigger])
+
+  const loadDataFrames = async () => {
+    try {
+      setLoading(true)
+      const response = await dataframeService.listDataFrames()
+      setDataframes(response.dataframes)
+    } catch (error) {
+      console.error('Failed to load dataframes:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this DataFrame?')) {
+      return
+    }
+
+    try {
+      await dataframeService.deleteDataFrame(id)
+      await loadDataFrames()
+      if (selectedDataFrame === id) {
+        onDataFrameSelect(null)
+      }
+    } catch (error) {
+      console.error('Failed to delete dataframe:', error)
+      alert('Failed to delete DataFrame')
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 p-2 flex justify-center">
+        <button
+          onClick={onTogglePanel}
+          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+          title="Expand panel"
+        >
+          <ChevronRight className="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+
+      {/* Upload Button */}
+      <div className="p-2 flex justify-center">
+        <button
+          onClick={onFileUpload}
+          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
+          title="Upload file"
+        >
+          <Plus className="w-4 h-4 text-gray-600" />
+        </button>
+      </div>
+
+      {/* Data File Icons */}
+      <div className="flex-1 overflow-y-auto p-2">
+        {loading ? (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 mx-auto"></div>
+          </div>
+        ) : dataframes.length === 0 ? (
+          <div className="text-center py-4">
+            <FileSpreadsheet className="w-6 h-6 text-gray-300 mx-auto" />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {dataframes.map((df) => {
+              const isSelected = selectedDataFrame === df.id
+              
+              return (
+                <div key={df.id} className="relative flex justify-center">
+                  <button
+                    className={`
+                      p-1.5 rounded-md transition-colors relative group
+                      ${isSelected ? 'bg-blue-100 border border-blue-300' : 'hover:bg-gray-100'}
+                    `}
+                    onClick={() => {
+                      // Toggle selection: if already selected, deselect it
+                      if (isSelected) {
+                        onDataFrameSelect(null)
+                      } else {
+                        onDataFrameSelect(df.id)
+                      }
+                    }}
+                    title={`${df.name} (${df.shape[0].toLocaleString()} rows × ${df.shape[1]} columns)`}
+                  >
+                    <FileSpreadsheet className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
+                    
+                    {/* Delete button - only show on hover */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(df.id)
+                      }}
+                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete DataFrame"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                    </button>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function DataFrameBrowser({
   selectedDataFrame,
   onDataFrameSelect,
@@ -19,6 +143,20 @@ export default function DataFrameBrowser({
   isPanelMinimized,
   refreshTrigger
 }: DataFrameBrowserProps) {
+  // If panel is minimized, render the minimized version
+  if (isPanelMinimized) {
+    return (
+      <MinimizedDataFrameBrowser
+        selectedDataFrame={selectedDataFrame}
+        onDataFrameSelect={onDataFrameSelect}
+        onFileUpload={onFileUpload}
+        onTogglePanel={onTogglePanel}
+        isPanelMinimized={isPanelMinimized}
+        refreshTrigger={refreshTrigger}
+      />
+    )
+  }
+
   const [dataframes, setDataframes] = useState<DataFrame[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
@@ -131,7 +269,14 @@ export default function DataFrameBrowser({
                       flex items-center justify-between p-2 cursor-pointer transition-colors
                       ${isSelected ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'}
                     `}
-                    onClick={() => onDataFrameSelect(df.id)}
+                    onClick={() => {
+                      // Toggle selection: if already selected, deselect it
+                      if (isSelected) {
+                        onDataFrameSelect(null)
+                      } else {
+                        onDataFrameSelect(df.id)
+                      }
+                    }}
                   >
                     <div className="flex items-center space-x-2 flex-1 min-w-0">
                       <button
