@@ -35,22 +35,7 @@ export interface DatabaseSchema {
   tables: TableInfo[];
 }
 
-// Connection Types
-export type DatabaseType = 'sqlite';
 
-export interface ConnectionConfig {
-  id?: string;
-  name: string;
-  type: DatabaseType;
-  filename?: string;
-}
-
-export interface SavedConnection {
-  id: string;
-  name: string;
-  type: DatabaseType;
-  config: ConnectionConfig;
-}
 
 // API Response Types
 export interface ApiResponse<T = unknown> {
@@ -61,35 +46,7 @@ export interface ApiResponse<T = unknown> {
   guidance?: string[];
 }
 
-export interface TestConnectionResponse {
-  success: boolean;
-  message: string;
-  error?: string;
-  guidance?: string[];
-}
 
-export interface CreateConnectionResponse {
-  connectionId?: string;
-  message?: string;
-  error?: string;
-}
-
-export interface SchemaResponse {
-  schema?: DatabaseSchema;
-  error?: string;
-}
-
-export interface QueryResponse {
-  data?: Record<string, unknown>[];
-  rowCount?: number;
-  fields?: DatabaseField[];
-  executionTime?: number;
-  error?: string;
-}
-
-export interface ConnectionListResponse {
-  connections: SavedConnection[];
-}
 
 export interface TablePreviewResponse {
   data: Record<string, unknown>[];
@@ -160,68 +117,7 @@ export interface ChartConfiguration {
 }
 
 // User and Authentication Types
-export interface User {
-  id: string;
-  email: string;
-  created_at: string;
-  updated_at: string;
-  last_login?: string;
-  email_verified: boolean;
-}
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  user?: User;
-  message?: string;
-  error?: string;
-}
-
-// User Connection Types
-export interface UserConnection {
-  id: string;
-  user_id: string;
-  name: string;
-  type: DatabaseType;
-  encrypted_config: string;
-  created_at: string;
-  updated_at: string;
-  last_used?: string;
-}
-
-export interface CreateUserConnectionRequest {
-  name: string;
-  type: DatabaseType;
-  config: ConnectionConfig;
-}
-
-export interface UpdateUserConnectionRequest {
-  name?: string;
-  config?: ConnectionConfig;
-}
-
-export interface MigrateConnectionsRequest {
-  connections: ConnectionConfig[];
-}
-
-export interface MigrateConnectionsResponse {
-  migrated: number;
-  failed: number;
-  errors?: string[];
-}
 
 // Error Types
 export interface ValidationError {
