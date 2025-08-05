@@ -1,363 +1,241 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, Download, BarChart3, Copy, Check } from 'lucide-react'
+import { TrendingUp, Download, BarChart3, Copy, Check, Table } from 'lucide-react'
 import DataVisualizer from './DataVisualizer'
-import TableDetails from './TableDetails'
-import { copyInsightsText, copyTableAsCSV, copyTableAsTSV } from '../services/copy'
-import { QueryResult } from '../types'
+import { DataFrameQueryResult } from '../services/dataframe'
+import { dataframeService } from '../services/dataframe'
 
 interface AnalysisPanelProps {
-  queryResults: QueryResult | null
-  currentQuery: string
-  selectedConnection?: string | null
-  selectedTable?: string | null
-  onTableClose?: () => void
+  queryResults: DataFrameQueryResult | null
+  currentCode: string
+  selectedDataFrame?: string | null
 }
 
-export default function AnalysisPanel({ queryResults, currentQuery, selectedConnection, selectedTable, onTableClose }: AnalysisPanelProps) {
-  const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'visualize'>('insights')
+export default function AnalysisPanel({ queryResults, currentCode, selectedDataFrame }: AnalysisPanelProps) {
+  const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'visualize'>('data')
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [lastAnalyzedQuery, setLastAnalyzedQuery] = useState<string | null>(null)
-  
-  // Copy state management
-  const [copyStates, setCopyStates] = useState<{
-    insights: boolean
-    csv: boolean
-    tsv: boolean
-  }>({
-    insights: false,
-    csv: false,
-    tsv: false
-  })
+  const [copySuccess, setCopySuccess] = useState(false)
 
-  const handleCopy = async (copyFunction: () => Promise<any>, type: keyof typeof copyStates) => {
-    const result = await copyFunction()
-    if (result.success) {
-      setCopyStates(prev => ({ ...prev, [type]: true }))
-      setTimeout(() => {
-        setCopyStates(prev => ({ ...prev, [type]: false }))
-      }, 2000)
-    }
-  }
-
-  // Generate AI analysis when query results change (only if query actually changed)
+  // Generate AI analysis when query results change
   useEffect(() => {
-    if (queryResults && queryResults.rows && queryResults.rows.length > 0 && currentQuery) {
-      // Only analyze if this is a new query or if we don't have analysis yet
-      if (currentQuery !== lastAnalyzedQuery || !aiAnalysis) {
-        generateAIAnalysis()
-      }
+    if (queryResults && queryResults.data && queryResults.data.length > 0) {
+      generateAIAnalysis()
     } else {
       setAiAnalysis(null)
-      setLastAnalyzedQuery(null)
     }
-  }, [queryResults, currentQuery])
+  }, [queryResults])
 
   const generateAIAnalysis = async () => {
-    if (!queryResults || !currentQuery) return
+    if (!queryResults || queryResults.data.length === 0) return
 
     setIsAnalyzing(true)
     try {
-      const response = await fetch('/api/llm/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          data: queryResults.rows,
-          query: currentQuery,
-          context: 'Business data analysis for database exploration'
-        })
-      })
+      const response = await dataframeService.analyzeResults(
+        queryResults.data.slice(0, 100), // Send sample of data
+        currentCode || 'Data analysis'
+      )
 
-      if (response.ok) {
-        const result = await response.json()
-        setAiAnalysis(result.analysis)
-        setLastAnalyzedQuery(currentQuery) // Cache this query as analyzed
-      } else {
-        setAiAnalysis('Failed to generate analysis. Please try again.')
+      if (response.insights) {
+        setAiAnalysis(response.insights)
       }
     } catch (error) {
-      console.error('AI analysis error:', error)
-      setAiAnalysis('Error occurred while generating insights. Please try again.')
+      console.error('Failed to generate AI analysis:', error)
+      setAiAnalysis('Unable to generate analysis. Please try again.')
     } finally {
       setIsAnalyzing(false)
     }
   }
 
-  // Check if data is suitable for visualization
-  const isVisualizableData = queryResults?.rows && queryResults.rows.length > 0 && queryResults.fields
-
-  // Show table details if a table is selected
-  if (selectedTable && selectedConnection) {
-    return (
-      <div className="h-full flex flex-col">
-        <TableDetails
-          selectedConnection={selectedConnection}
-          selectedTable={selectedTable}
-          onClose={onTableClose}
-        />
-      </div>
-    )
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy:', error)
+    }
   }
 
-  if (!queryResults) {
-    return (
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-border bg-card">
-          <h2 className="font-semibold text-foreground">Analysis & Results</h2>
-          <p className="text-sm text-muted-foreground">Run a query to see results and insights</p>
-        </div>
+  const exportAsCSV = () => {
+    if (!queryResults || !queryResults.data || queryResults.data.length === 0) return
 
-        {/* Empty State */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <BarChart3 className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
-            <div>
-              <h3 className="text-lg font-medium text-foreground mb-2">Ready for Analysis</h3>
-              <p className="text-muted-foreground max-w-md">
-                Ask a question in the chat panel or write SQL to generate insights, 
-                visualizations, and detailed analysis of your data.
-              </p>
-            </div>
-            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <TrendingUp className="h-4 w-4" />
-                <span>Insights</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <BarChart3 className="h-4 w-4" />
-                <span>Smart Charts</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Download className="h-4 w-4" />
-                <span>Export Data</span>
-              </div>
-            </div>
-          </div>
+    const headers = queryResults.columns.join(',')
+    const rows = queryResults.data.map(row => 
+      queryResults.columns.map(col => {
+        const value = row[col]
+        // Escape values containing commas or quotes
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          return `"${value.replace(/"/g, '""')}"`
+        }
+        return value
+      }).join(',')
+    )
+    
+    const csv = [headers, ...rows].join('\n')
+    copyToClipboard(csv)
+  }
+
+  if (!queryResults || !queryResults.data || queryResults.data.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center p-8">
+        <div className="text-center">
+          <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Results Yet</h3>
+          <p className="text-gray-500">Run a query to see analysis and visualizations</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full flex flex-col min-w-0">
-      {/* Header with Tabs */}
-      <div className="border-b border-border bg-card">
-        <div className="p-4 pb-0">
-          <h2 className="font-semibold text-foreground mb-2">Analysis Results</h2>
-          {currentQuery && (
-            <p className="text-sm text-muted-foreground mb-3 truncate">
-              {currentQuery}
-            </p>
-          )}
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700">Analysis Results</h2>
+          <div className="text-xs text-gray-500">
+            {queryResults.rowCount.toLocaleString()} rows • {queryResults.executionTime}ms
+          </div>
         </div>
-        
-        <div className="flex border-b border-border">
-          <button
-            onClick={() => setActiveTab('insights')}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'insights'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Insights
-          </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-gray-50 border-b border-gray-200">
+        <div className="flex">
           <button
             onClick={() => setActiveTab('data')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'data'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-800'
             }`}
           >
-            Data ({queryResults.rowCount} rows)
+            <Table className="w-4 h-4 inline-block mr-1" />
+            Data
           </button>
           <button
             onClick={() => setActiveTab('visualize')}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'visualize'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-800'
             }`}
           >
+            <BarChart3 className="w-4 h-4 inline-block mr-1" />
             Visualize
+          </button>
+          <button
+            onClick={() => setActiveTab('insights')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'insights'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-800'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 inline-block mr-1" />
+            Insights
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto scrollbar-thin">
-        {/* AI Insights Tab */}
-        {activeTab === 'insights' && (
-          <div className="p-4 space-y-4">
-            <div className="bg-muted p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-medium text-foreground flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  {isAnalyzing ? 'Generating Insights...' : 'Insights'}
-                </h3>
-                {aiAnalysis && !isAnalyzing && (
-                  <button
-                    onClick={() => handleCopy(() => copyInsightsText(aiAnalysis), 'insights')}
-                    className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
-                    title="Copy insights to clipboard"
-                    type="button"
-                  >
-                    {copyStates.insights ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </button>
-                )}
-              </div>
-              
-              {isAnalyzing ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  Analyzing your data...
-                </div>
-              ) : aiAnalysis ? (
-                <div className="text-sm text-foreground whitespace-pre-wrap">
-                  {aiAnalysis}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  No insights available. Try running a query with data to get intelligent analysis.
-                </p>
-              )}
-            </div>
-            
-            {!isAnalyzing && !aiAnalysis && (
-              <div className="bg-card border border-border p-4 rounded-lg">
-                <button
-                  onClick={generateAIAnalysis}
-                  className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                >
-                  Generate Analysis
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Data Table Tab */}
+      <div className="flex-1 overflow-hidden">
+        {/* Data Tab */}
         {activeTab === 'data' && (
-          <div className="p-4">
-            {/* Copy Options */}
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-foreground">Data Table</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleCopy(() => copyTableAsCSV(queryResults.rows, queryResults.fields), 'csv')}
-                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1 transition-colors"
-                  title="Copy as CSV (comma-separated)"
-                  type="button"
-                >
-                  {copyStates.csv ? (
-                    <Check className="h-3 w-3 text-green-600" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                  {copyStates.csv ? 'Copied!' : 'CSV'}
-                </button>
-                <button
-                  onClick={() => handleCopy(() => copyTableAsTSV(queryResults.rows, queryResults.fields), 'tsv')}
-                  className="px-3 py-1 text-xs border border-border rounded hover:bg-muted flex items-center gap-1 transition-colors"
-                  title="Copy as TSV (tab-separated)"
-                  type="button"
-                >
-                  {copyStates.tsv ? (
-                    <Check className="h-3 w-3 text-green-600" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                  {copyStates.tsv ? 'Copied!' : 'TSV'}
-                </button>
-              </div>
+          <div className="h-full flex flex-col">
+            <div className="p-3 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-sm text-gray-600">
+                Showing {Math.min(100, queryResults.rowCount)} of {queryResults.rowCount.toLocaleString()} rows
+              </span>
+              <button
+                onClick={exportAsCSV}
+                className="flex items-center text-sm text-blue-600 hover:text-blue-700"
+              >
+                {copySuccess ? (
+                  <>
+                    <Check className="w-4 h-4 mr-1" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-1" />
+                    Copy as CSV
+                  </>
+                )}
+              </button>
             </div>
-            
-            <div className="bg-card border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto max-w-full">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-muted">
-                                  <tr>
-                {queryResults.fields.map((field) => (
-                        <th key={field.name} className="px-4 py-2 text-left font-medium max-w-xs truncate" title={field.name}>
-                          {field.name}
-                        </th>
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    {queryResults.columns.map((column) => (
+                      <th
+                        key={column}
+                        className="px-4 py-2 text-left font-medium text-gray-700 border-b border-gray-200"
+                      >
+                        {column}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {queryResults.data.slice(0, 100).map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      {queryResults.columns.map((column) => (
+                        <td
+                          key={column}
+                          className="px-4 py-2 border-b border-gray-100"
+                        >
+                          {row[column] !== null && row[column] !== undefined
+                            ? String(row[column])
+                            : <span className="text-gray-400">null</span>}
+                        </td>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {queryResults.rows.slice(0, 100).map((row, index) => (
-                      <tr key={index} className="border-t border-border hover:bg-muted/50">
-                        {queryResults.fields.map((field) => (
-                          <td key={field.name} className="px-4 py-2 max-w-xs truncate" title={row[field.name]?.toString() || ''}>
-                            {row[field.name]?.toString() || ''}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            
-            {queryResults.rowCount > 100 && (
-              <p className="text-muted-foreground text-sm mt-2 text-center">
-                Showing first 100 rows of {queryResults.rowCount} total
-              </p>
-            )}
           </div>
         )}
 
         {/* Visualize Tab */}
         {activeTab === 'visualize' && (
-          <div className="p-4">
-            {isVisualizableData ? (
-              <DataVisualizer
-                data={queryResults.rows.map(row => {
-                  const typedRow: { [key: string]: string | number } = {};
-                  for (const [key, value] of Object.entries(row)) {
-                    if (typeof value === 'string' || typeof value === 'number') {
-                      typedRow[key] = value;
-                    } else {
-                      typedRow[key] = String(value);
-                    }
-                  }
-                  return typedRow;
-                })}
-                fields={queryResults.fields}
-                currentQuery={currentQuery}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-8 space-y-4">
-                <BarChart3 className="h-12 w-12 text-muted-foreground opacity-50" />
+          <div className="h-full p-4 overflow-auto">
+            <DataVisualizer
+              data={queryResults.data}
+              columns={queryResults.columns}
+            />
+          </div>
+        )}
+
+        {/* Insights Tab */}
+        {activeTab === 'insights' && (
+          <div className="h-full p-4 overflow-auto">
+            {isAnalyzing ? (
+              <div className="flex items-center justify-center h-32">
                 <div className="text-center">
-                  <h3 className="font-medium text-foreground mb-1">No Data to Visualize</h3>
-                  <p className="text-sm text-muted-foreground">Run a query that returns data to see visualizations</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Analyzing your data...</p>
                 </div>
+              </div>
+            ) : aiAnalysis ? (
+              <div className="prose prose-sm max-w-none">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    AI Analysis
+                  </h3>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{aiAnalysis}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-500">
+                <p>No insights available. Try running a different query.</p>
               </div>
             )}
           </div>
         )}
-      </div>
-
-      {/* Footer Actions */}
-      <div className="border-t border-border p-4 bg-card">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Query executed in {queryResults.executionTime}ms
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 flex items-center gap-1">
-              <Download className="h-3 w-3" />
-              Export
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   )

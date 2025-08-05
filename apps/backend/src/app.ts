@@ -2,16 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { dbRouter } from './api/db';
 import { llmRouter } from './api/llm';
 import authRouter from './api/auth';
-import { createUserConnectionsRouter } from './api/user-connections';
 import filesRouter from './api/files';
+import dataframesRouter from './api/dataframes';
 import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';
 import { AuthService } from './services/authService';
 import { 
-  DB_CONSTANTS, 
   API_MESSAGES, 
   SERVER_CONFIG, 
   APP_INFO, 
@@ -101,10 +99,9 @@ app.use((req, res, next) => {
 
 // API routes
 app.use('/api/auth', authRouter);
-app.use('/api/user/connections', createUserConnectionsRouter(dbPool!));
-app.use('/api/db', dbRouter);
 app.use('/api/llm', llmRouter);
 app.use('/api/files', filesRouter);
+app.use('/api/dataframes', dataframesRouter);
 
 // Root endpoint
 app.get('/', (req, res) => {

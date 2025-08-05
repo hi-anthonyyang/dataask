@@ -1,384 +1,141 @@
-import { useState, useEffect, useRef } from 'react'
-import { X, FileText, Loader2 } from 'lucide-react'
-import FileDropZone from './FileDropZone'
+import { useState } from 'react'
+import { X, FileText, Loader2, Upload } from 'lucide-react'
+import { dataframeService } from '../services/dataframe'
 
 interface FileImportModalProps {
   isOpen: boolean
   onClose: () => void
-  onConnectionAdded: (connectionId: string) => void
-  isEmbedded?: boolean
+  onConnectionAdded: (dataframeId: string) => void
 }
 
-interface ImportProgress {
-  importId: string
-  status: 'uploading' | 'processing' | 'importing' | 'completed' | 'failed'
-  progress: number
-  totalRows?: number
-  processedRows?: number
-  message?: string
-  error?: string
-}
-
-export default function FileImportModal({ isOpen, onClose, onConnectionAdded, isEmbedded = false }: FileImportModalProps) {
+export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: FileImportModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [tableName, setTableName] = useState('')
   const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [isImporting, setIsImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null)
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    // Clean up interval on unmount
-    return () => {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current)
-      }
-    }
-  }, [])
-
-  if (!isOpen && !isEmbedded) return null
-
-  const resetModal = () => {
-    setSelectedFile(null)
-    setTableName('')
-    setError(null)
-    setIsUploading(false)
-    setUploadProgress(0)
-    setIsImporting(false)
-    setImportProgress(null)
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current)
-      progressIntervalRef.current = null
-    }
-  }
+  if (!isOpen) return null
 
   const handleClose = () => {
-    resetModal()
-    onClose()
-  }
-
-  const handleFileSelect = async (file: File) => {
-    setSelectedFile(file)
-    setError(null)
-    
-    // Check if it's a SQLite database file
-    const fileExtension = file.name.split('.').pop()?.toLowerCase()
-    const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
-    
-    if (!isSQLiteFile) {
-      // Auto-generate table name from filename for CSV/Excel files
-      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
-      const cleanName = nameWithoutExt
-        .replace(/[^a-zA-Z0-9_]/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .toLowerCase()
-      setTableName(cleanName || 'imported_data')
-    } else {
-      // Clear table name for SQLite files
-      setTableName('')
+    if (!isUploading) {
+      setSelectedFile(null)
+      setError(null)
+      onClose()
     }
   }
 
-  const trackImportProgress = async (importId: string) => {
-    const checkProgress = async () => {
-      try {
-        const response = await fetch(`/api/files/import-progress/${importId}`)
-        if (!response.ok) {
-          // Import not found or error
-          if (progressIntervalRef.current) {
-            clearInterval(progressIntervalRef.current)
-            progressIntervalRef.current = null
-          }
-          return
-        }
-        
-        const progress: ImportProgress = await response.json()
-        setImportProgress(progress)
-        
-        // Update upload progress based on import progress
-        if (progress.status === 'importing' && progress.progress > 0) {
-          setUploadProgress(progress.progress)
-        }
-        
-        // Stop polling when completed or failed
-        if (progress.status === 'completed' || progress.status === 'failed') {
-          if (progressIntervalRef.current) {
-            clearInterval(progressIntervalRef.current)
-            progressIntervalRef.current = null
-          }
-          
-          if (progress.status === 'failed' && progress.error) {
-            setError(progress.error)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to check import progress:', error)
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase()
+      if (!['csv', 'xls', 'xlsx'].includes(fileExtension || '')) {
+        setError('Please select a CSV or Excel file')
+        return
       }
+      setSelectedFile(file)
+      setError(null)
+      // Auto-upload when file is selected
+      handleUpload(file)
     }
-    
-    // Start polling for progress
-    progressIntervalRef.current = setInterval(checkProgress, 500) // Check every 500ms
-    // Initial check
-    checkProgress()
   }
 
-  const handleImport = async () => {
-    if (!selectedFile) {
-      setError('Please select a file')
-      return
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase()
+      if (!['csv', 'xls', 'xlsx'].includes(fileExtension || '')) {
+        setError('Please select a CSV or Excel file')
+        return
+      }
+      setSelectedFile(file)
+      setError(null)
+      // Auto-upload when file is dropped
+      handleUpload(file)
     }
-    
-    // Check if it's a SQLite database file
-    const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase()
-    const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
-    
-    // Only require table name for CSV/Excel files
-    if (!isSQLiteFile && !tableName.trim()) {
-      setError('Please provide a table name')
-      return
-    }
+  }
 
-    setIsImporting(true)
+  const handleUpload = async (file: File) => {
+    setIsUploading(true)
     setError(null)
-    setUploadProgress(0)
-    setImportProgress(null)
 
     try {
-      const formData = new FormData()
-      formData.append('file', selectedFile)
-      
-      // Check if it's a SQLite database file
-      const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase()
-      const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
-      
-      let endpoint = '/api/files/import'
-      if (isSQLiteFile) {
-        endpoint = '/api/files/upload-sqlite'
-      } else {
-        formData.append('tableName', tableName.trim())
-      }
-
-      // Use XMLHttpRequest for upload progress tracking
-      const response = await new Promise<Response>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded / event.total) * 100)
-            // Only update upload progress, not import progress
-            if (!importProgress || importProgress.status === 'uploading') {
-              setUploadProgress(progress)
-            }
-          }
-        }
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(new Response(xhr.responseText, {
-              status: xhr.status,
-              statusText: xhr.statusText,
-              headers: new Headers({
-                'Content-Type': xhr.getResponseHeader('Content-Type') || 'application/json'
-              })
-            }))
-          } else {
-            reject(new Error(`Import failed (${xhr.status})`))
-          }
-        }
-
-        xhr.onerror = () => reject(new Error('Network error during import'))
-        xhr.ontimeout = () => reject(new Error('Import timed out'))
-
-        xhr.open('POST', endpoint)
-        xhr.send(formData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Import failed' }))
-        throw new Error(errorData.error || `Import failed (${response.status})`)
-      }
-
-      const result = await response.json()
-      console.log('Import result:', result)
-      
-      // Start tracking import progress (only for CSV/Excel imports)
-      if (result.importId) {
-        await trackImportProgress(result.importId)
-      }
-      
-      if (result.connectionId) {
-        console.log('Import completed with connectionId:', result.connectionId)
-        // If no importId, the import is already complete (synchronous)
-        if (!result.importId) {
-          onConnectionAdded(result.connectionId)
-          resetModal()
-        } else {
-          // Wait for import to complete
-          await new Promise<void>((resolve) => {
-            const checkComplete = setInterval(() => {
-              if (!importProgress || importProgress.status === 'completed' || importProgress.status === 'failed') {
-                clearInterval(checkComplete)
-                resolve()
-              }
-            }, 100)
-          })
-          
-          if (importProgress?.status === 'completed') {
-            onConnectionAdded(result.connectionId)
-            resetModal()
-          } else if (importProgress?.status === 'failed') {
-            throw new Error(importProgress.error || 'Import failed')
-          }
-        }
-      } else {
-        throw new Error('No connection ID returned from import')
-      }
-    } catch (err) {
-      console.error('Import error:', err)
-      setError(err instanceof Error ? err.message : 'Import failed')
+      const response = await dataframeService.uploadFile(file)
+      onConnectionAdded(response.dataframeId)
+      handleClose()
+    } catch (error) {
+      console.error('Upload failed:', error)
+      setError(error.message || 'Failed to upload file')
     } finally {
-      setIsImporting(false)
       setIsUploading(false)
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current)
-        progressIntervalRef.current = null
-      }
     }
-  }
-
-  const content = (
-    <>
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-4">
-          <div className="text-center space-y-2 mb-6">
-            <h3 className="text-lg font-medium">Import Data File</h3>
-            <p className="text-sm text-muted-foreground">
-              Upload your data file to create a queryable table. Supports CSV, Excel, and SQLite database files.
-            </p>
-          </div>
-
-          <FileDropZone
-            onFileSelect={handleFileSelect}
-            disabled={isUploading || isImporting}
-          />
-
-          {selectedFile && (
-            <div className="space-y-4">
-              <div className="bg-muted/50 rounded-lg p-3">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                  <div>
-                    <p className="font-medium text-sm">{selectedFile.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Table Name - only show for CSV/Excel files */}
-              {(() => {
-                const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase()
-                const isSQLiteFile = ['db', 'sqlite', 'sqlite3'].includes(fileExtension || '')
-                
-                if (!isSQLiteFile) {
-                  return (
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium">Table Name</label>
-                      <input
-                        type="text"
-                        value={tableName}
-                        onChange={(e) => setTableName(e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="Enter table name"
-                        disabled={isImporting}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        This will be the name of the table in your database
-                      </p>
-                    </div>
-                  )
-                }
-                return null
-              })()}
-            </div>
-          )}
-
-          {isImporting && (
-            <div className="space-y-3 py-4">
-              <div className="flex items-center justify-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">
-                  {importProgress?.message || (uploadProgress < 100 ? `Uploading... ${uploadProgress}%` : 'Processing file...')}
-                </span>
-              </div>
-              
-              {/* Progress Bar */}
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-              
-              {/* Row count info */}
-              {importProgress?.totalRows && importProgress?.processedRows && (
-                <div className="text-center text-xs text-muted-foreground">
-                  {importProgress.processedRows.toLocaleString()} / {importProgress.totalRows.toLocaleString()} rows processed
-                </div>
-              )}
-            </div>
-          )}
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
-              {error}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-border flex-shrink-0">
-        <button
-          onClick={handleImport}
-          disabled={!selectedFile || !tableName.trim() || isImporting}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isImporting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Importing...
-            </>
-          ) : (
-            'Import File'
-          )}
-        </button>
-      </div>
-    </>
-  )
-
-  if (isEmbedded) {
-    return content
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Import File</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Upload Data File</h2>
           <button
             onClick={handleClose}
-            className="p-1 hover:bg-muted rounded-md transition-colors"
+            disabled={isUploading}
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
           >
-            <X className="h-5 w-5" />
+            <X className="w-5 h-5" />
           </button>
         </div>
-        {content}
+
+        <div className="p-6">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+          >
+            {isUploading ? (
+              <div className="space-y-3">
+                <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto" />
+                <p className="text-sm text-gray-600">Uploading and processing...</p>
+              </div>
+            ) : selectedFile ? (
+              <div className="space-y-3">
+                <FileText className="w-10 h-10 text-blue-600 mx-auto" />
+                <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                <p className="text-xs text-gray-500">
+                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Upload className="w-10 h-10 text-gray-400 mx-auto" />
+                <div>
+                  <p className="text-sm text-gray-600">
+                    Drag and drop your file here, or
+                  </p>
+                  <label className="mt-2 inline-block">
+                    <input
+                      type="file"
+                      accept=".csv,.xls,.xlsx"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      disabled={isUploading}
+                    />
+                    <span className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer">
+                      browse to upload
+                    </span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Supports CSV and Excel files (max 50MB)
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

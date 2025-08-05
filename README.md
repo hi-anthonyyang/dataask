@@ -1,14 +1,15 @@
 # DataAsk
 
-AI-native, minimal SQL data analysis tool
+AI-powered data analysis tool for CSV and Excel files
 
 ## Features
 
-- **Natural Language to SQL**: Convert plain English questions into SQL queries
-- **SQLite Support**: Works with SQLite databases for local data analysis
-- **AI-Powered Analysis**: Get insights and explanations from your query results
-- **Secure by Design**: Built-in SQL injection protection and input sanitization
-- **Cross-Platform**: Desktop app with web interface
+- **Natural Language to Pandas**: Convert plain English questions into pandas code
+- **CSV/Excel Support**: Upload and analyze spreadsheet data instantly
+- **AI-Powered Analysis**: Get insights and explanations from your data
+- **Interactive Visualizations**: Auto-generated charts and graphs
+- **In-Memory Processing**: Fast analysis using pandas-like operations
+- **Secure Code Execution**: Safe execution of generated pandas code
 
 ## Quick Start
 
@@ -23,7 +24,7 @@ AI-native, minimal SQL data analysis tool
    ```bash
    git clone <repository-url>
    cd dataask
-   npm run setup
+   npm install
    ```
 
 2. **Configure OpenAI API Key:**
@@ -43,207 +44,149 @@ AI-native, minimal SQL data analysis tool
    npm run dev
    ```
 
-### Troubleshooting
+   The app will be available at http://localhost:3000
 
-#### Backend Connection Errors (500 errors)
+## How It Works
 
-**Note:** The application uses a shared backend architecture. Make sure the backend is running before starting the frontend or Electron app.
+1. **Upload Your Data**: Drag and drop a CSV or Excel file
+2. **Ask Questions**: Type questions in natural language like:
+   - "What are the top 5 products by sales?"
+   - "Show me monthly revenue trends"
+   - "Which categories have the highest profit margins?"
+3. **Get Results**: DataAsk generates pandas code, executes it, and displays results with visualizations
 
-If you encounter connection errors:
+## Architecture
 
-If you see 500 errors when trying to connect to databases or import files:
+DataAsk uses a modern web stack optimized for data analysis:
 
-1. **Ensure the backend is running:**
-   ```bash
-   # Check if all services are running
-   ps aux | grep node
-   
-   # If not, restart the development environment
-   npm run dev
-   ```
-
-2. **Check the backend logs:**
-   - Backend runs on port 3001
-   - Frontend proxies API requests from port 3000 to 3001
-   - Look for error messages in the terminal where you ran `npm run dev`
-
-3. **Verify the .env file exists:**
-   ```bash
-   # The backend needs a .env file
-   cp env.example apps/backend/.env
-   ```
-
-#### SQLite Connection Issues
-
-When connecting to SQLite files:
-- Use absolute paths (e.g., `/Users/username/database.db`)
-- Ensure the file exists and is readable
-- The file should have a `.db`, `.sqlite`, or `.sqlite3` extension
-
-#### File Import Hanging
-
-If CSV/Excel import appears stuck:
-- Ensure the backend is running (see above)
-- Check file size - large files may take time to process
-- Verify the file format is CSV, XLS, or XLSX
-
-#### "Failed to generate SQL" Error
-
-If you see this error when asking questions, it means the OpenAI API key is not configured properly:
-
-**Root Cause:** The `OPENAI_API_KEY` environment variable is missing, empty, or set to a placeholder value.
-
-**Solution:**
-1. Ensure you have created `apps/backend/.env` file
-2. Set a valid OpenAI API key: `OPENAI_API_KEY=sk-your-actual-api-key`
-3. Restart the backend server
-
-**Check API Key Status:**
-```bash
-curl http://localhost:3001/api/llm/health
-```
-
-This will show if your API key is configured correctly.
+- **Frontend**: React with TypeScript for a responsive UI
+- **Backend**: Express.js API server with pandas-like data processing
+- **AI Integration**: OpenAI GPT models for natural language understanding
+- **Data Processing**: In-memory DataFrames for fast analysis
 
 ## Project Structure
 
 ```
 dataask/
-├── apps/                    # Application code
-│   ├── backend/            # Node.js backend server
+├── apps/
+│   ├── backend/           # Express.js API server
 │   │   └── src/
-│   │       └── test/
-│   │           └── fixtures/  # Test data files (CSV samples)
-│   ├── frontend/           # React frontend application
-│   └── electron-shell/     # Electron desktop wrapper
-├── docs/                   # Technical documentation
-│   ├── AUTHENTICATION.md   # Authentication system guide
-│   ├── PRODUCTION_CHECKLIST.md  # Deployment checklist
-│   ├── TROUBLESHOOTING.md  # Common issues and solutions
-│   └── ...                 # Other technical docs
-├── scripts/                # Utility scripts
-│   └── deploy.sh          # Production deployment script
-├── env.example            # Environment variables template
-└── package.json           # Root package configuration
+│   │       ├── api/       # API endpoints
+│   │       ├── utils/     # DataFrame and pandas executor
+│   │       └── services/  # Business logic
+│   ├── frontend/          # React application
+│   │   └── src/
+│   │       ├── components/  # UI components
+│   │       └── services/    # API clients
+│   └── electron-shell/    # Desktop app wrapper
+├── docs/                  # Documentation
+└── package.json          # Root package configuration
 ```
 
-## Architecture
+## API Endpoints
 
-- **Frontend**: React with TypeScript
-- **Backend**: Express.js API server
-- **Desktop**: Electron wrapper
-- **AI**: OpenAI GPT models for natural language processing
-- **Database**: SQLite for local data storage and analysis
+### File Operations
+- `POST /api/files/upload` - Upload CSV/Excel files
+- `GET /api/files/dataframes` - List uploaded DataFrames
+- `GET /api/files/dataframes/:id/preview` - Preview DataFrame data
+- `DELETE /api/files/dataframes/:id` - Remove DataFrame
+
+### DataFrame Operations
+- `POST /api/dataframes/:id/execute` - Execute pandas code
+- `GET /api/dataframes/:id/info` - Get DataFrame information
+- `GET /api/dataframes/:id/stats` - Get statistical summary
+
+### AI Operations
+- `POST /api/llm/nl-to-pandas` - Convert natural language to pandas code
+- `POST /api/llm/analyze` - Generate insights from results
 
 ## Development
 
-### Architecture Overview
-
-DataAsk uses a **shared backend architecture** where:
-- The backend runs as a standalone service (port 3001)
-- The frontend connects to the backend API (port 3000 in dev)
-- Electron acts as a desktop shell, connecting to the same backend
-- No duplicate backend processes or port conflicts
-
-### Starting the Application
+### Running Locally
 
 ```bash
-# Start backend and frontend (recommended for web development)
+# Start backend and frontend
 npm run dev
 
-# Start all services including Electron
-npm run dev:all
+# Start individual services
+npm run backend   # API server on port 3001
+npm run frontend  # React app on port 3000
 
-# Start services individually
-npm run backend        # Backend API server on port 3001
-npm run frontend       # React app on port 3000
-npm run electron       # Electron app (requires backend and frontend running)
-
-# Alternative: Start each service in separate terminals
-npm run dev:backend    # Terminal 1: Backend API
-npm run dev:frontend   # Terminal 2: React frontend
-npm run dev:electron   # Terminal 3: Electron (waits for backend/frontend)
+# Run as desktop app
+npm run dev:all   # Includes Electron wrapper
 ```
 
-### Development Workflow
-
-1. **Backend First**: Always start the backend before other services
-2. **Health Check**: Backend provides `/api/health` endpoint for service discovery
-3. **Shared State**: All clients (web/electron) share the same backend state
-4. **Hot Reload**: Frontend and backend support hot reloading in development
-
-### Build for Production
+### Testing
 
 ```bash
-# Build all services
-npm run build
+# Run all tests
+npm test
 
-# Run tests
-npm run test --workspaces  # Run all tests
-cd apps/frontend && npm test  # Frontend tests with Vitest
-cd apps/backend && npm test   # Backend tests with Jest
+# Frontend tests
+cd apps/frontend && npm test
 
-# Code quality
-cd apps/frontend && npm run lint  # ESLint for frontend
+# Backend tests
+cd apps/backend && npm test
 ```
 
-## Database Connection Features
+## Data Processing
 
-DataAsk provides enterprise-grade database connectivity options:
+DataAsk uses an in-memory DataFrame approach similar to pandas:
 
-### Connection Types
-- **SQLite**: Embedded database support for local files
-- **File Import**: CSV and Excel file import with automatic schema detection
-
-### File Import Capabilities
-- **Supported Formats**: CSV, XLS, and XLSX files
-- **Drag & Drop**: Drop files directly into the main panel or use the import dialog
-- **Auto-Detection**: Automatic column type detection (Text, Integer, Number, Date)
-- **Schema Configuration**: Review and adjust column names and types before import
-- **Data Preview**: See sample data and statistics before importing
-- **Instant Querying**: Imported files become immediately queryable like database tables
-
-### Security & Tunneling
-- **SSH Tunneling**: Secure connections through SSH servers with password or private key authentication
-- **SSL/TLS Encryption**: Configurable SSL modes (disable, allow, prefer, require) with custom certificates
-- **Certificate Management**: Support for CA certificates, client certificates, and private keys
-
-### Advanced Configuration
-- **Connection Timeouts**: Configurable connection and query timeout settings
-- **Connection Pooling**: Automatic connection pool management for optimal performance
-- **Multiple Authentication**: Support for various authentication methods per database type
-
-### Connection Management
-- **Test Connections**: Built-in connection testing before saving
-- **Connection Persistence**: Secure storage of connection configurations with encryption
-- **Easy Management**: Intuitive UI for creating, editing, and managing database connections
+1. **File Upload**: CSV/Excel files are parsed and loaded into memory
+2. **Data Storage**: Each file becomes a DataFrame with:
+   - Column names and types
+   - Row data
+   - Statistical metadata
+3. **Query Processing**: Natural language → pandas code → results
+4. **Memory Management**: DataFrames are kept in memory for fast access
 
 ## Security
 
-DataAsk implements multiple security layers:
+- **Code Validation**: Generated pandas code is validated before execution
+- **Sandboxed Execution**: Code runs in a controlled environment
+- **Input Sanitization**: All user inputs are sanitized
+- **Rate Limiting**: API endpoints are rate-limited
+- **File Validation**: Uploaded files are validated for type and size
 
-- Input sanitization and validation
-- SQL injection prevention
-- Prompt injection protection
-- Rate limiting
-- Secure database connections
-- File upload validation and size limits
+## Limitations
 
-See `AUTHENTICATION.md`, `PROMPT_INJECTION_SECURITY.md`, and `TLS_SECURITY.md` for detailed security documentation.
+- **File Size**: Maximum 50MB per file
+- **Memory**: Large files may impact performance
+- **Data Types**: Best suited for tabular data (CSV/Excel)
+- **Persistence**: Data is stored in memory only (not persisted)
 
-## Recent Updates
+## Troubleshooting
 
-### Shared Backend Architecture
-- Backend runs as a standalone service shared by all clients
-- Web frontend and Electron app connect to the same backend instance
-- No duplicate backend processes or port conflicts
-- Backend must be started before running frontend or Electron app
+### "Failed to generate pandas code" Error
 
-### UI Improvements
-- Merged redundant "Connections" and "Database" sections into a single "Database" panel
-- Streamlined left sidebar with unified database management
-- User profile and logout functionality integrated into the Database panel
+This usually means the OpenAI API key is not configured:
+
+1. Check your `.env` file exists in `apps/backend/`
+2. Ensure `OPENAI_API_KEY` is set to a valid key
+3. Restart the backend server
+
+### File Upload Issues
+
+- Ensure files are CSV (.csv) or Excel (.xls, .xlsx) format
+- Check file size is under 50MB
+- Verify the file contains valid tabular data
+
+### Memory Issues
+
+For large datasets:
+- Consider splitting files into smaller chunks
+- Monitor browser memory usage
+- Refresh the page to clear memory
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see LICENSE file for details
