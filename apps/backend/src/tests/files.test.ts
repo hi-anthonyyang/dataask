@@ -2,12 +2,12 @@ import request from 'supertest';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { DatabaseManager } from '../../utils/database';
-import router from '../files';
+import { DatabaseManager } from '../utils/database';
+import router from '../api/files';
 
 // Mock dependencies
-jest.mock('../../utils/database');
-jest.mock('../../utils/logger', () => ({
+jest.mock('../utils/database');
+jest.mock('../utils/logger', () => ({
   logger: {
     info: jest.fn(),
     error: jest.fn(),
@@ -36,7 +36,7 @@ describe('File Import API', () => {
 
   afterEach(() => {
     // Clean up any test files
-    const uploadsDir = path.join(__dirname, '../../../../uploads');
+    const uploadsDir = path.join(__dirname, '../../../uploads');
     if (fs.existsSync(uploadsDir)) {
       fs.readdirSync(uploadsDir).forEach(file => {
         if (file.startsWith('test-')) {

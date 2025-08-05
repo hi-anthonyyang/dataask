@@ -21,7 +21,7 @@ describe('File Import Integration Tests', () => {
   let app: express.Application;
   let dbManager: DatabaseManager;
   let importPipeline: ImportPipeline;
-  const testDataDir = path.join(__dirname, '../../../../test-data');
+  const testDataDir = path.join(__dirname, '../../../test-data');
   
   beforeAll(() => {
     // Setup Express app with file import routes
