@@ -26,9 +26,9 @@ const DataAskApp: React.FC = () => {
   })
 
   const rightPanel = useResizablePanel({
-    initialWidth: 400,
-    minWidth: 300,
-    maxWidth: 700,
+    initialWidth: 650, // Increased from 500 to make analysis panel larger
+    minWidth: 450,     // Increased from 350 to ensure minimum usable size
+    maxWidth: 800,     // Increased from 700 to allow more expansion
     direction: 'right'
   })
 
@@ -69,7 +69,6 @@ const DataAskApp: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-gray-900">DataAsk</h1>
-            <p className="text-xs text-gray-500">AI-powered data analysis for spreadsheets</p>
           </div>
         </div>
       </div>
@@ -131,7 +130,7 @@ const DataAskApp: React.FC = () => {
         )}
 
         {/* Center Panel - Chat */}
-        <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
+        <div className="flex-1 flex flex-col bg-gray-50 min-w-0" style={{ minWidth: '250px' }}>
           <ChatPanel
             selectedDataFrame={selectedDataFrame}
             onCodeUpdate={setCurrentCode}

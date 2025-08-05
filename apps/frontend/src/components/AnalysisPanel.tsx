@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { TrendingUp, Download, BarChart3, Copy, Check, Table } from 'lucide-react'
-import DataVisualizer from './DataVisualizer'
+import { BarChart3, Table, TrendingUp, Copy, Check, Eye } from 'lucide-react'
 import { DataFrameQueryResult } from '../services/dataframe'
 import { dataframeService } from '../services/dataframe'
 
@@ -11,24 +10,50 @@ interface AnalysisPanelProps {
 }
 
 export default function AnalysisPanel({ queryResults, currentCode, selectedDataFrame }: AnalysisPanelProps) {
-  const [activeTab, setActiveTab] = useState<'insights' | 'data' | 'visualize'>('data')
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'data' | 'visualize' | 'insights'>('data')
   const [copySuccess, setCopySuccess] = useState(false)
+  const [aiAnalysis, setAiAnalysis] = useState<string>('')
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false)
+  const [previewData, setPreviewData] = useState<DataFrameQueryResult | null>(null)
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
 
   // Generate AI analysis when query results change
   useEffect(() => {
     if (queryResults && queryResults.data && queryResults.data.length > 0) {
       generateAIAnalysis()
     } else {
-      setAiAnalysis(null)
+      setAiAnalysis('')
     }
   }, [queryResults])
+
+  // Load preview data when a data file is selected
+  useEffect(() => {
+    if (selectedDataFrame && !queryResults) {
+      loadPreviewData()
+    } else if (!selectedDataFrame) {
+      setPreviewData(null)
+    }
+  }, [selectedDataFrame])
+
+  const loadPreviewData = async () => {
+    if (!selectedDataFrame) return
+    
+    setIsLoadingPreview(true)
+    try {
+      const preview = await dataframeService.getDataFramePreview(selectedDataFrame, 50)
+      setPreviewData(preview)
+    } catch (error) {
+      console.error('Failed to load preview data:', error)
+      setPreviewData(null)
+    } finally {
+      setIsLoadingPreview(false)
+    }
+  }
 
   const generateAIAnalysis = async () => {
     if (!queryResults || queryResults.data.length === 0) return
 
-    setIsAnalyzing(true)
+    setIsGeneratingAnalysis(true)
     try {
       const response = await dataframeService.analyzeResults(
         queryResults.data.slice(0, 100), // Send sample of data
@@ -42,7 +67,7 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
       console.error('Failed to generate AI analysis:', error)
       setAiAnalysis('Unable to generate analysis. Please try again.')
     } finally {
-      setIsAnalyzing(false)
+      setIsGeneratingAnalysis(false)
     }
   }
 
@@ -76,12 +101,73 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
   }
 
   if (!queryResults || !queryResults.data || queryResults.data.length === 0) {
+    // Show preview data if available
+    if (previewData && previewData.data && previewData.data.length > 0) {
+      return (
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-700">Data Preview</h2>
+              <div className="text-xs text-gray-500">
+                {previewData.rowCount?.toLocaleString() || '0'} rows • First 50 rows
+              </div>
+            </div>
+          </div>
+
+          {/* Preview Data */}
+          <div className="flex-1 overflow-auto">
+            <div className="p-3 border-b border-gray-200 flex justify-between items-center">
+              <span className="text-sm text-gray-600">
+                Showing preview of {Math.min(50, previewData.rowCount || 0)} rows
+              </span>
+            </div>
+            <div className="overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    {previewData.columns.map((column) => (
+                      <th
+                        key={column}
+                        className="px-3 py-1.5 text-left font-medium text-gray-700 border-b border-gray-200"
+                      >
+                        {column}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.data.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      {previewData.columns.map((column) => (
+                        <td
+                          key={column}
+                          className="px-3 py-1.5 border-b border-gray-100"
+                        >
+                          {row[column] !== null && row[column] !== undefined
+                            ? String(row[column])
+                            : <span className="text-gray-400">null</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="h-full flex items-center justify-center p-8">
         <div className="text-center">
           <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Results Yet</h3>
-          <p className="text-gray-500">Run a query to see analysis and visualizations</p>
+          <p className="text-sm text-gray-500 mb-3">
+            {isLoadingPreview ? 'Loading preview...' : 
+             selectedDataFrame ? 'Run a query to see analysis and visualizations' : 'Select a data file to preview'}
+          </p>
         </div>
       </div>
     )
@@ -94,7 +180,7 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-700">Analysis Results</h2>
           <div className="text-xs text-gray-500">
-            {queryResults.rowCount.toLocaleString()} rows • {queryResults.executionTime}ms
+            {queryResults.rowCount?.toLocaleString() || '0'} rows • {queryResults.executionTime || 0}ms
           </div>
         </div>
       </div>
@@ -145,7 +231,7 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
           <div className="h-full flex flex-col">
             <div className="p-3 border-b border-gray-200 flex justify-between items-center">
               <span className="text-sm text-gray-600">
-                Showing {Math.min(100, queryResults.rowCount)} of {queryResults.rowCount.toLocaleString()} rows
+                Showing {Math.min(100, queryResults.rowCount || 0)} of {queryResults.rowCount?.toLocaleString() || '0'} rows
               </span>
               <button
                 onClick={exportAsCSV}
@@ -202,17 +288,17 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
         {/* Visualize Tab */}
         {activeTab === 'visualize' && (
           <div className="h-full p-4 overflow-auto">
-            <DataVisualizer
-              data={queryResults.data}
-              columns={queryResults.columns}
-            />
+            <div className="text-center text-gray-500">
+              <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-sm">Visualization features coming soon</p>
+            </div>
           </div>
         )}
 
         {/* Insights Tab */}
         {activeTab === 'insights' && (
           <div className="h-full p-4 overflow-auto">
-            {isAnalyzing ? (
+            {isGeneratingAnalysis ? (
               <div className="flex items-center justify-center h-32">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>

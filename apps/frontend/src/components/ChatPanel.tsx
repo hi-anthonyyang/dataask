@@ -149,7 +149,7 @@ export default function ChatPanel({
         <div className="text-center">
           <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Data Selected</h3>
-          <p className="text-gray-500">Upload a CSV or Excel file to start analyzing</p>
+          <p className="text-sm text-gray-500 mb-3">Upload a CSV or Excel file to start analyzing</p>
         </div>
       </div>
     )
