@@ -102,136 +102,14 @@ print_status "Building frontend..."
 npm run build
 print_success "Frontend build successful"
 
-# Electron setup
-print_status "Setting up Electron..."
-cd ../electron-shell
-npm install --production
-print_success "Electron dependencies installed"
-
-# Build Electron
-print_status "Building Electron..."
-npm run build
-print_success "Electron build successful"
-
-# Create production directories
-print_status "Creating production directories..."
-cd ../..
-mkdir -p dist
-mkdir -p dist/backend
-mkdir -p dist/frontend
-mkdir -p dist/electron
-
-# Copy built files
-print_status "Copying built files..."
-cp -r apps/backend/dist/* dist/backend/
-cp -r apps/frontend/dist/* dist/frontend/
-cp -r apps/electron-shell/dist/* dist/electron/
-
-# Copy configuration files
-print_status "Copying configuration files..."
-cp apps/backend/.env dist/backend/
-cp package.json dist/
-cp package-lock.json dist/
-
-# Create production start script
-print_status "Creating production start script..."
-cat > dist/start.sh << 'EOF'
-#!/bin/bash
-echo "🚀 Starting DataAsk Production Server..."
-
-# Start backend
-cd backend
-npm start &
-BACKEND_PID=$!
-
-# Wait for backend to start
-sleep 5
-
-# Start Electron (optional - can be started separately)
-# cd ../electron
-# npm start &
-
-echo "✅ DataAsk is running!"
-echo "🌐 Backend: http://localhost:3001"
-echo "🖥️  Frontend: http://localhost:3000"
-echo "📱 Electron: Available in dist/electron/"
-
-# Wait for interrupt
-trap "echo '🛑 Shutting down...'; kill $BACKEND_PID; exit" INT
-wait
-EOF
-
-chmod +x dist/start.sh
-
-# Create Docker configuration (optional)
-print_status "Creating Docker configuration..."
-cat > dist/Dockerfile << 'EOF'
-FROM node:18-alpine
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY apps/backend/package*.json ./apps/backend/
-COPY apps/frontend/package*.json ./apps/frontend/
-
-# Install dependencies
-RUN npm ci --only=production
-RUN cd apps/backend && npm ci --only=production
-RUN cd apps/frontend && npm ci --only=production
-
-# Copy built application
-COPY dist/ ./dist/
-
-# Copy environment file
-COPY apps/backend/.env ./dist/backend/
-
-# Expose ports
-EXPOSE 3001 3000
-
-# Start the application
-CMD ["./dist/start.sh"]
-EOF
-
-# Create docker-compose for easy deployment
-cat > dist/docker-compose.yml << 'EOF'
-version: '3.8'
-
-services:
-  dataask:
-    build: .
-    ports:
-      - "3001:3001"
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-    volumes:
-      - ./uploads:/app/uploads
-      - ./data:/app/data
-    restart: unless-stopped
-EOF
-
-print_success "Docker configuration created"
-
-# Final checks
-print_status "Running final validation..."
-
-# Check if backend can start
-cd dist/backend
-timeout 10s npm start > /dev/null 2>&1 || print_warning "Backend start test failed (this is normal in production)"
-
+# Return to root
 cd ../..
 
 print_success "✅ DataAsk Production Deployment Complete!"
 echo ""
-echo "📁 Production files are in: dist/"
-echo "🚀 Start with: cd dist && ./start.sh"
-echo "🐳 Or use Docker: cd dist && docker-compose up"
-echo ""
-echo "📋 Next steps:"
-echo "  1. Configure your production environment"
-echo "  2. Set up reverse proxy (nginx) if needed"
-echo "  3. Configure SSL certificates"
-echo "  4. Set up monitoring and logging"
+echo "📋 Next Steps:"
+echo "  1. Start the backend: cd apps/backend && npm start"
+echo "  2. Start the frontend: cd apps/frontend && npm start"
+echo "  3. Or use: npm run dev (for development)"
 echo ""
 print_success "🎉 Deployment ready!"
