@@ -2,14 +2,12 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.test.ts'],
-  testPathIgnorePatterns: [
-    'src/security/__tests__/promptSanitize.test.ts' // Temporarily disabled due to failing tests
-  ],
+  testMatch: ['**/tests/**/*.test.ts'],
+  testPathIgnorePatterns: [],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
-    '!src/**/__tests__/**',
+    '!src/**/tests/**',
   ],
-  setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/tests/setup.ts'],
 }
