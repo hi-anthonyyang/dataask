@@ -13,6 +13,8 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    host: true,  // This will expose the server to all network interfaces
+    strictPort: true,  // Will fail if port is already in use
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
