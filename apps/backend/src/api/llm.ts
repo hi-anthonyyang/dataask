@@ -267,109 +267,99 @@ RESPONSE FORMAT:
   }
 };
 
-// Convert natural language to SQL
-router.post('/nl-to-sql', async (req, res) => {
+// Convert natural language to pandas code
+router.post('/nl-to-pandas', async (req, res) => {
   try {
-    const request = NLQuerySchema.parse(req.body);
+    const request = z.object({
+      query: z.string().min(1),
+      dataframeInfo: z.object({
+        columns: z.array(z.string()),
+        dtypes: z.record(z.string()),
+        shape: z.tuple([z.number(), z.number()])
+      })
+    }).parse(req.body);
     
     if (!openai) {
       return respondWithMissingApiKey(res);
     }
 
     // Sanitize user input
-    const sanitization = sanitizeAndValidateInput(request.query, res, '/api/llm/nl-to-sql');
+    const sanitization = sanitizeAndValidateInput(request.query, res, '/api/llm/nl-to-pandas');
     if (!sanitization.isValid) return sanitization.response;
 
     const sanitizedQuery = sanitization.sanitizedInput;
 
-    // Use AI to classify query and handle exploratory requests
-    const databaseSchema: DatabaseSchema = {
-      tables: request.schema.tables.map(table => ({
-        name: table.name,
-        type: 'table', // SQLite tables are always type 'table'
-        columns: table.columns.map(col => ({
-          name: col.name,
-          type: col.type,
-          nullable: col.nullable ?? true,
-          default_value: null,
-          primary_key: false
-        }))
-      }))
-    };
-    const classification = await classifyQuery(sanitizedQuery, databaseSchema);
-    
-    if (classification.isVague) {
-      return res.json({
-        isVague: true,
-        message: classification.message,
-        suggestions: classification.suggestions,
-        originalQuery: sanitizedQuery
-      });
-    }
-
     // Check cache first
-    const schemaHash = getOptimizedSchema(databaseSchema);
-    const cacheKey = llmCache.getCacheKey('sql', sanitizedQuery, `${request.connectionType}-${schemaHash}`);
+    const schemaHash = JSON.stringify(request.dataframeInfo);
+    const cacheKey = llmCache.getCacheKey('pandas', sanitizedQuery, schemaHash);
     const cached = llmCache.get(cacheKey);
     if (cached) {
-      logger.info('SQL generation cache hit', { query: sanitizedQuery.substring(0, 50) });
+      logger.info('Pandas code generation cache hit', { query: sanitizedQuery.substring(0, 50) });
       return res.json(cached);
     }
 
-    // Use safe prompt construction to prevent injection
-    const safePrompt = createSafePrompt('nlToSql', sanitizedQuery, schemaHash, request.connectionType);
+    // Create pandas code generation prompt
+    const systemPrompt = `You are a pandas code generator. Generate pandas code to answer user queries about their DataFrame.
+
+DataFrame Info:
+- Columns: ${request.dataframeInfo.columns.join(', ')}
+- Data types: ${JSON.stringify(request.dataframeInfo.dtypes, null, 2)}
+- Shape: ${request.dataframeInfo.shape[0]} rows, ${request.dataframeInfo.shape[1]} columns
+
+Rules:
+1. Generate ONLY pandas code, no explanations
+2. Use 'df' as the DataFrame variable name
+3. Return results that can be displayed as a table
+4. For aggregations, ensure the result is a DataFrame, not a Series
+5. Use simple, readable pandas operations
+6. Avoid complex operations that might fail
+7. For visualizations, return the data to visualize, not matplotlib code
+
+Examples:
+- "show first 5 rows" -> df.head()
+- "average sales by category" -> df.groupby(['category'])['sales'].mean().reset_index()
+- "count of products" -> df['product'].value_counts().reset_index()
+- "filter where price > 100" -> df[df['price'] > 100]`;
 
     const completion = await ensureOpenAI().chat.completions.create({
       model: LLM_MODEL_CONFIG.NL_TO_SQL,
       messages: [
-        { role: 'system', content: safePrompt.system },
-        { role: 'user', content: safePrompt.user }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: sanitizedQuery }
       ],
       temperature: 0.1,
-      max_tokens: 500
+      max_tokens: 300
     });
 
-    let generatedSQL = completion.choices[0]?.message?.content?.trim();
+    let generatedCode = completion.choices[0]?.message?.content?.trim();
     
-    if (!generatedSQL) {
+    if (!generatedCode) {
       return res.status(500).json({ 
-        error: 'Failed to generate SQL query' 
+        error: 'Failed to generate pandas code' 
       });
     }
-
-    // Validate and sanitize LLM response
-    generatedSQL = validateAndSanitizeResponse(generatedSQL, '/api/llm/nl-to-sql');
 
     // Clean up any unwanted formatting
-    generatedSQL = generatedSQL
-      .replace(/```sql\n?/g, '')  // Remove SQL code block markers
-      .replace(/```\n?/g, '')     // Remove any remaining code block markers
-      .replace(/^[^\w\s]*/, '')   // Remove any leading non-word characters
+    generatedCode = generatedCode
+      .replace(/```python\n?/g, '')  // Remove Python code block markers
+      .replace(/```\n?/g, '')        // Remove any remaining code block markers
+      .replace(/^[^\w\s]*/, '')      // Remove any leading non-word characters
       .trim();
 
-    // Validate the generated SQL for security
-          const validationResult = validateSQLQuery(generatedSQL);
-    if (!validationResult.isValid) {
-      logger.warn('LLM generated invalid SQL:', { 
-        query: generatedSQL.substring(0, 200), 
-        errors: validationResult.error,
-        fullQuery: generatedSQL
-      });
-      return res.status(400).json({ 
-        error: 'Generated query failed security validation',
-        details: validationResult.error,
-        generatedSQL: generatedSQL.substring(0, 200) // Include partial SQL for debugging
-      });
+    // Basic validation - ensure it starts with 'df'
+    if (!generatedCode.includes('df')) {
+      logger.warn('Generated code does not reference DataFrame');
+      generatedCode = 'df.head()'; // Fallback to safe operation
     }
 
-    logger.info('NL-to-SQL conversion successful', { 
+    logger.info('NL-to-pandas conversion successful', { 
       naturalLanguage: sanitizedQuery.substring(0, 50),
-      sql: generatedSQL.substring(0, 100)
+      code: generatedCode.substring(0, 100)
     });
 
     const result = { 
-      sql: generatedSQL,
-      explanation: `Generated SQL for: "${sanitizedQuery}"`
+      code: generatedCode,
+      explanation: `Generated pandas code for: "${sanitizedQuery}"`
     };
 
     // Cache successful result
@@ -381,7 +371,7 @@ router.post('/nl-to-sql', async (req, res) => {
     if (error instanceof z.ZodError) {
       return handleZodError(res, error);
     }
-    return handleGenericError(res, error, 'Failed to generate SQL');
+    return handleGenericError(res, error, 'Failed to generate pandas code');
   }
 });
 

@@ -1,28 +1,20 @@
-import { useState, useRef, useEffect } from 'react'
-import SchemaBrowser from './SchemaBrowser'
+import { useState, useRef } from 'react'
+import DataFrameBrowser from './DataFrameBrowser'
 import AnalysisPanel from './AnalysisPanel'
 import ChatPanel from './ChatPanel'
-import AddDataModal from './AddDataModal'
-import ConnectionStatus from './ConnectionStatus'
-import { Database, ChevronRight, Plus } from 'lucide-react'
-import { Connection, QueryResult, DatabaseType } from '../types'
-import { databaseService } from '../services/database'
-import StorageService from '../services/storage'
+import FileImportModal from './FileImportModal'
+import { FileSpreadsheet, ChevronRight, Plus } from 'lucide-react'
+import { DataFrameQueryResult } from '../services/dataframe'
 import { useResizablePanel } from '../hooks/useResizablePanel'
 
 const DataAskApp: React.FC = () => {
-  const [selectedConnection, setSelectedConnection] = useState<string | null>(null)
-  const [selectedTable, setSelectedTable] = useState<string | null>(null)
-  const [currentQuery, setCurrentQuery] = useState<string>('')
-  const [queryResults, setQueryResults] = useState<any>(null)
-  const [showAddDataModal, setShowAddDataModal] = useState(false)
-  const [editingConnection, setEditingConnection] = useState<Connection | null>(null)
+  const [selectedDataFrame, setSelectedDataFrame] = useState<string | null>(null)
+  const [currentCode, setCurrentCode] = useState<string>('')
+  const [queryResults, setQueryResults] = useState<DataFrameQueryResult | null>(null)
+  const [showUploadModal, setShowUploadModal] = useState(false)
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
-  const [connections, setConnections] = useState<Connection[]>([])
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
-
-
 
   // Use custom hook for resizable panels
   const leftPanel = useResizablePanel({
@@ -39,112 +31,23 @@ const DataAskApp: React.FC = () => {
     direction: 'right'
   })
 
-  // Load connections on mount
-  useEffect(() => {
-    loadConnections()
-  }, [])
-
-  const loadConnections = async () => {
-    try {
-      const data = await databaseService.listConnections()
-      console.log('Loaded connections:', data.connections)
-      setConnections(data.connections)
-    } catch (error) {
-      console.error('Failed to load connections:', error)
-    }
-  }
-
   const toggleLeftPanel = () => {
     setIsLeftPanelMinimized(!isLeftPanelMinimized)
   }
 
-  const handleConnectionSelect = (connectionId: string | null) => {
-    setSelectedConnection(connectionId)
-    setSelectedTable(null)
-    setCurrentQuery('')
+  const handleDataFrameSelect = (dataframeId: string | null) => {
+    setSelectedDataFrame(dataframeId)
+    setCurrentCode('')
     setQueryResults(null)
   }
 
-  const handleConnectionAdded = async (connectionId: string) => {
-    setShowAddDataModal(false)
-    
-    try {
-      // Retry logic with exponential backoff
-      let retries = 0;
-      const maxRetries = 5;
-      let connection = null;
-      
-      while (retries < maxRetries && !connection) {
-        // Add delay with exponential backoff
-        const delay = Math.min(500 * Math.pow(2, retries), 3000);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Load the updated connections list
-        const data = await databaseService.listConnections()
-        console.log(`Attempt ${retries + 1}: Loaded ${data.connections.length} connections`)
-        
-        // Find the new connection
-        connection = data.connections.find(c => c.id === connectionId)
-        
-        if (connection) {
-          console.log('Found new connection:', connection)
-          // Update connections state
-          setConnections(data.connections)
-          
-          // Save to localStorage
-          StorageService.saveConnection({
-            id: connection.id,
-            name: connection.name,
-            type: connection.type as DatabaseType,
-            config: {
-              filename: connection.config?.filename
-            }
-          })
-          
-          // Set the new connection as selected after state update
-          setTimeout(() => {
-            console.log('Setting selected connection to:', connectionId)
-            setSelectedConnection(connectionId)
-          }, 100)
-          
-          break;
-        }
-        
-        retries++;
-        console.log(`Connection ${connectionId} not found yet, retrying... (${retries}/${maxRetries})`)
-      }
-      
-      if (!connection) {
-        console.error('Failed to find connection after all retries:', connectionId)
-        console.error('Final connections list:', connections.map(c => ({ id: c.id, name: c.name })))
-        
-        // Show error to user
-        alert('Failed to load the imported data. Please refresh the page and try again.')
-      }
-    } catch (error) {
-      console.error('Failed to handle connection added:', error)
-      alert('An error occurred while loading the imported data. Please refresh the page.')
-    }
+  const handleFileUploaded = async (dataframeId: string) => {
+    setShowUploadModal(false)
+    // Small delay to ensure the DataFrame list is updated
+    setTimeout(() => {
+      setSelectedDataFrame(dataframeId)
+    }, 500)
   }
-
-  const handleConnectionUpdated = (connectionId: string) => {
-    setShowAddDataModal(false)
-    setEditingConnection(null)
-    loadConnections()
-    setSelectedConnection(connectionId)
-  }
-
-  const handleEditConnection = (connection: Connection) => {
-    setEditingConnection(connection)
-    setShowAddDataModal(true)
-  }
-
-  const getSelectedConnectionType = (): string | null => {
-    const connection = connections.find(c => c.id === selectedConnection)
-    return connection?.type || null
-  }
-
-
 
   return (
     <div 
@@ -159,16 +62,12 @@ const DataAskApp: React.FC = () => {
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Database className="w-5 h-5 text-white" />
+            <FileSpreadsheet className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-xl font-semibold text-gray-900">DataAsk</h1>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <ConnectionStatus 
-            selectedConnection={selectedConnection}
-            connections={connections}
-          />
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">DataAsk</h1>
+            <p className="text-xs text-gray-500">AI-powered data analysis for spreadsheets</p>
+          </div>
         </div>
       </div>
 
@@ -192,12 +91,12 @@ const DataAskApp: React.FC = () => {
                 </button>
               </div>
               
-              {/* Add Connection Button */}
+              {/* Upload File Button */}
               <div className="p-2">
                 <button
-                  onClick={() => setShowAddDataModal(true)}
+                  onClick={() => setShowUploadModal(true)}
                   className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Add data source"
+                  title="Upload file"
                 >
                   <Plus className="w-4 h-4 text-gray-600" />
                 </button>
@@ -205,19 +104,12 @@ const DataAskApp: React.FC = () => {
             </div>
           ) : (
             <div className="flex-1 overflow-hidden">
-              <SchemaBrowser
-                selectedConnection={selectedConnection}
-                onConnectionSelect={handleConnectionSelect}
-                onTableSelect={setSelectedTable}
-                selectedTable={selectedTable}
-                showAddDataModal={showAddDataModal}
-                setShowAddDataModal={setShowAddDataModal}
-                connections={connections}
-                onConnectionsChange={loadConnections}
-                onEditConnection={handleEditConnection}
+              <DataFrameBrowser
+                selectedDataFrame={selectedDataFrame}
+                onDataFrameSelect={handleDataFrameSelect}
+                onFileUpload={() => setShowUploadModal(true)}
                 onTogglePanel={toggleLeftPanel}
                 isPanelMinimized={isLeftPanelMinimized}
-
               />
             </div>
           )}
@@ -237,10 +129,9 @@ const DataAskApp: React.FC = () => {
         {/* Center Panel - Chat */}
         <div className="flex-1 flex flex-col bg-gray-50 min-w-0">
           <ChatPanel
-            selectedConnection={selectedConnection}
-            connectionType={getSelectedConnectionType()}
-            onQueryUpdate={setCurrentQuery}
-            onQueryExecute={(results: QueryResult) => {
+            selectedDataFrame={selectedDataFrame}
+            onCodeUpdate={setCurrentCode}
+            onQueryExecute={(results: DataFrameQueryResult) => {
               setQueryResults(results)
             }}
           />
@@ -262,24 +153,18 @@ const DataAskApp: React.FC = () => {
         >
           <AnalysisPanel
             queryResults={queryResults}
-            currentQuery={currentQuery}
-            selectedTable={selectedTable}
-            selectedConnection={selectedConnection}
+            currentCode={currentCode}
+            selectedDataFrame={selectedDataFrame}
           />
         </div>
       </div>
 
-      {/* Add Data Modal */}
-      {showAddDataModal && (
-        <AddDataModal
-          isOpen={showAddDataModal}
-          onClose={() => {
-            setShowAddDataModal(false)
-            setEditingConnection(null)
-          }}
-          onConnectionAdded={handleConnectionAdded}
-          onConnectionUpdated={handleConnectionUpdated}
-          editingConnection={editingConnection}
+      {/* File Upload Modal */}
+      {showUploadModal && (
+        <FileImportModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onConnectionAdded={handleFileUploaded}
         />
       )}
     </div>
