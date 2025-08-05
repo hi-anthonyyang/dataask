@@ -1,7 +1,7 @@
 {
   "name": "dataask",
   "version": "1.0.0",
-  "description": "AI-native, minimal SQL data analysis tool",
+  "description": "AI-native, minimal CSV/Excel data analysis tool",
   "private": true,
   "workspaces": [
     "apps/*",
