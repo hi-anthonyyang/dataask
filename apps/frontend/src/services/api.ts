@@ -161,9 +161,10 @@ export class ApiService {
 
 // Convenience functions for common API calls
 export const api = {
-  get: ApiService.get,
-  post: ApiService.post,
-  put: ApiService.put,
-  delete: ApiService.delete,
-  upload: ApiService.upload
+  get: ApiService.get.bind(ApiService),
+  post: ApiService.post.bind(ApiService),
+  put: ApiService.put.bind(ApiService),
+  delete: ApiService.delete.bind(ApiService),
+  upload: ApiService.upload.bind(ApiService),
+  request: ApiService.request.bind(ApiService),
 };

@@ -8,6 +8,7 @@ interface DataFrameBrowserProps {
   onFileUpload: () => void
   onTogglePanel?: () => void
   isPanelMinimized?: boolean
+  refreshTrigger?: number // Add this to trigger refreshes
 }
 
 export default function DataFrameBrowser({
@@ -15,14 +16,15 @@ export default function DataFrameBrowser({
   onDataFrameSelect,
   onFileUpload,
   onTogglePanel,
-  isPanelMinimized
+  isPanelMinimized,
+  refreshTrigger
 }: DataFrameBrowserProps) {
   const [dataframes, setDataframes] = useState<DataFrame[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadDataFrames()
-  }, [])
+  }, [refreshTrigger]) // Add refreshTrigger to dependency array
 
   const loadDataFrames = async () => {
     try {

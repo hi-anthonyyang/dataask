@@ -13,6 +13,7 @@ const DataAskApp: React.FC = () => {
   const [queryResults, setQueryResults] = useState<DataFrameQueryResult | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0) // Add refresh trigger
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
 
@@ -43,6 +44,8 @@ const DataAskApp: React.FC = () => {
 
   const handleFileUploaded = async (dataframeId: string) => {
     setShowUploadModal(false)
+    // Trigger refresh immediately
+    setRefreshTrigger(prev => prev + 1)
     // Small delay to ensure the DataFrame list is updated
     setTimeout(() => {
       setSelectedDataFrame(dataframeId)
@@ -110,6 +113,7 @@ const DataAskApp: React.FC = () => {
                 onFileUpload={() => setShowUploadModal(true)}
                 onTogglePanel={toggleLeftPanel}
                 isPanelMinimized={isLeftPanelMinimized}
+                refreshTrigger={refreshTrigger} // Pass refreshTrigger
               />
             </div>
           )}
