@@ -51,6 +51,71 @@
         "tableCount": 0
       },
       "status": "ready"
+    },
+    {
+      "id": "4178ae6f-5324-44e2-9a56-b49c12da6c6d",
+      "name": "cursor_usage_details_2025_07_30",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/Users/anthonyyang/Downloads/Ant/dataask/data/import_130fe9ef-ff2c-427f-b465-46953cf63db0.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:28:10.279Z",
+        "lastAccessed": "2025-08-04T23:28:10.279Z",
+        "tableCount": 0
+      },
+      "status": "ready"
+    },
+    {
+      "id": "967a678a-2028-4e6e-b164-11b1daddcee1",
+      "name": "cursor_usage_details_2025_07_30",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/Users/anthonyyang/Downloads/Ant/dataask/data/import_bd0bbb22-73e1-488d-a330-810095e5170a.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:29:21.537Z",
+        "lastAccessed": "2025-08-04T23:29:21.537Z",
+        "tableCount": 0
+      },
+      "status": "ready"
+    },
+    {
+      "id": "5c061c56-f11b-43e0-85ea-1c43cee13c21",
+      "name": "cursor_usage_details_2025_07_30",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/Users/anthonyyang/Downloads/Ant/dataask/data/import_aecd9a95-80f3-45fe-a638-8d61329909b8.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:31:20.605Z",
+        "lastAccessed": "2025-08-04T23:31:20.605Z",
+        "tableCount": 0
+      },
+      "status": "ready"
+    },
+    {
+      "id": "a2204446-48e2-4461-bd89-e264a3e23e3e",
+      "name": "cursor_usage_details_2025_07_30",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/Users/anthonyyang/Downloads/Ant/dataask/data/import_43b02327-18cd-4c8a-8286-14f97fd432a3.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:45:12.354Z",
+        "lastAccessed": "2025-08-04T23:45:12.354Z",
+        "tableCount": 0
+      },
+      "status": "ready"
+    },
+    {
+      "id": "560807a0-c489-4b50-9af3-dda4d9cd52c0",
+      "name": "cursor_usage_details_2025_07_30",
+      "type": "sqlite",
+      "metadata": {
+        "path": "/Users/anthonyyang/Downloads/Ant/dataask/data/import_14931873-241a-4502-850f-5eff142d9dfb.sqlite",
+        "size": 0,
+        "created": "2025-08-04T23:45:54.298Z",
+        "lastAccessed": "2025-08-04T23:45:54.298Z",
+        "tableCount": 0
+      },
+      "status": "ready"
     }
   ],
   "version": "1.0.0"

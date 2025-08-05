@@ -2,27 +2,10 @@
 
 ## Common Issues
 
-### Database Connection Issues
+### File Upload Issues
 
-#### Connection Timeouts
-**Symptoms**: Connection modal shows spinning wheel indefinitely
-**Solutions**:
-- Check database server is running and accessible
-- Verify host, port, and credentials are correct
-- Check firewall settings and network connectivity
-- Try increasing connection timeout in Advanced Settings
-
-#### SSL/TLS Connection Errors
-**Symptoms**: "SSL connection failed" or certificate errors
-**Solutions**:
-- Set SSL mode to "prefer" or "allow" for development
-- Verify SSL certificates are valid and accessible
-- Check `DB_SSL_REJECT_UNAUTHORIZED` setting
-
-### File Import Issues
-
-#### File Import Modal Not Opening
-**Symptoms**: Clicking the "+" button doesn't open the import modal
+#### File Upload Modal Not Opening
+**Symptoms**: Clicking the "+" button doesn't open the upload modal
 **Solutions**:
 - Ensure the frontend is properly compiled and running
 - Check browser console for JavaScript errors
@@ -37,68 +20,150 @@
 - Ensure file has proper headers and data rows
 - Check server disk space in `uploads/` directory
 
-#### Column Type Detection Issues
-**Symptoms**: Wrong column types detected or import errors
-**Solutions**:
-- Review and adjust column types in the Configure step
-- Ensure data is properly formatted (dates, numbers)
-- Check for empty or null values in data
-- Use Text type for mixed data columns
-
-#### Import Creates Empty Table
-**Symptoms**: Import succeeds but table has no data
+#### DataFrame Creation Issues
+**Symptoms**: File uploads but DataFrame is not created
 **Solutions**:
 - Verify CSV has proper header row
 - Check for encoding issues (use UTF-8)
 - Ensure data rows exist after header
-- Review column mapping in preview step
+- Review file content for malformed data
+
+### AI Query Issues
+
+#### "Failed to generate pandas code" Error
+**Symptoms**: AI queries return error instead of results
+**Solutions**:
+- Check OpenAI API key is configured in `.env`
+- Verify API key has sufficient credits
+- Check network connectivity to OpenAI
+- Review query complexity and clarity
+
+#### Generated Code Execution Fails
+**Symptoms**: AI generates code but execution fails
+**Solutions**:
+- Check DataFrame column names match the query
+- Verify data types are appropriate for the operation
+- Review error messages for specific issues
+- Try simpler queries to test functionality
 
 ### Performance Issues
 
-#### Slow Query Execution
+#### Slow File Processing
 **Solutions**:
-- Check database connection pool settings
-- Verify database server performance
-- Review query complexity and table sizes
-- Check network latency to database
+- Check file size (large files take longer)
+- Monitor server memory usage
+- Verify disk I/O performance
+- Consider splitting large files
 
 #### High Memory Usage
 **Solutions**:
-- Monitor file upload sizes and frequency
-- Clean up temporary files in `uploads/` directory
-- Check SQLite database sizes in `data/` directory
-- Restart application if memory leaks suspected
+- Monitor DataFrame memory usage
+- Delete unused DataFrames
+- Check for memory leaks in browser
+- Restart application if needed
 
-### Authentication Issues
-
-#### Login/Registration Fails
+#### Slow AI Response
 **Solutions**:
-- Verify JWT secrets are configured
-- Check CORS settings for frontend domain
-- Review server logs for detailed errors
-- Ensure SQLite database file has proper permissions
+- Check OpenAI API response times
+- Verify network connectivity
+- Review query complexity
+- Consider using simpler queries
+
+### Application Issues
+
+#### Backend Server Not Starting
+**Symptoms**: "Connection refused" or server errors
+**Solutions**:
+- Check port 3001 is not in use
+- Verify Node.js version (18+ required)
+- Check environment variables are set
+- Review server logs for specific errors
+
+#### Frontend Not Loading
+**Symptoms**: Blank page or loading errors
+**Solutions**:
+- Check port 3000 is not in use
+- Verify all dependencies are installed
+- Clear browser cache
+- Check browser console for errors
 
 ## Getting Help
 
 ### Log Files
-- Backend logs: Check console output or PM2 logs
+- Backend logs: Check console output where `npm run dev` was started
 - Frontend logs: Check browser developer console
-- SQLite logs: Check application logs for database queries
+- Application logs: Check for DataFrame operations and errors
 
 ### Environment Check
 ```bash
 # Verify environment variables
-cat .env | grep -E "(JWT_SECRET|DB_)"
+cat apps/backend/.env | grep OPENAI_API_KEY
 
 # Check file permissions
-ls -la uploads/ data/
+ls -la uploads/
 
-# Test database connectivity
+# Test API connectivity
 curl -X GET http://localhost:3001/health
 ```
 
 ### Common Log Messages
-- `"Connection test failed"`: Database connectivity issue
+- `"DataFrame not found"`: File upload or DataFrame ID issue
 - `"File parsing failed"`: Invalid file format or corruption
 - `"Rate limit exceeded"`: Too many requests, wait and retry
-- `"JWT token expired"`: Authentication session expired, login again
+- `"OpenAI API error"`: API key or network connectivity issue
+- `"Code execution failed"`: Generated pandas code has errors
+
+### Debug Steps
+
+1. **Check Application Status**
+   ```bash
+   # Verify all services are running
+   ps aux | grep -E "(node|vite)"
+   
+   # Check ports are in use
+   lsof -i :3000 -i :3001
+   ```
+
+2. **Test File Upload**
+   ```bash
+   # Test API directly
+   curl -X POST http://localhost:3001/api/files/upload \
+     -F "file=@test.csv"
+   ```
+
+3. **Test AI Integration**
+   ```bash
+   # Test OpenAI connection
+   curl -X POST http://localhost:3001/api/llm/nl-to-pandas \
+     -H "Content-Type: application/json" \
+     -d '{"query":"show first 5 rows"}'
+   ```
+
+4. **Check Memory Usage**
+   ```bash
+   # Monitor DataFrame memory
+   curl -X GET http://localhost:3001/api/files/dataframes
+   ```
+
+## Performance Optimization
+
+### For Large Files
+- Split files into smaller chunks
+- Use simpler queries for large datasets
+- Monitor memory usage during processing
+- Consider upgrading server resources
+
+### For Frequent Usage
+- Implement DataFrame caching
+- Optimize AI query patterns
+- Monitor API rate limits
+- Use efficient pandas operations
+
+## Support
+
+If issues persist:
+1. Check the browser console for detailed error messages
+2. Review server logs for backend errors
+3. Verify all environment variables are set correctly
+4. Test with a simple CSV file to isolate the issue
+5. Check the GitHub issues page for known problems
