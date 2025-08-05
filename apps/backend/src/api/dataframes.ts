@@ -128,4 +128,26 @@ router.get('/:id/sample', async (req, res) => {
   }
 });
 
+// Get DataFrame profile
+router.get('/:id/profile', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const dfManager = DataFrameManager.getInstance();
+    
+    const df = dfManager.getDataFrame(id);
+    if (!df) {
+      return res.status(404).json({ error: 'DataFrame not found' });
+    }
+    
+    const profile = dfManager.getDataFrameProfile(id);
+    
+    res.json({
+      profile
+    });
+  } catch (error) {
+    logger.error('Failed to get dataframe profile:', error);
+    return sendServerError(res, error, 'Failed to get profile');
+  }
+});
+
 export default router;

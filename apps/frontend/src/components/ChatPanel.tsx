@@ -242,9 +242,6 @@ export default function ChatPanel({
             <Send className="w-4 h-4" />
           </button>
         </div>
-        <div className="mt-2 text-xs text-gray-500">
-          Press Enter to send, Shift+Enter for new line
-        </div>
       </form>
     </div>
   )

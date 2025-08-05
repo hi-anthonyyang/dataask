@@ -62,6 +62,11 @@ export const dataframeService = {
     return api.get(`/api/files/dataframes/${id}/preview?rows=${rows}`);
   },
 
+  // Get DataFrame profile
+  async getDataFrameProfile(id: string): Promise<{ profile: any[] }> {
+    return api.get(`/api/dataframes/${id}/profile`);
+  },
+
   // Execute pandas code on DataFrame
   async executePandasCode(dataframeId: string, code: string): Promise<DataFrameQueryResult> {
     const response = await api.post(`/api/dataframes/${dataframeId}/execute`, { code });

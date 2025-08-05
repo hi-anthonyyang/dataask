@@ -180,7 +180,7 @@ router.get('/dataframes/:id/preview', async (req: express.Request, res: express.
     res.json({
       data: preview.data,
       columns: preview.columns,
-      totalRows: df.shape[0]
+      rowCount: df.shape[0]
     });
   } catch (error) {
     logger.error('Failed to get dataframe preview:', error);

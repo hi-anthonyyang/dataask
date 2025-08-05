@@ -12,6 +12,7 @@ export interface DataFrame {
   shape: [number, number];
   dtypes: Record<string, string>;
   uploadedAt: Date;
+  profile?: VariableProfile[]; // Add profiling data
 }
 
 export interface DataFrameQueryResult {
@@ -19,6 +20,17 @@ export interface DataFrameQueryResult {
   columns: string[];
   rowCount: number;
   executionTime: number;
+}
+
+export interface VariableProfile {
+  name: string;
+  type: 'categorical' | 'numerical';
+  subtype: 'nominal' | 'ordinal' | 'interval' | 'ratio';
+  distribution?: 'normal' | 'non-normal';
+  outliers: boolean;
+  sample_size: number;
+  unique_values: number;
+  inferred_role: string;
 }
 
 /**
@@ -100,7 +112,7 @@ class DataFrameManager {
         throw new Error('Excel sheet is empty');
       }
 
-      const columns = Object.keys(data[0]);
+      const columns = Object.keys(data[0] as Record<string, any>);
       const id = uuidv4();
       
       // Detect column types
@@ -249,6 +261,214 @@ class DataFrameManager {
     });
 
     return stats;
+  }
+
+  /**
+   * Get DataFrame profiling information
+   */
+  getDataFrameProfile(id: string): VariableProfile[] {
+    const df = this.getDataFrame(id);
+    if (!df) {
+      throw new Error('DataFrame not found');
+    }
+
+    // Return cached profile if available
+    if (df.profile) {
+      return df.profile;
+    }
+
+    // Generate profile and cache it
+    const profile = this.profileDataFrame(df);
+    df.profile = profile;
+    
+    logger.info(`Generated profile for DataFrame ${id} with ${profile.length} variables`);
+    return profile;
+  }
+
+  /**
+   * Profile all variables in a DataFrame
+   */
+  private profileDataFrame(df: DataFrame): VariableProfile[] {
+    const profiles: VariableProfile[] = [];
+    
+    for (const column of df.columns) {
+      const series = df.data.map(row => row[column]);
+      const profile = this.profileVariable(column, series);
+      profiles.push(profile);
+    }
+    
+    return profiles;
+  }
+
+  /**
+   * Profile a single variable
+   */
+  private profileVariable(name: string, values: any[]): VariableProfile {
+    const nonNullValues = values.filter(v => v !== null && v !== undefined);
+    const sample_size = nonNullValues.length;
+    const unique_values = new Set(nonNullValues).size;
+    
+    const type = this.inferType(nonNullValues);
+    const subtype = this.inferSubtype(nonNullValues, type);
+    
+    let distribution: 'normal' | 'non-normal' | undefined;
+    let outliers = false;
+    
+    if (type === 'numerical') {
+      const numericValues = nonNullValues.map(v => Number(v)).filter(v => !isNaN(v));
+      if (numericValues.length > 3) {
+        distribution = this.detectDistribution(numericValues);
+        outliers = this.detectOutliers(numericValues);
+      }
+    }
+    
+    return {
+      name,
+      type,
+      subtype,
+      distribution,
+      outliers,
+      sample_size,
+      unique_values,
+      inferred_role: 'unknown'
+    };
+  }
+
+  /**
+   * Infer variable type (categorical vs numerical)
+   */
+  private inferType(values: any[]): 'categorical' | 'numerical' {
+    if (values.length === 0) return 'categorical';
+    
+    const numericCount = values.filter(v => {
+      const num = Number(v);
+      return !isNaN(num) && isFinite(num);
+    }).length;
+    
+    const numericRatio = numericCount / values.length;
+    
+    // If more than 80% are numeric, consider it numerical
+    if (numericRatio > 0.8) {
+      return 'numerical';
+    }
+    
+    return 'categorical';
+  }
+
+  /**
+   * Infer variable subtype
+   */
+  private inferSubtype(values: any[], type: 'categorical' | 'numerical'): 'nominal' | 'ordinal' | 'interval' | 'ratio' {
+    if (type === 'categorical') {
+      if (this.isLikertScale(values)) {
+        return 'ordinal';
+      }
+      return 'nominal';
+    }
+    
+    // For numerical variables, assume ratio (can be overridden later)
+    return 'ratio';
+  }
+
+  /**
+   * Detect if distribution is normal using Shapiro-Wilk test
+   */
+  private detectDistribution(values: number[]): 'normal' | 'non-normal' {
+    try {
+      if (values.length < 3 || values.length > 5000) {
+        return 'non-normal'; // Shapiro-Wilk has limits
+      }
+      
+      // Simplified normality test using skewness and kurtosis
+      const mean = this.mean(values);
+      const std = this.std(values);
+      
+      if (std === 0) return 'non-normal';
+      
+      // Calculate skewness and kurtosis
+      const skewness = this.calculateSkewness(values, mean, std);
+      const kurtosis = this.calculateKurtosis(values, mean, std);
+      
+      // Simple normality check: if skewness and kurtosis are close to normal
+      const isNormal = Math.abs(skewness) < 1 && Math.abs(kurtosis - 3) < 2;
+      
+      return isNormal ? 'normal' : 'non-normal';
+    } catch (error) {
+      logger.warn('Failed to perform normality test:', error);
+      return 'non-normal';
+    }
+  }
+
+  /**
+   * Calculate skewness
+   */
+  private calculateSkewness(values: number[], mean: number, std: number): number {
+    if (std === 0) return 0;
+    
+    const n = values.length;
+    const skewness = values.reduce((sum, val) => {
+      return sum + Math.pow((val - mean) / std, 3);
+    }, 0) / n;
+    
+    return skewness;
+  }
+
+  /**
+   * Calculate kurtosis
+   */
+  private calculateKurtosis(values: number[], mean: number, std: number): number {
+    if (std === 0) return 0;
+    
+    const n = values.length;
+    const kurtosis = values.reduce((sum, val) => {
+      return sum + Math.pow((val - mean) / std, 4);
+    }, 0) / n;
+    
+    return kurtosis;
+  }
+
+  /**
+   * Detect outliers using Z-score method
+   */
+  private detectOutliers(values: number[]): boolean {
+    if (values.length < 3) return false;
+    
+    try {
+      const mean = this.mean(values);
+      const std = this.std(values);
+      
+      if (std === 0) return false;
+      
+      const zScores = values.map(v => Math.abs((v - mean) / std));
+      return zScores.some(z => z > 3);
+    } catch (error) {
+      logger.warn('Failed to detect outliers:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Detect Likert scale patterns
+   */
+  private isLikertScale(values: any[]): boolean {
+    const uniqueValues = [...new Set(values)].map(String).map(s => s.toLowerCase());
+    
+    const likertPatterns = [
+      ['strongly disagree', 'disagree', 'neutral', 'agree', 'strongly agree'],
+      ['very poor', 'poor', 'fair', 'good', 'excellent'],
+      ['never', 'rarely', 'sometimes', 'often', 'always'],
+      ['1', '2', '3', '4', '5'],
+      ['1', '2', '3', '4', '5', '6', '7']
+    ];
+    
+    for (const pattern of likertPatterns) {
+      if (uniqueValues.length === pattern.length && 
+          uniqueValues.every(v => pattern.includes(v))) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   /**
