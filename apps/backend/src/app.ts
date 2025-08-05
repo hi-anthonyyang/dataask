@@ -1,14 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
+
 import { llmRouter } from './api/llm';
-import authRouter from './api/auth';
+
 import filesRouter from './api/files';
 import dataframesRouter from './api/dataframes';
 import { logger } from './utils/logger';
 import { applyRateLimiting, healthCheck } from './security/rateLimiter';
-import { AuthService } from './services/authService';
+
 import { 
   API_MESSAGES, 
   SERVER_CONFIG, 
@@ -39,8 +39,8 @@ const runMigrations = async (): Promise<void> => {
   }
   
   try {
-    // Migrations are not needed for SQLite-only setup
-    logger.info('SQLite-only setup - no migrations needed');
+    // No database migrations needed for CSV/Excel-only setup
+    logger.info('CSV/Excel-only setup - no migrations needed');
   } catch (error) {
     logger.error('Failed to run database migrations:', error);
     // Don't exit the process, just log the error
@@ -48,31 +48,19 @@ const runMigrations = async (): Promise<void> => {
   }
 };
 
-// Initialize auth service
-const initializeAuth = async () => {
-  try {
-    const authService = AuthService.getInstance();
-    await authService.initialize();
-    logger.info('Auth service initialized successfully');
-  } catch (error) {
-    logger.error('Failed to initialize auth service:', error);
-  }
-};
+
 
 const app = express();
 
 // Create async initialization function
 export const initializeApp = async () => {
-  // Initialize auth service before starting the server
-  await initializeAuth();
   return app;
 };
 
 // Security middleware
 app.use(helmet());
 
-// Cookie parser for authentication
-app.use(cookieParser());
+
 
 // Enhanced rate limiting with different limits for different endpoints
 app.use(applyRateLimiting);
@@ -98,7 +86,6 @@ app.use((req, res, next) => {
 });
 
 // API routes
-app.use('/api/auth', authRouter);
 app.use('/api/llm', llmRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/dataframes', dataframesRouter);
@@ -112,18 +99,14 @@ app.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || APP_INFO.ENVIRONMENT.DEVELOPMENT,
     features: {
-      authentication: true,
-      userConnections: true,
-      databaseAnalysis: true,
+      fileAnalysis: true,
       aiPoweredQueries: true
     },
     endpoints: {
       health: '/health',
-      auth: '/api/auth/*',
-      userConnections: '/api/user/connections/*',
-      database: '/api/db/*',
       llm: '/api/llm/*',
-      files: '/api/files/*'
+      files: '/api/files/*',
+      dataframes: '/api/dataframes/*'
     }
   });
 });

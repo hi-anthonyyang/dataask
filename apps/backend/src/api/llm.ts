@@ -160,8 +160,7 @@ const NLQuerySchema = z.object({
         nullable: z.boolean().optional()
       }))
     }))
-  }),
-  connectionType: z.enum(['sqlite'])
+  })
 });
 
 // Schema for analysis requests

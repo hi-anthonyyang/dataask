@@ -2,18 +2,16 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { logger } from '../utils/logger';
-import sqlite3 from 'sqlite3';
 
 export interface DataSource {
   id: string;
   name: string;
-  type: 'sqlite' | 'parquet' | 'live-import';
+  type: 'csv' | 'excel';
   metadata: {
     path: string;
     size: number;
     created: Date;
     lastAccessed: Date;
-    tableCount?: number;
     rowCount?: number;
     originalFileName?: string;
   };
@@ -51,7 +49,6 @@ export class DataSourceManager {
     try {
       // Ensure data directory exists
       await fs.mkdir(this.dataDir, { recursive: true });
-      await fs.mkdir(path.join(this.dataDir, 'sqlite'), { recursive: true });
       await fs.mkdir(path.join(this.dataDir, 'imports'), { recursive: true });
 
       // Load existing sources
@@ -97,88 +94,29 @@ export class DataSourceManager {
     );
   }
 
-  async registerSQLite(filePath: string, name?: string): Promise<DataSource> {
-    await this.initialize();
-
-    const id = uuidv4();
-    const stats = await fs.stat(filePath);
-    
-    // Get table count from SQLite
-    let tableCount = 0;
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const db = new sqlite3.Database(filePath, sqlite3.OPEN_READONLY, (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          
-          db.get(
-            "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-            (err, row: any) => {
-              if (err) {
-                logger.error('Failed to read SQLite metadata:', err);
-              } else if (row) {
-                tableCount = row.count;
-              }
-              
-              db.close((closeErr) => {
-                if (closeErr) logger.error('Error closing db:', closeErr);
-                resolve();
-              });
-            }
-          );
-        });
-      });
-    } catch (error) {
-      logger.error('Failed to read SQLite metadata:', error);
-    }
-
-    const source: DataSource = {
-      id,
-      name: name || path.basename(filePath, '.db'),
-      type: 'sqlite',
-      metadata: {
-        path: filePath,
-        size: stats.size,
-        created: new Date(),
-        lastAccessed: new Date(),
-        tableCount
-      },
-      status: 'ready'
-    };
-
-    this.sources.set(id, source);
-    await this.persistSources();
-    
-    logger.info(`Registered SQLite source: ${source.name} (${id})`);
-    return source;
-  }
-
   async importFile(
     originalPath: string,
-    parquetPath: string,
+    processedPath: string,
     metadata: {
       originalFileName: string;
       rowCount: number;
-      tableCount: number;
+      fileType: 'csv' | 'excel';
     }
   ): Promise<DataSource> {
     await this.initialize();
 
     const id = uuidv4();
-    const stats = await fs.stat(parquetPath);
-
+    const stats = await fs.stat(originalPath);
+    
     const source: DataSource = {
       id,
-      name: path.basename(metadata.originalFileName, path.extname(metadata.originalFileName)),
-      type: 'parquet',
+      name: metadata.originalFileName,
+      type: metadata.fileType,
       metadata: {
-        path: parquetPath,
+        path: processedPath,
         size: stats.size,
         created: new Date(),
         lastAccessed: new Date(),
-        tableCount: metadata.tableCount,
         rowCount: metadata.rowCount,
         originalFileName: metadata.originalFileName
       },
@@ -188,7 +126,7 @@ export class DataSourceManager {
     this.sources.set(id, source);
     await this.persistSources();
     
-    logger.info(`Imported file as data source: ${source.name} (${id})`);
+    logger.info(`Imported file: ${source.name} (${id})`);
     return source;
   }
 
@@ -199,72 +137,45 @@ export class DataSourceManager {
 
   async getSource(id: string): Promise<DataSource | undefined> {
     await this.initialize();
-    const source = this.sources.get(id);
-    
-    if (source) {
-      // Update last accessed time
-      source.metadata.lastAccessed = new Date();
-      await this.persistSources();
-    }
-    
-    return source;
+    return this.sources.get(id);
   }
 
   async deleteSource(id: string): Promise<void> {
     await this.initialize();
-    const source = this.sources.get(id);
     
+    const source = this.sources.get(id);
     if (!source) {
-      throw new Error(`Source ${id} not found`);
+      throw new Error(`Source not found: ${id}`);
     }
 
-    // Delete the actual file if it's an import
-    if (source.type === 'parquet') {
-      try {
-        await fs.unlink(source.metadata.path);
-        // Also try to remove the directory if empty
-        const dir = path.dirname(source.metadata.path);
-        await fs.rmdir(dir).catch(() => {}); // Ignore if not empty
-      } catch (error) {
-        logger.error(`Failed to delete file for source ${id}:`, error);
-      }
+    // Delete the file
+    try {
+      await fs.unlink(source.metadata.path);
+    } catch (error) {
+      logger.warn(`Failed to delete file ${source.metadata.path}:`, error);
     }
 
+    // Remove from sources
     this.sources.delete(id);
     await this.persistSources();
     
-    logger.info(`Deleted data source: ${source.name} (${id})`);
+    logger.info(`Deleted source: ${source.name} (${id})`);
   }
 
   async updateSourceStatus(id: string, status: DataSource['status'], error?: string): Promise<void> {
-    const source = this.sources.get(id);
-    if (source) {
-      source.status = status;
-      source.error = error;
-      await this.persistSources();
-    }
-  }
-
-  // Migration helper: Convert existing SQLite connections to data sources
-  async migrateFromConnections(connections: any[]): Promise<void> {
     await this.initialize();
     
-    for (const conn of connections) {
-      if (conn.type === 'sqlite' && conn.config?.filename) {
-        try {
-          // Check if already migrated
-          const existing = Array.from(this.sources.values()).find(
-            s => s.metadata.path === conn.config.filename
-          );
-          
-          if (!existing) {
-            await this.registerSQLite(conn.config.filename, conn.name);
-            logger.info(`Migrated connection ${conn.name} to data source`);
-          }
-        } catch (error) {
-          logger.error(`Failed to migrate connection ${conn.name}:`, error);
-        }
-      }
+    const source = this.sources.get(id);
+    if (!source) {
+      throw new Error(`Source not found: ${id}`);
     }
+
+    source.status = status;
+    if (error) {
+      source.error = error;
+    }
+    source.metadata.lastAccessed = new Date();
+
+    await this.persistSources();
   }
 }

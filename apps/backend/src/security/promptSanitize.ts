@@ -80,14 +80,11 @@ const SUSPICIOUS_KEYWORDS = [
 
 /**
  * Database-specific special characters that should be allowed in SQL queries
- * This covers SQLite and common SQL standards
+ * This covers common SQL standards
  */
 const DATABASE_SAFE_CHARACTERS = {
   // Core SQL characters - includes basic math operators
-  core: '`%$[]@#|&~*/\\^+-',
-  
-  // SQLite specific
-  sqlite: '[]`'
+  core: '`%$[]@#|&~*/\\^+-'
 };
 
 /**
@@ -137,12 +134,9 @@ function appearsToBeSQLQuery(input: string): boolean {
 
 // Database-specific rules for safe SQL generation
 const getDatabaseSpecificRules = (connectionType: string) => {
-  // Only SQLite is supported now
-  return `- Use strftime('%Y-%m', date) for month grouping
-- Use datetime('now', '-1 year') for time intervals
-- Use square brackets ([]) or double quotes (") for table/column names if needed
+  return `- Use square brackets ([]) or double quotes (") for table/column names if needed
 - Use CAST() for type conversions
-- Remember SQLite is case-insensitive for LIKE comparisons`;
+- Use proper date formatting for time-based queries`;
 };
 
 // Safe prompt construction templates

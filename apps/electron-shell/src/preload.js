@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   version: process.versions.electron,
   
-  // File system APIs for SQLite database access
+  // File system APIs for file access
   fileSystem: {
     // Check if a file exists and is accessible
     fileExists: (filePath) => {
@@ -34,27 +34,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // File dialog APIs
   dialog: {
-    // Open file dialog for SQLite databases
+    // Open file dialog for CSV/Excel files
     openFile: () => {
       return ipcRenderer.invoke('dialog:openFile')
-    }
-  },
-
-  // Simple SQLite operations - no connection management
-  sqlite: {
-    // Validate SQLite file
-    validateFile: (filePath) => {
-      return ipcRenderer.invoke('sqlite:validateFile', filePath)
-    },
-    
-    // Get database schema
-    getSchema: (filePath) => {
-      return ipcRenderer.invoke('sqlite:getSchema', filePath)
-    },
-    
-    // Execute SQL query
-    executeQuery: (filePath, sql, params) => {
-      return ipcRenderer.invoke('sqlite:executeQuery', filePath, sql, params)
     }
   }
 })
