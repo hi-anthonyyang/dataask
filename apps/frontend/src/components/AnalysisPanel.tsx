@@ -330,7 +330,6 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
   }
 
   // Show analysis results when query results are available
-  console.log('AnalysisPanel render - queryResults:', queryResults, 'hasData:', queryResults?.data?.length)
   if (queryResults && queryResults.data) {
     return (
       <div className="h-full flex flex-col">

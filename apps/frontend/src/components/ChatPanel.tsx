@@ -133,9 +133,7 @@ export default function ChatPanel({
     if (!selectedDataFrame) return
 
     try {
-      console.log('Executing code:', code)
       const result = await dataframeService.executePandasCode(selectedDataFrame, code)
-      console.log('Execution result:', result)
       onQueryExecute(result)
     } catch (error) {
       console.error('Failed to execute code:', error)

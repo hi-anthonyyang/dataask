@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { X, Upload, Database } from 'lucide-react'
 import FileImportModal from './FileImportModal'
-import ConnectionModal from './ConnectionModal'
 import { Connection } from '../types'
 
 interface AddDataModalProps {
@@ -83,20 +82,11 @@ export default function AddDataModal({
               isEmbedded={true}
             />
           ) : (
-            <ConnectionModal
-              isOpen={true}
-              onClose={handleClose}
-              onConnectionAdded={(connectionId) => {
-                onConnectionAdded(connectionId)
-                handleClose()
-              }}
-              editingConnection={editingConnection}
-              onConnectionUpdated={(connectionId) => {
-                onConnectionUpdated?.(connectionId)
-                handleClose()
-              }}
-              isEmbedded={true}
-            />
+            <div className="p-6 text-center text-muted-foreground">
+              <Database className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-medium mb-2">Database Connection</h3>
+              <p className="text-sm">Database connection feature is not yet implemented.</p>
+            </div>
           )}
         </div>
       </div>

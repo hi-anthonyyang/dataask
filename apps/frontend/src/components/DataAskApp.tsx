@@ -110,7 +110,6 @@ const DataAskApp: React.FC = () => {
             selectedDataFrame={selectedDataFrame}
             onCodeUpdate={setCurrentCode}
             onQueryExecute={(results: DataFrameQueryResult) => {
-              console.log('DataAskApp setting queryResults to:', results)
               setQueryResults(results)
             }}
           />

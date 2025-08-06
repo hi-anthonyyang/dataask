@@ -300,20 +300,7 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
     }
   }
 
-  console.log('🔍 DataVisualizer Debug:', {
-    rowCount: data.length,
-    sampleRow: data[0],
-    fields: fields.map(f => ({ name: f.name, type: typeof data[0]?.[f.name], value: data[0]?.[f.name] }))
-  })
-
   const { numericFields, dateFields, textFields, fieldNames } = detectFieldTypes(data, fields)
-
-  console.log('🔍 Field Classification:', {
-    numericFields,
-    textFields, 
-    dateFields,
-    fieldNames
-  })
 
   // Single KPI (one row, one numeric value)
   if (data.length === 1 && numericFields.length === 1) {
@@ -337,8 +324,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
       // Analyze scales to determine best visualization approach
       const scaleAnalysis = analyzeValueScales(data, categoryField, valueField)
       
-      console.log('🔍 Scale Analysis:', scaleAnalysis)
-      
       if (scaleAnalysis.hasScaleIssues) {
         return {
           type: 'line',
@@ -349,7 +334,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
         }
       }
       
-      console.log('✅ Detected multi-series time series data')
       return {
         type: 'line',
         title: 'Multi-Series Time Analysis',
@@ -358,7 +342,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
       }
     }
     
-    console.log('✅ Detected single time series data')
     return {
       type: 'line',
       title: 'Time Series Analysis',
@@ -369,7 +352,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
 
   // Simple time series (date + numeric, no categories)
   if (dateFields.length > 0 && numericFields.length > 0) {
-    console.log('✅ Detected simple time series data')
     return {
       type: 'line',
       title: 'Time Series Analysis',
@@ -390,7 +372,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
         })
     
     if (isDescendingSorted) {
-      console.log('✅ Detected ranking data (sorted)')
       return {
         type: 'bar',
         title: 'Ranking Analysis',
@@ -401,7 +382,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
 
     // Use configurable threshold for pie vs bar decision
     if (data.length <= VISUALIZATION_CONFIG.piechartThreshold) {
-      console.log('✅ Detected small category data (pie chart)')
       return {
         type: 'pie',
         title: 'Distribution Analysis',
@@ -410,7 +390,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
       }
     }
 
-    console.log('✅ Detected category comparison data')
     return {
       type: 'bar',
       title: 'Category Comparison',
@@ -421,7 +400,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
 
   // Multiple numeric fields
   if (numericFields.length >= 2) {
-    console.log('✅ Detected multi-metric data')
     return {
       type: 'bar',
       title: 'Multi-Metric Comparison',
@@ -430,7 +408,6 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
     }
   }
 
-  console.log('❌ No suitable visualization pattern found')
   return {
     type: 'none',
     title: 'Not Visualizable',
@@ -456,8 +433,6 @@ const processDataForChart = (data: DataRow[], fields: DataField[], config: Chart
     const dateField = dateFields[0]
     const categoryField = textFields[0]
     const valueField = numericFields[0]
-    
-    console.log('🔄 Transforming multi-series data:', { dateField, categoryField, valueField })
     
     // Create a map of dates to data points
     const dateMap = new Map()
@@ -493,15 +468,8 @@ const processDataForChart = (data: DataRow[], fields: DataField[], config: Chart
     const categories = allCategories.slice(0, VISUALIZATION_CONFIG.maxSeries)
     
     if (allCategories.length > VISUALIZATION_CONFIG.maxSeries) {
-      console.warn(`⚠️ Limited to ${VISUALIZATION_CONFIG.maxSeries} series out of ${allCategories.length} available`)
+      // Limited to prevent overcrowding
     }
-    
-    console.log('✅ Transformed data:', { 
-      originalRows: limitedData.length, 
-      chartPoints: chartData.length,
-      seriesShown: categories.length,
-      totalSeries: allCategories.length
-    })
     
     xField = 'name' // Date field
     yField = String(categories[0]) // Will be handled differently in rendering
