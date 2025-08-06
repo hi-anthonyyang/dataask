@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Play, Bot, User, Code, MessageCircle, Loader2 } from 'lucide-react'
 import { dataframeService, DataFrameQueryResult } from '../services/dataframe'
+import { useAutoResizeTextarea } from '../hooks/useAutoResizeTextarea'
 
 interface Message {
   id: string
@@ -25,8 +26,15 @@ export default function ChatPanel({
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [currentDataFrameInfo, setCurrentDataFrameInfo] = useState<any>(null)
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null)
+  const [runningCodeId, setRunningCodeId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  
+  // Auto-resize textarea hook
+  const { textareaRef, handleChange: handleTextareaChange, adjustHeight } = useAutoResizeTextarea({
+    minHeight: 44, // Match button height
+    maxHeight: 120, // Limit to 6 lines
+  })
 
   // Load DataFrame info when selection changes
   useEffect(() => {
@@ -42,6 +50,13 @@ export default function ChatPanel({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Reset textarea height when input is cleared
+  useEffect(() => {
+    if (input === '') {
+      adjustHeight()
+    }
+  }, [input, adjustHeight])
 
   const loadDataFrameInfo = async () => {
     if (!selectedDataFrame) return
@@ -105,7 +120,7 @@ export default function ChatPanel({
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'error',
-        content: `Failed to generate code: ${error.message}`,
+        content: `Failed to generate code: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
@@ -118,14 +133,16 @@ export default function ChatPanel({
     if (!selectedDataFrame) return
 
     try {
+      console.log('Executing code:', code)
       const result = await dataframeService.executePandasCode(selectedDataFrame, code)
+      console.log('Execution result:', result)
       onQueryExecute(result)
     } catch (error) {
       console.error('Failed to execute code:', error)
       const errorMessage: Message = {
         id: Date.now().toString(),
         type: 'error',
-        content: `Execution error: ${error.message}`,
+        content: `Execution error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         timestamp: new Date()
       }
       setMessages(prev => [...prev, errorMessage])
@@ -139,8 +156,24 @@ export default function ChatPanel({
     }
   }
 
-  const copyCode = (code: string) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+    handleTextareaChange(e)
+  }
+
+  const copyCode = (code: string, messageId: string) => {
     navigator.clipboard.writeText(code)
+    setCopiedCodeId(messageId)
+    setTimeout(() => setCopiedCodeId(null), 2000) // Reset after 2 seconds
+  }
+
+  const executeCodeWithFeedback = async (code: string, messageId: string) => {
+    setRunningCodeId(messageId)
+    try {
+      await executeCode(code)
+    } finally {
+      setTimeout(() => setRunningCodeId(null), 2000) // Reset after 2 seconds
+    }
   }
 
   if (!selectedDataFrame) {
@@ -156,15 +189,15 @@ export default function ChatPanel({
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <div className={`flex max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+            <div className={`flex max-w-[85%] min-w-0 ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
               <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                 message.type === 'user' ? 'bg-blue-600 ml-2' : 
                 message.type === 'error' ? 'bg-red-100 mr-2' : 'bg-gray-100 mr-2'
@@ -175,34 +208,38 @@ export default function ChatPanel({
                   <Bot className={`w-4 h-4 ${message.type === 'error' ? 'text-red-600' : 'text-gray-600'}`} />
                 )}
               </div>
-              <div>
-                <div className={`rounded-lg px-4 py-2 ${
+              <div className="min-w-0 flex-1">
+                <div className={`rounded-lg px-4 py-2 break-words ${
                   message.type === 'user' ? 'bg-blue-600 text-white' : 
                   message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {message.content}
+                  <div className="whitespace-pre-wrap">{message.content}</div>
                 </div>
                 {message.code && (
                   <div className="mt-2">
-                    <div className="bg-gray-900 text-gray-100 rounded-lg p-3 font-mono text-sm">
+                    <div className="bg-blue-50 border border-blue-200 text-blue-900 rounded-lg p-3 font-mono text-sm overflow-x-auto">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-400">Generated Code</span>
+                        <span className="text-xs text-blue-600 font-medium">Generated Code</span>
                         <button
-                          onClick={() => copyCode(message.code!)}
-                          className="text-xs text-gray-400 hover:text-white flex items-center"
+                          onClick={() => copyCode(message.code!, message.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
                         >
-                          <Code className="w-3 h-3 mr-1" />
-                          Copy
+                          {copiedCodeId === message.id ? null : <Code className="w-3 h-3 mr-1" />}
+                          {copiedCodeId === message.id ? 'Copied!' : 'Copy'}
                         </button>
                       </div>
-                      <pre className="whitespace-pre-wrap">{message.code}</pre>
+                      <pre className="whitespace-pre-wrap break-words text-blue-800">{message.code}</pre>
                     </div>
                     <button
-                      onClick={() => executeCode(message.code!)}
+                      onClick={() => executeCodeWithFeedback(message.code!, message.id)}
                       className="mt-2 flex items-center text-sm text-blue-600 hover:text-blue-700"
                     >
-                      <Play className="w-3 h-3 mr-1" />
-                      Run Code
+                      {runningCodeId === message.id ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <Play className="w-3 h-3 mr-1" />
+                      )}
+                      {runningCodeId === message.id ? 'Running...' : 'Run Code'}
                     </button>
                   </div>
                 )}
@@ -222,22 +259,27 @@ export default function ChatPanel({
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4">
-        <div className="flex space-x-2">
+      <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4 flex-shrink-0">
+        <div className="relative min-w-0">
           <textarea
-            ref={inputRef}
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={currentDataFrameInfo ? "Ask a question about your data..." : "Select a data file first"}
             disabled={!currentDataFrameInfo || isLoading}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            rows={1}
+            className="w-full px-5 py-4 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-w-0 break-words overflow-y-auto"
+            style={{ 
+              wordWrap: 'break-word', 
+              overflowWrap: 'break-word',
+              minHeight: '44px',
+              maxHeight: '120px'
+            }}
           />
           <button
             type="submit"
             disabled={!input.trim() || !currentDataFrameInfo || isLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="absolute bottom-3 right-2 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Send className="w-4 h-4" />
           </button>

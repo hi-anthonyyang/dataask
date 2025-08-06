@@ -94,7 +94,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors"
+            className="border border-dashed border-blue-300 bg-blue-50/50 rounded-lg p-8 text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
           >
             {isUploading ? (
               <div className="space-y-3">
@@ -113,10 +113,7 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
               <div className="space-y-3">
                 <Upload className="w-10 h-10 text-gray-400 mx-auto" />
                 <div>
-                  <p className="text-sm text-gray-600">
-                    Drag and drop your file here, or
-                  </p>
-                  <label className="mt-2 inline-block">
+                  <label className="inline-block">
                     <input
                       type="file"
                       accept=".csv,.xls,.xlsx"
@@ -124,10 +121,13 @@ export default function FileImportModal({ isOpen, onClose, onConnectionAdded }: 
                       className="hidden"
                       disabled={isUploading}
                     />
-                    <span className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer">
-                      browse to upload
+                    <span className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
+                      Upload
                     </span>
                   </label>
+                  <span className="text-sm text-gray-600">
+                    {" "}or drag and drop your file here
+                  </span>
                 </div>
                 <p className="text-xs text-gray-500">
                   Supports CSV and Excel files (max 50MB)

@@ -313,12 +313,16 @@ Rules:
 5. Use simple, readable pandas operations
 6. Avoid complex operations that might fail
 7. For visualizations, return the data to visualize, not matplotlib code
+8. Write code on single lines when possible
+9. Use proper pandas syntax without line breaks in variable names
+10. Always use .reset_index() after groupby operations
 
 Examples:
 - "show first 5 rows" -> df.head()
 - "average sales by category" -> df.groupby(['category'])['sales'].mean().reset_index()
 - "count of products" -> df['product'].value_counts().reset_index()
-- "filter where price > 100" -> df[df['price'] > 100]`;
+- "filter where price > 100" -> df[df['price'] > 100]
+- "percentage of each category" -> (df['category'].value_counts(normalize=True) * 100).reset_index()`;
 
     const completion = await ensureOpenAI().chat.completions.create({
       model: LLM_MODEL_CONFIG.NL_TO_SQL,
@@ -343,6 +347,8 @@ Examples:
       .replace(/```python\n?/g, '')  // Remove Python code block markers
       .replace(/```\n?/g, '')        // Remove any remaining code block markers
       .replace(/^[^\w\s]*/, '')      // Remove any leading non-word characters
+      .replace(/\n\s*/g, ' ')        // Replace newlines with spaces
+      .replace(/\s+/g, ' ')          // Normalize whitespace
       .trim();
 
     // Basic validation - ensure it starts with 'df'

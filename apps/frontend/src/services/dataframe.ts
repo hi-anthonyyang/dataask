@@ -80,6 +80,7 @@ export const dataframeService = {
 
   // Generate pandas code from natural language
   async generatePandasCode(query: string, dataframeInfo: any): Promise<{ code: string; explanation: string }> {
+    console.log('generatePandasCode called with:', { query, dataframeInfo })
     return api.post('/api/llm/nl-to-pandas', {
       query,
       dataframeInfo

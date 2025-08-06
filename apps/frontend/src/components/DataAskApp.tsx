@@ -37,9 +37,12 @@ const DataAskApp: React.FC = () => {
   }
 
   const handleDataFrameSelect = (dataframeId: string | null) => {
+    // Only reset queryResults if selecting a different DataFrame
+    if (dataframeId !== selectedDataFrame) {
+      setQueryResults(null)
+    }
     setSelectedDataFrame(dataframeId)
     setCurrentCode('')
-    setQueryResults(null)
   }
 
   const handleFileUploaded = async (dataframeId: string) => {
@@ -107,6 +110,7 @@ const DataAskApp: React.FC = () => {
             selectedDataFrame={selectedDataFrame}
             onCodeUpdate={setCurrentCode}
             onQueryExecute={(results: DataFrameQueryResult) => {
+              console.log('DataAskApp setting queryResults to:', results)
               setQueryResults(results)
             }}
           />

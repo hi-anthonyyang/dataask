@@ -158,24 +158,24 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
           <div className="flex">
             <button
               onClick={() => setPreviewTab('overview')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center ${
                 previewTab === 'overview'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-600 hover:text-gray-800'
               }`}
             >
-              <Info className="w-4 h-4 inline-block mr-1" />
+              <Info className="w-4 h-4 mr-1" />
               Data Overview
             </button>
             <button
               onClick={() => setPreviewTab('preview')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center ${
                 previewTab === 'preview'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-600 hover:text-gray-800'
               }`}
             >
-              <Eye className="w-4 h-4 inline-block mr-1" />
+              <Eye className="w-4 h-4 mr-1" />
               Data Preview
             </button>
           </div>
@@ -213,53 +213,58 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
                   {/* Variable Profiles */}
                   <div className="bg-white border border-gray-200 rounded-lg p-4">
                     <h3 className="text-sm font-semibold text-gray-700 mb-3">Variable Profiles</h3>
-                    <div className="space-y-3">
-                      {dataframeProfile.map((variable) => (
-                        <div key={variable.name} className="border border-gray-200 rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium text-gray-900">{variable.name}</h4>
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2 py-1 text-xs rounded-full ${
-                                variable.type === 'numerical' 
-                                  ? 'bg-blue-100 text-blue-800' 
-                                  : 'bg-green-100 text-green-800'
-                              }`}>
-                                {variable.type}
-                              </span>
-                              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
-                                {variable.subtype}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4 text-xs">
-                            <div>
-                              <span className="text-gray-500">Sample Size:</span>
-                              <span className="ml-1 font-medium">{variable.sample_size.toLocaleString()}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Unique Values:</span>
-                              <span className="ml-1 font-medium">{variable.unique_values.toLocaleString()}</span>
-                            </div>
-                            {variable.distribution && (
-                              <div>
-                                <span className="text-gray-500">Distribution:</span>
-                                <span className={`ml-1 font-medium ${
-                                  variable.distribution === 'normal' ? 'text-green-600' : 'text-orange-600'
+                    <div className="space-y-0">
+                      {dataframeProfile.map((variable, index) => (
+                        <div key={variable.name}>
+                          <div className="py-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-sm font-medium text-gray-900">{variable.name}</h4>
+                              <div className="flex items-center space-x-2">
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  variable.type === 'numerical' 
+                                    ? 'bg-blue-100 text-blue-800' 
+                                    : 'bg-green-100 text-green-800'
                                 }`}>
-                                  {variable.distribution}
+                                  {variable.type}
+                                </span>
+                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
+                                  {variable.subtype}
                                 </span>
                               </div>
-                            )}
-                            <div>
-                              <span className="text-gray-500">Outliers:</span>
-                              <span className={`ml-1 font-medium ${
-                                variable.outliers ? 'text-red-600' : 'text-green-600'
-                              }`}>
-                                {variable.outliers ? 'Yes' : 'No'}
-                              </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <span className="text-gray-500">Sample Size:</span>
+                                <span className="ml-1 font-medium">{variable.sample_size.toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Unique Values:</span>
+                                <span className="ml-1 font-medium">{variable.unique_values.toLocaleString()}</span>
+                              </div>
+                              {variable.distribution && (
+                                <div>
+                                  <span className="text-gray-500">Distribution:</span>
+                                  <span className={`ml-1 font-medium ${
+                                    variable.distribution === 'normal' ? 'text-green-600' : 'text-orange-600'
+                                  }`}>
+                                    {variable.distribution}
+                                  </span>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-gray-500">Outliers:</span>
+                                <span className={`ml-1 font-medium ${
+                                  variable.outliers ? 'text-red-600' : 'text-green-600'
+                                }`}>
+                                  {variable.outliers ? 'Yes' : 'No'}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          {index < dataframeProfile.length - 1 && (
+                            <div className="border-b border-gray-100"></div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -325,7 +330,8 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
   }
 
   // Show analysis results when query results are available
-  if (queryResults && queryResults.data && queryResults.data.length > 0) {
+  console.log('AnalysisPanel render - queryResults:', queryResults, 'hasData:', queryResults?.data?.length)
+  if (queryResults && queryResults.data) {
     return (
       <div className="h-full flex flex-col">
         {/* Header */}

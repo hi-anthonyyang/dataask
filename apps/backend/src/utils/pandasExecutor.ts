@@ -228,15 +228,20 @@ export class PandasExecutor {
    * Handle groupby operations
    */
   private handleGroupBy(code: string): any[] {
-    const groupByMatch = code.match(/\.groupby\(\['([^']+)'\]\)/);
+    // Handle both ['column'] and 'column' syntax
+    const groupByMatch = code.match(/\.groupby\(\['([^']+)'\]\)/) || code.match(/\.groupby\('([^']+)'\)/);
+    
+    // Handle column selection: df.groupby('column')['other_column'].mean()
+    const columnSelectMatch = code.match(/\[['"]([^'"]+)['"]\]\.(sum|mean|count|min|max)\(\)/);
     const aggMatch = code.match(/\.(sum|mean|count|min|max)\(\)/);
     
-    if (!groupByMatch || !aggMatch) {
+    if (!groupByMatch) {
       throw new Error('Invalid groupby syntax');
     }
     
     const groupColumn = groupByMatch[1];
-    const aggFunction = aggMatch[1];
+    const aggFunction = columnSelectMatch ? columnSelectMatch[2] : (aggMatch ? aggMatch[1] : 'mean');
+    const targetColumn = columnSelectMatch ? columnSelectMatch[1] : null;
     
     const groups: Record<string, any[]> = {};
     
@@ -251,34 +256,59 @@ export class PandasExecutor {
     
     // Apply aggregation
     const result: any[] = [];
-    const numericColumns = this.df.columns.filter(col => 
-      col !== groupColumn && this.df.dtypes[col] === 'number'
-    );
     
     Object.entries(groups).forEach(([key, rows]) => {
       const aggRow: any = { [groupColumn]: key };
       
-      numericColumns.forEach(col => {
-        const values = rows.map(row => row[col]).filter(v => v !== null && v !== undefined);
+      if (targetColumn) {
+        // Single column aggregation
+        const values = rows.map(row => row[targetColumn]).filter(v => v !== null && v !== undefined);
         
         switch (aggFunction) {
           case 'sum':
-            aggRow[col] = values.reduce((a, b) => a + b, 0);
+            aggRow[targetColumn] = values.reduce((a, b) => a + b, 0);
             break;
           case 'mean':
-            aggRow[col] = this.mean(values);
+            aggRow[targetColumn] = this.mean(values);
             break;
           case 'count':
-            aggRow[col] = values.length;
+            aggRow[targetColumn] = values.length;
             break;
           case 'min':
-            aggRow[col] = Math.min(...values);
+            aggRow[targetColumn] = Math.min(...values);
             break;
           case 'max':
-            aggRow[col] = Math.max(...values);
+            aggRow[targetColumn] = Math.max(...values);
             break;
         }
-      });
+      } else {
+        // Multi-column aggregation
+        const numericColumns = this.df.columns.filter(col => 
+          col !== groupColumn && this.df.dtypes[col] === 'number'
+        );
+        
+        numericColumns.forEach(col => {
+          const values = rows.map(row => row[col]).filter(v => v !== null && v !== undefined);
+          
+          switch (aggFunction) {
+            case 'sum':
+              aggRow[col] = values.reduce((a, b) => a + b, 0);
+              break;
+            case 'mean':
+              aggRow[col] = this.mean(values);
+              break;
+            case 'count':
+              aggRow[col] = values.length;
+              break;
+            case 'min':
+              aggRow[col] = Math.min(...values);
+              break;
+            case 'max':
+              aggRow[col] = Math.max(...values);
+              break;
+          }
+        });
+      }
       
       result.push(aggRow);
     });
@@ -290,7 +320,9 @@ export class PandasExecutor {
    * Handle sort_values operations
    */
   private handleSortValues(code: string): any[] {
-    const match = code.match(/\.sort_values\(\['([^']+)'\](?:,\s*ascending=(True|False))?\)/);
+    // Handle both ['column'] and by='column' syntax
+    const match = code.match(/\.sort_values\(\['([^']+)'\](?:,\s*ascending=(True|False))?\)/) || 
+                 code.match(/\.sort_values\(by='([^']+)'\)/);
     
     if (!match) {
       throw new Error('Invalid sort_values syntax');
