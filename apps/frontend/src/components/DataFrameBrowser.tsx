@@ -286,7 +286,7 @@ export default function DataFrameBrowser({
               const isSelected = selectedDataFrame === df.id
               
               return (
-                <div key={df.id} className="bg-white border border-gray-200 rounded-md">
+                <div key={df.id} className="bg-white border border-gray-200 rounded-md overflow-hidden">
                   {/* File Header */}
                   <div
                     className={`

@@ -171,6 +171,23 @@ export default function ChatPanel({
     try {
       const data = e.dataTransfer.getData('application/json')
       const tokenData: DataTokenData = JSON.parse(data)
+      
+      // Insert token at cursor position
+      const textarea = e.currentTarget
+      const cursorPos = textarea.selectionStart
+      const beforeCursor = input.slice(0, cursorPos)
+      const afterCursor = input.slice(cursorPos)
+      const tokenText = `[${tokenData.columnName}]`
+      
+      const newInput = beforeCursor + tokenText + afterCursor
+      setInput(newInput)
+      
+      // Update cursor position
+      setTimeout(() => {
+        textarea.setSelectionRange(cursorPos + tokenText.length, cursorPos + tokenText.length)
+        textarea.focus()
+      }, 0)
+      
       setInputTokens(prev => [...prev, tokenData])
     } catch (error) {
       console.error('Failed to parse dropped data token:', error)
@@ -189,6 +206,38 @@ export default function ChatPanel({
 
   const removeInputToken = (index: number) => {
     setInputTokens(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const renderInlineContent = (content: string, dataTokens?: DataTokenData[]) => {
+    if (!dataTokens || dataTokens.length === 0) {
+      return content
+    }
+
+    // Simple token replacement for now
+    let renderedContent = content
+    dataTokens.forEach((token, index) => {
+      const tokenText = `[${token.columnName}]`
+      const tokenElement = (
+        <DataToken
+          key={`inline-${token.dataframeId}-${token.columnName}-${index}`}
+          data={token}
+          className="text-xs inline-flex mx-1"
+        />
+      )
+      
+      // Replace the token text with the component
+      const parts = renderedContent.split(tokenText)
+      if (parts.length > 1) {
+        const elements = []
+        for (let i = 0; i < parts.length; i++) {
+          if (i > 0) elements.push(tokenElement)
+          if (parts[i]) elements.push(parts[i])
+        }
+        return elements
+      }
+    })
+
+    return renderedContent
   }
 
   const copyCode = (code: string, messageId: string) => {
@@ -243,18 +292,9 @@ export default function ChatPanel({
                   message.type === 'user' ? 'bg-blue-600 text-white' : 
                   message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-gray-100 text-gray-800'
                 }`}>
-                  <div className="whitespace-pre-wrap">{message.content}</div>
-                  {message.dataTokens && message.dataTokens.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {message.dataTokens.map((token, index) => (
-                        <DataToken
-                          key={`${token.dataframeId}-${token.columnName}-${index}`}
-                          data={token}
-                          className="text-xs"
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <div className="whitespace-pre-wrap">
+                    {renderInlineContent(message.content, message.dataTokens)}
+                  </div>
                 </div>
                 {message.code && (
                   <div className="mt-2">
@@ -302,19 +342,6 @@ export default function ChatPanel({
       {/* Input */}
       <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4 flex-shrink-0">
         <div className="relative min-w-0">
-          {/* Input Tokens */}
-          {inputTokens.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1">
-              {inputTokens.map((token, index) => (
-                <DataToken
-                  key={`input-${token.dataframeId}-${token.columnName}-${index}`}
-                  data={token}
-                  onRemove={() => removeInputToken(index)}
-                  className="text-xs"
-                />
-              ))}
-            </div>
-          )}
           <textarea
             ref={textareaRef}
             value={input}
@@ -323,7 +350,7 @@ export default function ChatPanel({
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            placeholder={currentDataFrameInfo ? "Ask a question about your data... (drag columns here)" : "Select a data file first"}
+            placeholder={currentDataFrameInfo ? "Ask a question about your data... (drag columns into text)" : "Select a data file first"}
             disabled={!currentDataFrameInfo || isLoading}
             className={`w-full px-5 py-4 pr-14 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-w-0 break-words overflow-y-auto ${
               isDragOver 

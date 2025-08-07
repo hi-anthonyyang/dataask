@@ -18,8 +18,8 @@ export default function DataToken({ data, onRemove, className = '' }: DataTokenP
   return (
     <span
       className={`
-        inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 
-        rounded-md text-sm font-mono border border-blue-200
+        inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-800 
+        rounded text-xs font-mono border border-blue-200
         ${onRemove ? 'cursor-pointer hover:bg-blue-200' : ''}
         ${className}
       `}
