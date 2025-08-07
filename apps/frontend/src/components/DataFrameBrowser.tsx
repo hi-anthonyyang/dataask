@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileSpreadsheet, Trash2, Plus, ChevronLeft, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { dataframeService, DataFrame } from '../services/dataframe'
+import { DataTokenData } from './DataToken'
 
 interface DataFrameBrowserProps {
   selectedDataFrame: string | null
@@ -9,6 +10,7 @@ interface DataFrameBrowserProps {
   onTogglePanel?: () => void
   isPanelMinimized?: boolean
   refreshTrigger?: number // Add this to trigger refreshes
+  onDataTokenDrag?: (tokenData: DataTokenData) => void
 }
 
 // Minimized DataFrame Browser Component
@@ -17,7 +19,8 @@ function MinimizedDataFrameBrowser({
   onDataFrameSelect,
   onFileUpload,
   onTogglePanel,
-  refreshTrigger
+  refreshTrigger,
+  onDataTokenDrag
 }: DataFrameBrowserProps) {
   const [dataframes, setDataframes] = useState<DataFrame[]>([])
   const [loading, setLoading] = useState(true)
@@ -141,7 +144,8 @@ export default function DataFrameBrowser({
   onFileUpload,
   onTogglePanel,
   isPanelMinimized,
-  refreshTrigger
+  refreshTrigger,
+  onDataTokenDrag
 }: DataFrameBrowserProps) {
   // If panel is minimized, render the minimized version
   if (isPanelMinimized) {
@@ -153,11 +157,13 @@ export default function DataFrameBrowser({
         onTogglePanel={onTogglePanel}
         isPanelMinimized={isPanelMinimized}
         refreshTrigger={refreshTrigger}
+        onDataTokenDrag={onDataTokenDrag}
       />
     )
   }
 
   const [dataframes, setDataframes] = useState<DataFrame[]>([])
+  const [dataframeDetails, setDataframeDetails] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
 
@@ -204,11 +210,29 @@ export default function DataFrameBrowser({
       }
       return newSet
     })
+    // Load details when expanding
+    if (!expandedFiles.has(id)) {
+      loadDataFrameDetails(id)
+    }
   }
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date)
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const loadDataFrameDetails = async (dataframeId: string) => {
+    if (dataframeDetails[dataframeId]) return // Already loaded
+    
+    try {
+      const { info } = await dataframeService.getDataFrameInfo(dataframeId)
+      setDataframeDetails(prev => ({
+        ...prev,
+        [dataframeId]: info
+      }))
+    } catch (error) {
+      console.error('Failed to load DataFrame details:', error)
+    }
   }
 
   return (
@@ -321,6 +345,23 @@ export default function DataFrameBrowser({
                             <div
                               key={column}
                               className="flex items-center space-x-2 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 rounded cursor-pointer"
+                              draggable={true}
+                              onDragStart={(e) => {
+                                const details = dataframeDetails[df.id]
+                                const tokenData: DataTokenData = {
+                                  dataframeId: df.id,
+                                  dataframeName: df.name,
+                                  columnName: column,
+                                  columnType: details?.dtypes?.[column] || undefined
+                                }
+                                e.dataTransfer.setData('application/json', JSON.stringify(tokenData))
+                                e.dataTransfer.effectAllowed = 'copy'
+                                e.dataTransfer.setDragImage(e.currentTarget, 10, 10)
+                                if (onDataTokenDrag) {
+                                  onDataTokenDrag(tokenData)
+                                }
+                              }}
+                              title={`Drag to chat: ${df.name}.${column}`}
                             >
                               <div className="w-2 h-2 bg-blue-400 rounded-full flex-shrink-0"></div>
                               <span className="truncate">{column}</span>

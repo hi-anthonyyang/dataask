@@ -6,6 +6,7 @@ import FileImportModal from './FileImportModal'
 import { FileSpreadsheet, ChevronRight, Plus } from 'lucide-react'
 import { DataFrameQueryResult } from '../services/dataframe'
 import { useResizablePanel } from '../hooks/useResizablePanel'
+import { DataTokenData } from './DataToken'
 
 const DataAskApp: React.FC = () => {
   const [selectedDataFrame, setSelectedDataFrame] = useState<string | null>(null)
@@ -14,6 +15,7 @@ const DataAskApp: React.FC = () => {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [isLeftPanelMinimized, setIsLeftPanelMinimized] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0) // Add refresh trigger
+  const [draggedToken, setDraggedToken] = useState<DataTokenData | null>(null)
   const leftDragRef = useRef<HTMLDivElement>(null)
   const rightDragRef = useRef<HTMLDivElement>(null)
 
@@ -55,6 +57,10 @@ const DataAskApp: React.FC = () => {
     }, 500)
   }
 
+  const handleDataTokenDrag = (tokenData: DataTokenData) => {
+    setDraggedToken(tokenData)
+  }
+
   return (
     <div 
       className={`h-screen bg-gray-50 flex flex-col ${
@@ -90,6 +96,7 @@ const DataAskApp: React.FC = () => {
             onTogglePanel={toggleLeftPanel}
             isPanelMinimized={isLeftPanelMinimized}
             refreshTrigger={refreshTrigger}
+            onDataTokenDrag={handleDataTokenDrag}
           />
         </div>
 

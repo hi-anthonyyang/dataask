@@ -216,49 +216,53 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
                     <div className="space-y-0">
                       {dataframeProfile.map((variable, index) => (
                         <div key={variable.name}>
-                          <div className="py-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-sm font-medium text-gray-900">{variable.name}</h4>
-                              <div className="flex items-center space-x-2">
-                                <span className={`px-2 py-1 text-xs rounded-full ${
-                                  variable.type === 'numerical' 
-                                    ? 'bg-blue-100 text-blue-800' 
-                                    : 'bg-green-100 text-green-800'
-                                }`}>
-                                  {variable.type}
-                                </span>
-                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
-                                  {variable.subtype}
-                                </span>
-                              </div>
+                          <div className="py-2">
+                            <h4 className="text-sm font-medium text-gray-900 mb-1">{variable.name}</h4>
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className={`px-1.5 py-0.5 text-xs rounded ${
+                                variable.type === 'numerical' 
+                                  ? 'bg-blue-50 text-blue-700' 
+                                  : 'bg-green-50 text-green-700'
+                              }`}>
+                                {variable.type}
+                              </span>
+                              <span className="px-1.5 py-0.5 text-xs bg-gray-50 text-gray-600 rounded">
+                                {variable.subtype}
+                              </span>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4 text-xs">
-                              <div>
-                                <span className="text-gray-500">Sample Size:</span>
-                                <span className="ml-1 font-medium">{variable.sample_size.toLocaleString()}</span>
-                              </div>
-                              <div>
-                                <span className="text-gray-500">Unique Values:</span>
-                                <span className="ml-1 font-medium">{variable.unique_values.toLocaleString()}</span>
-                              </div>
-                              {variable.distribution && (
-                                <div>
-                                  <span className="text-gray-500">Distribution:</span>
-                                  <span className={`ml-1 font-medium ${
-                                    variable.distribution === 'normal' ? 'text-green-600' : 'text-orange-600'
-                                  }`}>
-                                    {variable.distribution}
-                                  </span>
+                            <div className="text-xs text-gray-500">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-0.5">
+                                  <div className="flex justify-between">
+                                    <span>Sample Size:</span>
+                                    <span className="text-gray-700">{variable.sample_size.toLocaleString()}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Unique Values:</span>
+                                    <span className="text-gray-700">{variable.unique_values.toLocaleString()}</span>
+                                  </div>
                                 </div>
-                              )}
-                              <div>
-                                <span className="text-gray-500">Outliers:</span>
-                                <span className={`ml-1 font-medium ${
-                                  variable.outliers ? 'text-red-600' : 'text-green-600'
-                                }`}>
-                                  {variable.outliers ? 'Yes' : 'No'}
-                                </span>
+                                <div className="space-y-0.5">
+                                  {variable.distribution && (
+                                    <div className="flex justify-between">
+                                      <span>Distribution:</span>
+                                      <span className={`${
+                                        variable.distribution === 'normal' ? 'text-green-600' : 'text-orange-600'
+                                      }`}>
+                                        {variable.distribution}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between">
+                                    <span>Outliers:</span>
+                                    <span className={`${
+                                      variable.outliers ? 'text-red-600' : 'text-green-600'
+                                    }`}>
+                                      {variable.outliers ? 'Yes' : 'No'}
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>

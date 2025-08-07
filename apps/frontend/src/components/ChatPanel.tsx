@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Play, Bot, User, Code, MessageCircle, Loader2 } from 'lucide-react'
 import { dataframeService, DataFrameQueryResult } from '../services/dataframe'
 import { useAutoResizeTextarea } from '../hooks/useAutoResizeTextarea'
+import DataToken, { DataTokenData } from './DataToken'
 
 interface Message {
   id: string
@@ -9,6 +10,7 @@ interface Message {
   content: string
   code?: string
   timestamp: Date
+  dataTokens?: DataTokenData[]
 }
 
 interface ChatPanelProps {
@@ -24,10 +26,12 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
+  const [inputTokens, setInputTokens] = useState<DataTokenData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [currentDataFrameInfo, setCurrentDataFrameInfo] = useState<any>(null)
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null)
   const [runningCodeId, setRunningCodeId] = useState<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   // Auto-resize textarea hook
@@ -85,11 +89,13 @@ export default function ChatPanel({
       id: Date.now().toString(),
       type: 'user',
       content: input.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
+      dataTokens: inputTokens.length > 0 ? [...inputTokens] : undefined
     }
 
     setMessages(prev => [...prev, userMessage])
     setInput('')
+    setInputTokens([])
     setIsLoading(true)
 
     try {
@@ -159,6 +165,32 @@ export default function ChatPanel({
     handleTextareaChange(e)
   }
 
+  const handleDrop = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    try {
+      const data = e.dataTransfer.getData('application/json')
+      const tokenData: DataTokenData = JSON.parse(data)
+      setInputTokens(prev => [...prev, tokenData])
+    } catch (error) {
+      console.error('Failed to parse dropped data token:', error)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    setIsDragOver(false)
+  }
+
+  const removeInputToken = (index: number) => {
+    setInputTokens(prev => prev.filter((_, i) => i !== index))
+  }
+
   const copyCode = (code: string, messageId: string) => {
     navigator.clipboard.writeText(code)
     setCopiedCodeId(messageId)
@@ -212,6 +244,17 @@ export default function ChatPanel({
                   message.type === 'error' ? 'bg-red-50 text-red-800' : 'bg-gray-100 text-gray-800'
                 }`}>
                   <div className="whitespace-pre-wrap">{message.content}</div>
+                  {message.dataTokens && message.dataTokens.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {message.dataTokens.map((token, index) => (
+                        <DataToken
+                          key={`${token.dataframeId}-${token.columnName}-${index}`}
+                          data={token}
+                          className="text-xs"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {message.code && (
                   <div className="mt-2">
@@ -259,14 +302,34 @@ export default function ChatPanel({
       {/* Input */}
       <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4 flex-shrink-0">
         <div className="relative min-w-0">
+          {/* Input Tokens */}
+          {inputTokens.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1">
+              {inputTokens.map((token, index) => (
+                <DataToken
+                  key={`input-${token.dataframeId}-${token.columnName}-${index}`}
+                  data={token}
+                  onRemove={() => removeInputToken(index)}
+                  className="text-xs"
+                />
+              ))}
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={currentDataFrameInfo ? "Ask a question about your data..." : "Select a data file first"}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            placeholder={currentDataFrameInfo ? "Ask a question about your data... (drag columns here)" : "Select a data file first"}
             disabled={!currentDataFrameInfo || isLoading}
-            className="w-full px-5 py-4 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-w-0 break-words overflow-y-auto"
+            className={`w-full px-5 py-4 pr-14 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none min-w-0 break-words overflow-y-auto ${
+              isDragOver 
+                ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-200' 
+                : 'border-gray-300'
+            }`}
             style={{ 
               wordWrap: 'break-word', 
               overflowWrap: 'break-word',
