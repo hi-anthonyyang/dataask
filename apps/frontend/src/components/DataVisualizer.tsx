@@ -302,6 +302,27 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
 
   const { numericFields, dateFields, textFields, fieldNames } = detectFieldTypes(data, fields)
 
+  // Correlation matrix detection
+  if (data.length >= 2 && textFields.length === 1 && numericFields.length >= 2) {
+    const indexField = textFields[0];
+    const isCorrelationMatrix = data.every(row => {
+      const indexValue = row[indexField];
+      // Check if index value matches one of the numeric column names
+      return numericFields.includes(indexValue) && 
+             // Check if diagonal values are 1 (perfect correlation with self)
+             Math.abs(Number(row[indexValue]) - 1) < 0.001;
+    });
+    
+    if (isCorrelationMatrix) {
+      return {
+        type: 'none',
+        title: 'Correlation Matrix',
+        description: 'Correlation coefficients between variables',
+        reason: 'Correlation matrix detected - best displayed as a table'
+      };
+    }
+  }
+
   // Single KPI (one row, one numeric value)
   if (data.length === 1 && numericFields.length === 1) {
     return {
@@ -849,7 +870,35 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
                 )
               }
 
-              return <div>No chart available</div>
+              if (config.title === 'Correlation Matrix') {
+        return (
+          <div className="text-center p-8">
+            <div className="mb-4">
+              <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Correlation Matrix</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Correlation coefficients are best displayed in tabular format for precise reading.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left max-w-md mx-auto">
+                <h4 className="font-medium text-blue-900 mb-2">How to interpret:</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• <strong>1.0</strong> = Perfect positive correlation</li>
+                  <li>• <strong>0.838</strong> = Strong positive correlation</li>
+                  <li>• <strong>0.0</strong> = No correlation</li>
+                  <li>• <strong>-1.0</strong> = Perfect negative correlation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      
+      return <div>No chart available</div>
             })()}
           </ResponsiveContainer>
         </div>

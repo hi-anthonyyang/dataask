@@ -3,6 +3,7 @@ import { logger } from './logger';
 import * as XLSX from 'xlsx';
 import { parse } from 'csv-parse/sync';
 import fs from 'fs';
+import { StatisticalHelpers } from './statisticalHelpers';
 
 export interface DataFrame {
   id: string;
@@ -537,30 +538,10 @@ class DataFrameManager {
     return counts;
   }
 
-  // Statistical helper functions
-  private mean(values: number[]): number {
-    return values.reduce((a, b) => a + b, 0) / values.length;
-  }
-
-  private std(values: number[]): number {
-    const avg = this.mean(values);
-    const squareDiffs = values.map(value => Math.pow(value - avg, 2));
-    return Math.sqrt(this.mean(squareDiffs));
-  }
-
-  private percentile(values: number[], p: number): number {
-    const sorted = [...values].sort((a, b) => a - b);
-    const index = p * (sorted.length - 1);
-    const lower = Math.floor(index);
-    const upper = Math.ceil(index);
-    const weight = index % 1;
-    
-    if (lower === upper) {
-      return sorted[lower];
-    }
-    
-    return sorted[lower] * (1 - weight) + sorted[upper] * weight;
-  }
+  // Use shared statistical helper functions
+  private mean = StatisticalHelpers.mean;
+  private std = StatisticalHelpers.std;
+  private percentile = StatisticalHelpers.percentile;
 }
 
 export { DataFrameManager };

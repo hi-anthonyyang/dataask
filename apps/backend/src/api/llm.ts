@@ -322,7 +322,20 @@ Examples:
 - "average sales by category" -> df.groupby(['category'])['sales'].mean().reset_index()
 - "count of products" -> df['product'].value_counts().reset_index()
 - "filter where price > 100" -> df[df['price'] > 100]
-- "percentage of each category" -> (df['category'].value_counts(normalize=True) * 100).reset_index()`;
+- "percentage of each category" -> (df['category'].value_counts(normalize=True) * 100).reset_index()
+- "correlation between price and sales" -> df[['price', 'sales']].corr().reset_index()
+- "median price" -> df['price'].median()
+- "variance in sales" -> df['sales'].var()
+- "skewness of revenue" -> df['revenue'].skew()
+- "covariance matrix" -> df[['price', 'sales', 'profit']].cov().reset_index()
+- "distribution shape of data" -> df['column'].kurt()
+- "most common value" -> df['category'].mode()
+- "test if sales mean equals 100" -> stats.ttest_1samp(df['sales'], 100)
+- "compare group A vs B performance" -> stats.ttest_ind(df[df['group']=='A']['score'], df[df['group']=='B']['score'])
+- "test if data is normally distributed" -> stats.normaltest(df['values'])
+- "predict sales based on marketing spend" -> stats.linregress(df['marketing'], df['sales'])
+- "analyze trend in monthly revenue" -> stats.trend_analysis(df['revenue'])
+- "forecast next 6 months" -> stats.forecast(df['sales'], periods=6)`;
 
     const completion = await ensureOpenAI().chat.completions.create({
       model: LLM_MODEL_CONFIG.NL_TO_SQL,

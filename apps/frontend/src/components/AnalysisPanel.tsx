@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { BarChart3, Table, TrendingUp, Copy, Check, Eye, Info } from 'lucide-react'
 import { DataFrameQueryResult } from '../services/dataframe'
 import { dataframeService } from '../services/dataframe'
+import DataVisualizer from './DataVisualizer'
 
 interface AnalysisPanelProps {
   queryResults: DataFrameQueryResult | null
@@ -11,7 +12,7 @@ interface AnalysisPanelProps {
 
 export default function AnalysisPanel({ queryResults, currentCode, selectedDataFrame }: AnalysisPanelProps) {
   const [activeTab, setActiveTab] = useState<'data' | 'visualize' | 'insights'>('data')
-  const [previewTab, setPreviewTab] = useState<'overview' | 'preview'>('overview')
+  const [previewTab, setPreviewTab] = useState<'overview' | 'preview' | 'results'>('overview')
   const [copySuccess, setCopySuccess] = useState(false)
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false)
@@ -22,10 +23,13 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
   const [dataframeProfile, setDataframeProfile] = useState<any[]>([])
   const [isLoadingProfile, setIsLoadingProfile] = useState(false)
 
-  // Generate AI analysis when query results change
+
+
+  // Generate AI analysis when query results change and switch to results tab
   useEffect(() => {
     if (queryResults && queryResults.data && queryResults.data.length > 0) {
       generateAIAnalysis()
+      setPreviewTab('results') // Auto-switch to results tab
     } else {
       setAiAnalysis('')
     }
@@ -109,8 +113,8 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
         currentCode || 'Data analysis'
       )
 
-      if (response.insights) {
-        setAiAnalysis(response.insights)
+      if (response.analysis) {
+        setAiAnalysis(response.analysis)
       }
     } catch (error) {
       console.error('Failed to generate AI analysis:', error)
@@ -149,7 +153,9 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
     copyToClipboard(csv)
   }
 
-  // Show preview data if available
+
+
+  // Show preview data if available (or if we have query results and are on preview/overview)
   if (previewData && previewData.data && previewData.data.length > 0) {
     return (
       <div className="h-full flex flex-col">
@@ -178,6 +184,19 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
               <Eye className="w-4 h-4 mr-1" />
               Data Preview
             </button>
+            {queryResults && queryResults.data && (
+              <button
+                onClick={() => setPreviewTab('results')}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center ${
+                  previewTab === 'results'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 mr-1" />
+                Results
+              </button>
+            )}
           </div>
         </div>
 
@@ -328,166 +347,158 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
               </div>
             </div>
           )}
-        </div>
-      </div>
-    )
-  }
 
-  // Show analysis results when query results are available
-  if (queryResults && queryResults.data) {
-    return (
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">Analysis Results</h2>
-            <div className="text-xs text-gray-500">
-              {queryResults.rowCount?.toLocaleString() || '0'} rows • {queryResults.executionTime || 0}ms
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-gray-50 border-b border-gray-200">
-          <div className="flex">
-            <button
-              onClick={() => setActiveTab('data')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'data'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <Table className="w-4 h-4 inline-block mr-1" />
-              Data
-            </button>
-            <button
-              onClick={() => setActiveTab('visualize')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'visualize'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4 inline-block mr-1" />
-              Visualize
-            </button>
-            <button
-              onClick={() => setActiveTab('insights')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'insights'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4 inline-block mr-1" />
-              Insights
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden">
-          {/* Data Tab */}
-          {activeTab === 'data' && (
+          {/* Results Tab */}
+          {previewTab === 'results' && queryResults && queryResults.data && (
             <div className="h-full flex flex-col">
-              <div className="p-3 border-b border-gray-200 flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  Showing {Math.min(100, queryResults.rowCount || 0)} of {queryResults.rowCount?.toLocaleString() || '0'} rows
-                </span>
-                <button
-                  onClick={exportAsCSV}
-                  className="flex items-center text-sm text-blue-600 hover:text-blue-700"
-                >
-                  {copySuccess ? (
-                    <>
-                      <Check className="w-4 h-4 mr-1" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 mr-1" />
-                      Copy as CSV
-                    </>
-                  )}
-                </button>
-              </div>
-              <div className="flex-1 overflow-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      {queryResults.columns.map((column) => (
-                        <th
-                          key={column}
-                          className="px-4 py-2 text-left font-medium text-gray-700 border-b border-gray-200"
-                        >
-                          {column}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {queryResults.data.slice(0, 100).map((row, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        {queryResults.columns.map((column) => (
-                          <td
-                            key={column}
-                            className="px-4 py-2 border-b border-gray-100"
-                          >
-                            {row[column] !== null && row[column] !== undefined
-                              ? String(row[column])
-                              : <span className="text-gray-400">null</span>}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Visualize Tab */}
-          {activeTab === 'visualize' && (
-            <div className="h-full p-4 overflow-auto">
-              <div className="text-center text-gray-500">
-                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-sm">Visualization features coming soon</p>
-              </div>
-            </div>
-          )}
-
-          {/* Insights Tab */}
-          {activeTab === 'insights' && (
-            <div className="h-full p-4 overflow-auto">
-              {isGeneratingAnalysis ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Analyzing your data...</p>
+              {/* Results Sub-tabs */}
+              <div className="bg-white border-b border-gray-200">
+                <div className="flex px-4">
+                  <button
+                    onClick={() => setActiveTab('data')}
+                    className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'data'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    <Table className="w-4 h-4 inline-block mr-1" />
+                    Data
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('visualize')}
+                    className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'visualize'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    <BarChart3 className="w-4 h-4 inline-block mr-1" />
+                    Visualize
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('insights')}
+                    className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'insights'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    <TrendingUp className="w-4 h-4 inline-block mr-1" />
+                    Insights
+                  </button>
+                  <div className="ml-auto flex items-center text-xs text-gray-500">
+                    {queryResults.rowCount?.toLocaleString() || '0'} rows • {queryResults.executionTime || 0}ms
                   </div>
                 </div>
-              ) : aiAnalysis ? (
-                <div className="prose prose-sm max-w-none">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
-                      <TrendingUp className="w-4 h-4 mr-2" />
-                      AI Analysis
-                    </h3>
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap">{aiAnalysis}</div>
+              </div>
+
+              {/* Results Content */}
+              <div className="flex-1 overflow-hidden">
+                {/* Data Tab */}
+                {activeTab === 'data' && (
+                  <div className="h-full flex flex-col">
+                    <div className="p-3 border-b border-gray-200 flex justify-between items-center">
+                      <span className="text-sm text-gray-600">
+                        Showing {queryResults.data.length} of {queryResults.rowCount?.toLocaleString() || '0'} rows
+                      </span>
+                      <button
+                        onClick={exportAsCSV}
+                        className="text-xs text-blue-600 hover:text-blue-700 flex items-center"
+                      >
+                        {copySuccess ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
+                        {copySuccess ? 'Copied!' : 'Copy CSV'}
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 sticky top-0">
+                          <tr>
+                            {queryResults.columns.map((column) => (
+                              <th
+                                key={column}
+                                className="px-3 py-2 text-left font-medium text-gray-700 border-b border-gray-200"
+                              >
+                                {column}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {queryResults.data.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              {queryResults.columns.map((column) => (
+                                <td
+                                  key={column}
+                                  className="px-3 py-2 border-b border-gray-100"
+                                >
+                                  {row[column] !== null && row[column] !== undefined
+                                    ? String(row[column])
+                                    : <span className="text-gray-400">null</span>}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center text-gray-500">
-                  <p>No insights available. Try running a different query.</p>
-                </div>
-              )}
+                )}
+
+                {/* Visualize Tab */}
+                {activeTab === 'visualize' && (
+                  <div className="h-full overflow-auto">
+                    {queryResults && queryResults.data && queryResults.data.length > 0 ? (
+                      <DataVisualizer
+                        data={queryResults.data}
+                        fields={queryResults.columns.map(col => ({ name: col, type: 'unknown' }))}
+                        currentQuery={currentCode || 'Data visualization'}
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                          <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-sm">No data to visualize</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Insights Tab */}
+                {activeTab === 'insights' && (
+                  <div className="h-full p-4 overflow-auto">
+                    {isGeneratingAnalysis ? (
+                      <div className="flex items-center justify-center h-32">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-600">Generating insights...</p>
+                        </div>
+                      </div>
+                    ) : aiAnalysis ? (
+                      <div className="prose prose-sm max-w-none">
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-gray-700 mb-3">AI Analysis</h3>
+                          <div className="text-sm text-gray-700 whitespace-pre-wrap">{aiAnalysis}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500">
+                        <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                        <p className="text-sm">No insights available</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
     )
   }
+
+
 
   return (
     <div className="h-full flex items-center justify-center p-8">

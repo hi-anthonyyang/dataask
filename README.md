@@ -18,7 +18,7 @@ AI-powered data analysis tool for CSV and Excel files
 - Node.js 18+ and npm 9+
 - **OpenAI API Key** (required for AI features)
 
-### Setup
+### Setup   
 
 1. **Clone and install dependencies:**
    ```bash
@@ -186,7 +186,3 @@ For large datasets:
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
