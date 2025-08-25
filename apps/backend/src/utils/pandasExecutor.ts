@@ -33,7 +33,7 @@ export class PandasExecutor {
       return queryResult;
     } catch (error) {
       logger.error('Failed to execute pandas code:', error);
-      throw new Error(`Execution error: ${error.message}`);
+      throw new Error(`Execution error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

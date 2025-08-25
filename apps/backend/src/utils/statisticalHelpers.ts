@@ -9,7 +9,10 @@ export class StatisticalHelpers {
    */
   static mean(values: number[]): number {
     if (values.length === 0) return 0;
-    return values.reduce((a, b) => a + b, 0) / values.length;
+    // Filter out NaN values
+    const validValues = values.filter(v => !isNaN(v) && isFinite(v));
+    if (validValues.length === 0) return 0;
+    return validValues.reduce((a, b) => a + b, 0) / validValues.length;
   }
 
   /**
@@ -17,9 +20,11 @@ export class StatisticalHelpers {
    */
   static std(values: number[]): number {
     if (values.length === 0) return 0;
+    if (values.length === 1) return 0;
     const avg = this.mean(values);
     const squareDiffs = values.map(value => Math.pow(value - avg, 2));
-    return Math.sqrt(this.mean(squareDiffs));
+    const variance = squareDiffs.reduce((a, b) => a + b, 0) / (values.length - 1); // Sample std (n-1)
+    return Math.sqrt(variance);
   }
 
   /**
@@ -28,7 +33,9 @@ export class StatisticalHelpers {
   static percentile(values: number[], p: number): number {
     if (values.length === 0) return 0;
     const sorted = [...values].sort((a, b) => a - b);
-    const index = p * (sorted.length - 1);
+    // Convert percentage to decimal if needed (0-100 -> 0-1)
+    const percentile = p > 1 ? p / 100 : p;
+    const index = percentile * (sorted.length - 1);
     const lower = Math.floor(index);
     const upper = Math.ceil(index);
     const weight = index % 1;
@@ -60,9 +67,10 @@ export class StatisticalHelpers {
    */
   static variance(values: number[]): number {
     if (values.length === 0) return 0;
+    if (values.length === 1) return 0;
     const avg = this.mean(values);
     const squareDiffs = values.map(value => Math.pow(value - avg, 2));
-    return this.mean(squareDiffs);
+    return squareDiffs.reduce((a, b) => a + b, 0) / (values.length - 1); // Sample variance (n-1)
   }
 
   /**
@@ -109,8 +117,8 @@ export class StatisticalHelpers {
   /**
    * Calculate mode (most frequent values)
    */
-  static mode(values: number[]): number[] {
-    if (values.length === 0) return [];
+  static mode(values: number[]): number {
+    if (values.length === 0) return 0;
     
     const frequency: Record<number, number> = {};
     let maxFreq = 0;
@@ -126,7 +134,8 @@ export class StatisticalHelpers {
       .filter(key => frequency[Number(key)] === maxFreq)
       .map(Number);
     
-    return modes;
+    // Return first mode (or first value if all are equally frequent)
+    return modes[0];
   }
 
   /**
@@ -210,6 +219,13 @@ export class StatisticalHelpers {
     const sampleStd = this.std(values);
     const n = values.length;
     const df = n - 1;
+    
+    // Handle case where standard deviation is 0 (all values identical)
+    if (sampleStd === 0) {
+      const tStat = sampleMean === populationMean ? 0 : (sampleMean > populationMean ? Infinity : -Infinity);
+      const pVal = sampleMean === populationMean ? 1 : 0;
+      return { tStatistic: tStat, pValue: pVal, degreesOfFreedom: df, significant: pVal < 0.05 };
+    }
     
     const standardError = sampleStd / Math.sqrt(n);
     const tStatistic = (sampleMean - populationMean) / standardError;
@@ -617,7 +633,7 @@ export class StatisticalHelpers {
     confidenceInterval: { lower: number[]; upper: number[] };
     method: string;
   } {
-    if (values.length < 3 || periodsAhead <= 0) {
+    if (values.length < 3 || periodsAhead <= 0 || periodsAhead > 20) {
       return {
         forecasts: [],
         confidenceInterval: { lower: [], upper: [] },
