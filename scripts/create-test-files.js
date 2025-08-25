@@ -2,8 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
 
-// Create test data directory
-const testDataDir = path.join(__dirname, '..', 'test-data');
+// DataAsk Test Data Generator
+// Creates CSV/Excel test files for DataFrameManager testing
+
+// Create test data directory in backend tests
+const testDataDir = path.join(__dirname, '..', 'apps', 'backend', 'src', 'tests', 'test-data');
 if (!fs.existsSync(testDataDir)) {
   fs.mkdirSync(testDataDir, { recursive: true });
 }

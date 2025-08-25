@@ -29,7 +29,7 @@ Pandas code execution is sandboxed:
 
 File uploads are secured through:
 - **Type Validation**: Only CSV/Excel files allowed
-- **Size Limits**: Maximum 50MB per file
+- **Size Limits**: Maximum 100MB per file
 - **Content Validation**: File structure validation
 - **Virus Scanning**: Basic malicious content detection
 

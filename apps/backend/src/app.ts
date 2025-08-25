@@ -16,37 +16,8 @@ import {
   HEALTH_CHECK 
 } from './utils/constants';
 
-// Create database pool for user management
-const createDatabasePool = (): any | null => {
-  // User authentication is currently disabled
-  logger.info('User authentication is currently disabled');
-  return null;
-};
-
-// Initialize database pool
-const dbPool = createDatabasePool();
-
-// Run migrations on startup
-const runMigrations = async (): Promise<void> => {
-  if (process.env.SKIP_MIGRATIONS === 'true') {
-    logger.info('Skipping database migrations (SKIP_MIGRATIONS=true)');
-    return;
-  }
-  
-  if (!dbPool) {
-    logger.warn('Cannot run migrations: database pool not initialized');
-    return;
-  }
-  
-  try {
-    // No database migrations needed for CSV/Excel-only setup
-    logger.info('CSV/Excel-only setup - no migrations needed');
-  } catch (error) {
-    logger.error('Failed to run database migrations:', error);
-    // Don't exit the process, just log the error
-    // This allows the app to start even if migrations fail
-  }
-};
+// DataAsk uses in-memory DataFrameManager for data storage
+// No database setup required
 
 
 
@@ -117,30 +88,24 @@ app.get('/health', healthCheck);
 // API health check endpoint (for compatibility)
 app.get('/api/health', healthCheck);
 
-// Database health check
-app.get('/health/db', async (req, res) => {
-  if (!dbPool) {
-    return res.status(503).json({
-      status: HEALTH_CHECK.STATUS.ERROR,
-      service: HEALTH_CHECK.SERVICE.DATABASE,
-      error: 'Database pool not initialized',
-      timestamp: new Date().toISOString()
-    });
-  }
-  
+// DataFrameManager health check
+app.get('/health/dataframes', async (req, res) => {
   try {
-    await dbPool.query('SELECT 1');
+    const dfManager = (await import('./utils/dataFrameManager')).DataFrameManager.getInstance();
+    const dataframes = dfManager.listDataFrames();
+    
     res.json({
       status: HEALTH_CHECK.STATUS.OK,
-      service: HEALTH_CHECK.SERVICE.DATABASE,
+      service: 'DataFrameManager',
+      dataframes_count: dataframes.length,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    logger.error('Database health check failed:', error);
+    logger.error('DataFrameManager health check failed:', error);
     res.status(503).json({
       status: HEALTH_CHECK.STATUS.ERROR,
-      service: HEALTH_CHECK.SERVICE.DATABASE,
-      error: API_MESSAGES.DB_CONNECTION_FAILED,
+      service: 'DataFrameManager',
+      error: 'DataFrameManager unavailable',
       timestamp: new Date().toISOString()
     });
   }

@@ -8,6 +8,8 @@ AI-powered data analysis tool for CSV and Excel files
 - **CSV/Excel Support**: Upload and analyze spreadsheet data instantly
 - **AI-Powered Analysis**: Get insights and explanations from your data
 - **Interactive Visualizations**: Auto-generated charts and graphs
+- **Drag & Drop Variables**: Drag data fields directly into chat for precise queries
+- **Comprehensive Statistics**: Descriptive, inferential, and predictive analytics
 - **In-Memory Processing**: Fast analysis using pandas-like operations
 - **Secure Code Execution**: Safe execution of generated pandas code
 
@@ -49,11 +51,13 @@ AI-powered data analysis tool for CSV and Excel files
 ## How It Works
 
 1. **Upload Your Data**: Drag and drop a CSV or Excel file
-2. **Ask Questions**: Type questions in natural language like:
+2. **Explore Variables**: Browse your data columns in the left panel with statistical profiles
+3. **Ask Questions**: Type questions in natural language or drag variables directly into chat:
    - "What are the top 5 products by sales?"
-   - "Show me monthly revenue trends"
-   - "Which categories have the highest profit margins?"
-3. **Get Results**: DataAsk generates pandas code, executes it, and displays results with visualizations
+   - "Show me monthly revenue trends" 
+   - "Analyze correlation between [price] and [sales]"
+   - "Run linear regression on [x] and [y]"
+4. **Get Results**: DataAsk generates pandas code, executes it, and displays results with visualizations and insights
 
 ## Architecture
 
@@ -71,13 +75,15 @@ dataask/
 ├── apps/
 │   ├── backend/           # Express.js API server
 │   │   └── src/
-│   │       ├── api/       # API endpoints
-│   │       ├── utils/     # DataFrame and pandas executor
-│   │       └── services/  # Business logic
+│   │       ├── api/       # API endpoints (dataframes, files, llm)
+│   │       ├── utils/     # DataFrame manager and statistical helpers
+│   │       ├── security/  # Rate limiting and prompt sanitization
+│   │       └── types/     # TypeScript type definitions
 │   ├── frontend/          # React application
 │   │   └── src/
-│   │       ├── components/  # UI components
-│   │       └── services/    # API clients
+│   │       ├── components/  # UI components and drag-drop features
+│   │       ├── services/    # API clients and data services
+│   │       └── contexts/    # React contexts (auth disabled)
 │   └── electron-shell/    # Desktop app wrapper
 ├── docs/                  # Documentation
 └── package.json          # Root package configuration
@@ -92,9 +98,10 @@ dataask/
 - `DELETE /api/files/dataframes/:id` - Remove DataFrame
 
 ### DataFrame Operations
-- `POST /api/dataframes/:id/execute` - Execute pandas code
-- `GET /api/dataframes/:id/info` - Get DataFrame information
+- `POST /api/dataframes/:id/execute` - Execute pandas code with statistical operations
+- `GET /api/dataframes/:id/info` - Get DataFrame information and column types
 - `GET /api/dataframes/:id/stats` - Get statistical summary
+- `GET /api/dataframes/:id/profile` - Get detailed variable profiling
 
 ### AI Operations
 - `POST /api/llm/nl-to-pandas` - Convert natural language to pandas code
@@ -131,15 +138,19 @@ cd apps/backend && npm test
 
 ## Data Processing
 
-DataAsk uses an in-memory DataFrame approach similar to pandas:
+DataAsk uses an in-memory DataFrame approach with comprehensive statistical analysis:
 
 1. **File Upload**: CSV/Excel files are parsed and loaded into memory
 2. **Data Storage**: Each file becomes a DataFrame with:
    - Column names and types
-   - Row data
-   - Statistical metadata
-3. **Query Processing**: Natural language → pandas code → results
-4. **Memory Management**: DataFrames are kept in memory for fast access
+   - Row data with automatic type inference
+   - Statistical metadata and variable profiling
+3. **Statistical Operations**: Built-in support for:
+   - **Descriptive**: mean, median, std, correlation, covariance
+   - **Inferential**: t-tests, normality tests, chi-square
+   - **Predictive**: linear regression, trend analysis, forecasting
+4. **Query Processing**: Natural language → pandas code → statistical results
+5. **Memory Management**: DataFrames are kept in memory for fast access
 
 ## Security
 
@@ -151,10 +162,11 @@ DataAsk uses an in-memory DataFrame approach similar to pandas:
 
 ## Limitations
 
-- **File Size**: Maximum 50MB per file
+- **File Size**: Maximum 100MB per file
 - **Memory**: Large files may impact performance
 - **Data Types**: Best suited for tabular data (CSV/Excel)
 - **Persistence**: Data is stored in memory only (not persisted)
+- **Authentication**: User authentication is currently disabled
 
 ## Troubleshooting
 
@@ -169,7 +181,7 @@ This usually means the OpenAI API key is not configured:
 ### File Upload Issues
 
 - Ensure files are CSV (.csv) or Excel (.xls, .xlsx) format
-- Check file size is under 50MB
+- Check file size is under 100MB
 - Verify the file contains valid tabular data
 
 ### Memory Issues

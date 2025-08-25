@@ -16,7 +16,7 @@
 **Symptoms**: "Upload failed" error or file not accepted
 **Solutions**:
 - Verify file format is CSV, XLS, or XLSX
-- Check file size is under 50MB limit
+- Check file size is under 100MB limit
 - Ensure file has proper headers and data rows
 - Check server disk space in `uploads/` directory
 

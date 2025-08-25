@@ -19,20 +19,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Development mode bypass - REMOVE IN PRODUCTION
-const DEV_MODE_BYPASS = process.env.NODE_ENV === 'development' && window.location.search.includes('devmode=true');
-const DEV_USER: User = {
-  id: 'dev-user-123',
-  email: 'dev@example.com',
-  role: 'admin'
-};
+// Authentication is currently disabled in DataAsk
+// This provider maintains compatibility with auth-dependent components
+const AUTH_DISABLED = true;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(DEV_MODE_BYPASS ? DEV_USER : null);
-  const [isLoading, setIsLoading] = useState(!DEV_MODE_BYPASS);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(!AUTH_DISABLED);
 
   useEffect(() => {
-    if (!DEV_MODE_BYPASS) {
+    if (!AUTH_DISABLED) {
       checkAuth();
     }
   }, []);
@@ -50,32 +46,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
-    if (DEV_MODE_BYPASS) {
-      setUser(DEV_USER);
-      return;
+    if (AUTH_DISABLED) {
+      throw new Error('Authentication is currently disabled');
     }
     const user = await authService.login(email, password);
     setUser(user);
   };
 
   const register = async (email: string, password: string, name?: string) => {
-    if (DEV_MODE_BYPASS) {
-      setUser(DEV_USER);
-      return;
+    if (AUTH_DISABLED) {
+      throw new Error('Authentication is currently disabled');
     }
     const user = await authService.register(email, password, name);
     setUser(user);
   };
 
   const logout = async () => {
-    if (!DEV_MODE_BYPASS) {
+    if (!AUTH_DISABLED) {
       await authService.logout();
     }
     setUser(null);
   };
 
   const refreshAuth = async () => {
-    if (DEV_MODE_BYPASS) return;
+    if (AUTH_DISABLED) return;
     await checkAuth();
   };
 

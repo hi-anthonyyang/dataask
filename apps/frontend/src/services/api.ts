@@ -8,7 +8,7 @@
  * for cookie-based authentication.
  */
 
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL } from '../utils/constants';
 
 export interface ApiError {
   error: string;
