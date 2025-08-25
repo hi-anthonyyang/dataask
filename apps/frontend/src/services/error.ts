@@ -95,6 +95,12 @@ class ErrorService {
     
     if (error && typeof error === 'object' && 'error' in error) {
       const apiError = error as ApiError;
+      
+      // Handle rate limit errors specifically
+      if (apiError.statusCode === 429) {
+        return this.handleRateLimitError(apiError);
+      }
+      
       userMessage = apiError.error || apiError.message || userMessage;
       
       // Log the full error
@@ -119,6 +125,47 @@ class ErrorService {
     }
     
     return userMessage;
+  }
+
+  /**
+   * Handle rate limit errors with reset time information
+   */
+  handleRateLimitError(error: any): string {
+    const resetTime = error.resetTimeLocal || error.resetTime;
+    const retryAfter = error.retryAfter;
+    const limit = error.limit;
+    const windowMinutes = error.windowMinutes || 15;
+    
+    let message = `Rate limit exceeded. You've made too many requests.`;
+    
+    if (limit && windowMinutes) {
+      message += ` Limit: ${limit} requests per ${windowMinutes} minutes.`;
+    }
+    
+    if (resetTime) {
+      message += ` Rate limit resets at: ${resetTime}`;
+    } else if (retryAfter) {
+      const minutes = Math.ceil(retryAfter / 60);
+      message += ` Please wait ${minutes} minutes before trying again.`;
+    }
+    
+    if (error.suggestion) {
+      message += ` ${error.suggestion}`;
+    }
+    
+    // Log the rate limit error
+    this.logWarning('Rate limit exceeded', {
+      operation: 'rate_limit',
+      metadata: {
+        limit,
+        windowMinutes,
+        resetTime,
+        retryAfter,
+        suggestion: error.suggestion
+      }
+    });
+    
+    return message;
   }
 
   /**

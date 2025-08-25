@@ -178,6 +178,17 @@ This usually means the OpenAI API key is not configured:
 2. Ensure `OPENAI_API_KEY` is set to a valid key
 3. Restart the backend server
 
+### Rate Limit Errors (429 Status)
+
+If you see "Rate limit exceeded" errors during development:
+
+1. The default AI rate limit is 100 requests per 15 minutes
+2. For heavy testing, restart with higher limits:
+   ```bash
+   RATE_LIMIT_AI=500 RATE_LIMIT_GENERAL=1000 npm run dev
+   ```
+3. Or set these in your `.env` file for permanent changes
+
 ### File Upload Issues
 
 - Ensure files are CSV (.csv) or Excel (.xls, .xlsx) format

@@ -3,9 +3,10 @@ import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
 
 // Rate limit configuration from environment variables
-const RATE_LIMIT_AI = parseInt(process.env.RATE_LIMIT_AI || '20');
-const RATE_LIMIT_DB = parseInt(process.env.RATE_LIMIT_DB || '60');
-const RATE_LIMIT_GENERAL = parseInt(process.env.RATE_LIMIT_GENERAL || '100');
+// Development-friendly defaults for better testing experience
+const RATE_LIMIT_AI = parseInt(process.env.RATE_LIMIT_AI || '100');
+const RATE_LIMIT_DB = parseInt(process.env.RATE_LIMIT_DB || '200');
+const RATE_LIMIT_GENERAL = parseInt(process.env.RATE_LIMIT_GENERAL || '300');
 const WINDOW_MINUTES = 15;
 
 // Create rate limiters for different endpoint types
@@ -21,6 +22,11 @@ const createRateLimiter = (maxRequests: number, endpointType: string) => {
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req: Request, res: Response) => {
+      const now = new Date();
+      const resetTime = new Date(now.getTime() + (WINDOW_MINUTES * 60 * 1000));
+      const retryAfterSeconds = Math.ceil(WINDOW_MINUTES * 60);
+      const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+      
       const violation = {
         level: 'warn',
         message: 'Rate limit exceeded',
@@ -28,16 +34,31 @@ const createRateLimiter = (maxRequests: number, endpointType: string) => {
         path: req.path,
         limit: maxRequests,
         windowMinutes: WINDOW_MINUTES,
-        endpointType
+        endpointType,
+        resetTime: resetTime.toISOString()
       };
       
       logger.warn('Rate limit violation:', violation);
       
+      // Set standard rate limit headers
+      res.set({
+        'Retry-After': retryAfterSeconds.toString(),
+        'X-RateLimit-Limit': maxRequests.toString(),
+        'X-RateLimit-Remaining': '0',
+        'X-RateLimit-Reset': Math.floor(resetTime.getTime() / 1000).toString()
+      });
+      
       res.status(429).json({
         error: `Rate limit exceeded for ${endpointType} endpoints`,
+        message: `You have exceeded the rate limit of ${maxRequests} requests per ${WINDOW_MINUTES} minutes. Please wait ${retryAfterMinutes} minutes before trying again.`,
         limit: maxRequests,
         windowMinutes: WINDOW_MINUTES,
-        retryAfter: Math.ceil(WINDOW_MINUTES * 60)
+        retryAfter: retryAfterSeconds,
+        resetTime: resetTime.toISOString(),
+        resetTimeLocal: resetTime.toLocaleString(),
+        suggestion: endpointType === 'AI' ? 
+          'For development, you can restart the server with higher limits using: RATE_LIMIT_AI=500 npm run dev' : 
+          'Please wait for the rate limit window to reset'
       });
     },
     keyGenerator: (req: Request) => ipKeyGenerator(req.ip || 'unknown')
