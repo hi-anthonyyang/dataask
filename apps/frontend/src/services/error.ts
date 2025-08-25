@@ -189,7 +189,7 @@ class ErrorService {
     const errorMessage = this.handleApiError(error, `file ${operation}`);
     
     if (errorMessage.includes('too large')) {
-      return 'File is too large. Please use a file smaller than 50MB.';
+      return 'File is too large. Please use a file smaller than 100MB.';
     } else if (errorMessage.includes('Invalid file type')) {
       return 'Invalid file type. Please upload a CSV, XLS, or XLSX file.';
     }
