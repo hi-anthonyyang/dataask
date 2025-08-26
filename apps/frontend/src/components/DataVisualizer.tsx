@@ -308,7 +308,7 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
     const isCorrelationMatrix = data.every(row => {
       const indexValue = row[indexField];
       // Check if index value matches one of the numeric column names
-      return numericFields.includes(indexValue) && 
+      return numericFields.includes(String(indexValue)) && 
              // Check if diagonal values are 1 (perfect correlation with self)
              Math.abs(Number(row[indexValue]) - 1) < 0.001;
     });
@@ -340,32 +340,51 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
     const valueField = numericFields[0]
     const uniqueDates = new Set(data.map(row => row[dateField]))
     const hasMultipleSeries = data.length > uniqueDates.size
-    
+
     if (hasMultipleSeries) {
+      // Check if categories are truly categorical (not sequential/time-based)
+      const uniqueCategories = new Set(data.map(row => row[categoryField]))
+      const isTextCategorical = Array.from(uniqueCategories).every(cat => {
+        const catStr = String(cat || '')
+        return !isDateValue(catStr) && catStr.length > 0
+      })
+
+      // For categorical data with few categories, prefer bar chart over line
+      const shouldUseBarChart = isTextCategorical && uniqueCategories.size <= 15
+
       // Analyze scales to determine best visualization approach
       const scaleAnalysis = analyzeValueScales(data, categoryField, valueField)
-      
+
+      if (shouldUseBarChart) {
+        return {
+          type: 'bar',
+          title: `${valueField} by ${categoryField} and ${dateField}`,
+          description: `Comparing ${categoryField} categories over ${dateField} periods`,
+          reason: `Categorical data (${uniqueCategories.size} categories) with time periods - bar chart provides clearer comparison`
+        }
+      }
+
       if (scaleAnalysis.hasScaleIssues) {
         return {
           type: 'line',
-          title: 'Multi-Scale Time Analysis',
+          title: `${valueField} Trends by ${categoryField}`,
           description: `${categoryField} trends over time (mixed scales detected)`,
           reason: 'Multiple series with different scales detected',
           scaleAnalysis
         }
       }
-      
+
       return {
         type: 'line',
-        title: 'Multi-Series Time Analysis',
+        title: `${valueField} Trends by ${categoryField}`,
         description: `${categoryField} trends over time`,
         reason: 'Multiple series over time detected'
       }
     }
-    
+
     return {
       type: 'line',
-      title: 'Time Series Analysis',
+      title: `${numericFields[0]} Over Time`,
       description: `${numericFields[0]} over time`,
       reason: 'Date column detected with numeric data'
     }
@@ -383,20 +402,22 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
 
   // Category ranking (text + numeric, sorted data)
   if (textFields.length > 0 && numericFields.length > 0) {
+    const textField = textFields[0]
     const numericFieldName = numericFields[0]
-    const isDescendingSorted = data.length > 1 && 
+
+    const isDescendingSorted = data.length > 1 &&
       data.slice(0, Math.min(3, data.length - 1))
         .every((row, i) => {
           const currentVal = Number(row[numericFieldName]) || 0
           const nextVal = Number(data[i + 1][numericFieldName]) || 0
           return currentVal >= nextVal
         })
-    
+
     if (isDescendingSorted) {
       return {
         type: 'bar',
-        title: 'Ranking Analysis',
-        description: `${textFields[0]} ranked by ${numericFields[0]}`,
+        title: `${numericFieldName} by ${textField}`,
+        description: `${textField} ranked by ${numericFieldName}`,
         reason: 'Categorical data sorted by numeric values'
       }
     }
@@ -405,16 +426,16 @@ const analyzeDataForVisualization = (data: DataRow[], fields: DataField[]): Char
     if (data.length <= VISUALIZATION_CONFIG.piechartThreshold) {
       return {
         type: 'pie',
-        title: 'Distribution Analysis',
-        description: `${textFields[0]} distribution by ${numericFields[0]}`,
+        title: `${numericFieldName} Distribution`,
+        description: `${textField} distribution by ${numericFieldName}`,
         reason: `Small number of categories (≤${VISUALIZATION_CONFIG.piechartThreshold}) suitable for pie chart`
       }
     }
 
     return {
       type: 'bar',
-      title: 'Category Comparison',
-      description: `${textFields[0]} by ${numericFields[0]}`,
+      title: `${numericFieldName} by ${textField}`,
+      description: `Comparing ${textField} categories by ${numericFieldName}`,
       reason: 'Categorical data with numeric values'
     }
   }
@@ -742,16 +763,17 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
                 return (
                   <BarChart data={filteredChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="name" 
+                    <XAxis
+                      dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <YAxis 
+                    <YAxis
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      label={{ value: yField, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
                     />
                     <Tooltip 
                       contentStyle={{
@@ -778,16 +800,17 @@ export default function DataVisualizer({ data, fields }: DataVisualizerProps) {
                 return (
                   <LineChart data={filteredChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
+                    <XAxis
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
                     />
-                    <YAxis 
+                    <YAxis
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
                       tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      label={{ value: yField, angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
                     />
                     <Tooltip 
                       contentStyle={{

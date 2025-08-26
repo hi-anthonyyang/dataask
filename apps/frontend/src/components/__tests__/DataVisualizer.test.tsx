@@ -409,7 +409,9 @@ describe('DataVisualizer', () => {
       );
 
       expect(screen.getByTestId('responsive-container')).toBeInTheDocument();
-      expect(screen.getByTestId('line-chart')).toBeInTheDocument();
+      // Phase 1 improvement: categorical data with few categories now uses bar chart
+      expect(screen.getByTestId('bar-chart')).toBeInTheDocument();
+      expect(screen.getByText('value by category and date')).toBeInTheDocument();
     });
 
     test('should handle grouped bar chart data', () => {

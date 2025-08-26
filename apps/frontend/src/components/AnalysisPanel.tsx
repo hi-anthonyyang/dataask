@@ -3,6 +3,8 @@ import { BarChart3, Table, TrendingUp, Copy, Check, Eye, Info } from 'lucide-rea
 import { DataFrameQueryResult } from '../services/dataframe'
 import { dataframeService } from '../services/dataframe'
 import DataVisualizer from './DataVisualizer'
+import VariablePropertiesPanel from './VariablePropertiesPanel'
+import { VariableProperties } from '../types'
 
 interface AnalysisPanelProps {
   queryResults: DataFrameQueryResult | null
@@ -101,6 +103,39 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
     if (dtypeLower.includes('bool')) return 'Boolean'
     if (dtypeLower.includes('datetime')) return 'Date/Time'
     return 'Other'
+  }
+
+  // Convert existing dataframeProfile format to VariableProperties
+  const convertToVariableProperties = (profile: any): VariableProperties => {
+    return {
+      name: profile.name,
+      type: profile.type,
+      measurement_level: profile.type === 'numerical' ? 'ratio' : 'nominal',
+      statistics: {
+        count: profile.sample_size || 0,
+        missing_count: 0, // Not available in current profile
+        completeness: 1, // Not available in current profile
+        uniqueness_ratio: profile.unique_values ? (profile.unique_values / (profile.sample_size || 1)) : undefined,
+        outlier_count: profile.outliers ? 1 : 0, // Simplified mapping
+        distribution_type: profile.distribution,
+        ...(profile.type === 'numerical' && {
+          mean: profile.mean,
+          median: profile.median,
+          std_dev: profile.std,
+          min: profile.min,
+          max: profile.max,
+        })
+      },
+      domain_info: {
+        common_values: profile.top_values?.map((v: any) => ({
+          value: v.value,
+          frequency: v.count
+        }))
+      },
+      recommendations: {
+        visualization_types: profile.type === 'numerical' ? ['line', 'bar', 'histogram'] : ['bar', 'pie']
+      }
+    }
   }
 
   const generateAIAnalysis = async () => {
@@ -229,67 +264,18 @@ export default function AnalysisPanel({ queryResults, currentCode, selectedDataF
                     </div>
                   </div>
 
-                  {/* Variable Profiles */}
+                  {/* Variable Properties */}
                   <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Variable Profiles</h3>
-                    <div className="space-y-0">
-                      {dataframeProfile.map((variable, index) => (
-                        <div key={variable.name}>
-                          <div className="py-2">
-                            <h4 className="text-sm font-medium text-gray-900 mb-1">{variable.name}</h4>
-                            <div className="flex items-center space-x-2 mb-2">
-                              <span className={`px-1.5 py-0.5 text-xs rounded ${
-                                variable.type === 'numerical' 
-                                  ? 'bg-blue-50 text-blue-700' 
-                                  : 'bg-green-50 text-green-700'
-                              }`}>
-                                {variable.type}
-                              </span>
-                              <span className="px-1.5 py-0.5 text-xs bg-gray-50 text-gray-600 rounded">
-                                {variable.subtype}
-                              </span>
-                            </div>
-                            
-                            <div className="text-xs text-gray-500">
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-0.5">
-                                  <div className="flex justify-between">
-                                    <span>Sample Size:</span>
-                                    <span className="text-gray-700">{variable.sample_size.toLocaleString()}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Unique Values:</span>
-                                    <span className="text-gray-700">{variable.unique_values.toLocaleString()}</span>
-                                  </div>
-                                </div>
-                                <div className="space-y-0.5">
-                                  {variable.distribution && (
-                                    <div className="flex justify-between">
-                                      <span>Distribution:</span>
-                                      <span className={`${
-                                        variable.distribution === 'normal' ? 'text-green-600' : 'text-orange-600'
-                                      }`}>
-                                        {variable.distribution}
-                                      </span>
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between">
-                                    <span>Outliers:</span>
-                                    <span className={`${
-                                      variable.outliers ? 'text-red-600' : 'text-green-600'
-                                    }`}>
-                                      {variable.outliers ? 'Yes' : 'No'}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Variable Properties</h3>
+                    <div className="space-y-4">
+                      {dataframeProfile.map((variable, index) => {
+                        const variableProps = convertToVariableProperties(variable)
+                        return (
+                          <div key={variable.name} className="border-b border-gray-100 last:border-b-0 pb-4 last:pb-0">
+                            <VariablePropertiesPanel variable={variableProps} compact={true} />
                           </div>
-                          {index < dataframeProfile.length - 1 && (
-                            <div className="border-b border-gray-100"></div>
-                          )}
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 </div>

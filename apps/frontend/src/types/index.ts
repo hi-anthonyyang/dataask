@@ -4,11 +4,73 @@ export interface DatabaseField {
   type: string;
 }
 
+// Enhanced Variable Properties for Statistical Analysis
+export interface VariableProperties extends DatabaseField {
+  // Measurement level (critical for statistical analysis)
+  measurement_level?: 'nominal' | 'ordinal' | 'interval' | 'ratio';
+
+  // Statistical properties
+  statistics?: {
+    count: number;
+    missing_count: number;
+    completeness: number; // % non-null
+
+    // Central tendency (for numeric)
+    mean?: number;
+    median?: number;
+    mode?: string | number;
+
+    // Dispersion (for numeric)
+    std_dev?: number;
+    variance?: number;
+    range?: { min: number; max: number };
+    quartiles?: { q1: number; q2: number; q3: number };
+
+    // Shape (for numeric)
+    skewness?: number;
+    kurtosis?: number;
+
+    // Distribution info
+    distribution_type?: 'normal' | 'skewed_left' | 'skewed_right' | 'uniform' | 'bimodal' | 'multimodal';
+
+    // Outlier detection
+    outlier_count?: number;
+    outlier_method?: 'iqr' | 'zscore' | 'isolation_forest';
+  };
+
+  // Data quality metrics
+  quality_score?: number; // 0-100
+  uniqueness_ratio?: number; // % unique values
+
+  // Relationship properties
+  relationships?: {
+    correlations?: Array<{ variable: string; coefficient: number; p_value?: number }>;
+    multicollinearity_risk?: 'low' | 'medium' | 'high';
+    dependencies?: string[]; // Variables this depends on
+  };
+
+  // Domain context
+  domain_info?: {
+    business_meaning?: string;
+    unit_of_measure?: string;
+    expected_range?: { min?: number; max?: number };
+    common_values?: Array<{ value: string | number; frequency: number }>;
+  };
+
+  // Analysis recommendations
+  recommendations?: {
+    suggested_transformations?: Array<'log' | 'sqrt' | 'box_cox' | 'standardize' | 'normalize'>;
+    statistical_tests?: Array<'t_test' | 'anova' | 'chi_square' | 'correlation' | 'regression'>;
+    visualization_types?: ChartType[];
+  };
+}
+
 export interface QueryResult {
   rows: Record<string, unknown>[];
   fields: DatabaseField[];
   rowCount: number;
   executionTime: number;
+  variable_properties?: VariableProperties[]; // Optional enhanced analysis
 }
 
 export interface TableColumn {
@@ -144,6 +206,32 @@ export interface AnalysisResult {
   key_findings: string[];
   recommendations?: string[];
   chart_config?: ChartConfiguration;
+
+  // Enhanced statistical analysis (optional)
+  statistical_analysis?: {
+    descriptive_stats: Record<string, VariableProperties['statistics']>;
+    inferential_stats?: {
+      correlations: Array<{
+        variable1: string;
+        variable2: string;
+        coefficient: number;
+        p_value: number;
+        significance: 'significant' | 'not_significant';
+      }>;
+      hypothesis_tests?: Array<{
+        test_type: string;
+        variables: string[];
+        statistic: number;
+        p_value: number;
+        conclusion: string;
+      }>;
+    };
+    predictive_insights?: {
+      variable_importance?: Array<{ variable: string; importance: number }>;
+      recommended_models?: Array<'linear_regression' | 'logistic_regression' | 'random_forest' | 'time_series'>;
+      confidence_intervals?: Record<string, { lower: number; upper: number }>;
+    };
+  };
 }
 
 export interface ChartConfiguration {
