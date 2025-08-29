@@ -170,20 +170,104 @@ export class PandasExecutor {
   }
 
   /**
-   * Implement pandas describe() function
+   * Compute comprehensive variable properties using StatisticalHelpers
    */
-  private describe(): any[] {
+  private computeVariableProperties(): any[] {
+    return this.df.columns.map(col => {
+      const values = this.df.data.map(row => row[col]);
+      const numericValues = StatisticalHelpers.getNumericValues(this.df.data, col);
+      const nonNullValues = values.filter(v => v !== null && v !== undefined);
+      const uniqueValues = new Set(nonNullValues);
+
+      // Determine measurement level
+      const measurement_level = this.df.dtypes[col] === 'number' ? 'ratio' : 'nominal';
+
+      // Basic statistics
+      const stats: any = {
+        count: nonNullValues.length,
+        missing_count: values.length - nonNullValues.length,
+        completeness: nonNullValues.length / values.length
+      };
+
+      // Numeric-specific statistics
+      if (numericValues.length > 0) {
+        stats.mean = StatisticalHelpers.mean(numericValues);
+        stats.median = StatisticalHelpers.median(numericValues);
+        stats.std_dev = StatisticalHelpers.std(numericValues);
+        stats.variance = StatisticalHelpers.variance(numericValues);
+        stats.skewness = StatisticalHelpers.skewness(numericValues);
+        stats.kurtosis = StatisticalHelpers.kurtosis(numericValues);
+
+        // Range
+        if (numericValues.length > 0) {
+          stats.range = {
+            min: Math.min(...numericValues),
+            max: Math.max(...numericValues)
+          };
+        }
+
+        // Quartiles
+        if (numericValues.length >= 4) {
+          stats.quartiles = {
+            q1: StatisticalHelpers.percentile(numericValues, 0.25),
+            q2: StatisticalHelpers.percentile(numericValues, 0.50),
+            q3: StatisticalHelpers.percentile(numericValues, 0.75)
+          };
+        }
+
+        // Distribution analysis
+        const skewness = StatisticalHelpers.skewness(numericValues);
+        const kurtosis = StatisticalHelpers.kurtosis(numericValues);
+
+        if (Math.abs(skewness) < 0.5 && Math.abs(kurtosis) < 0.5) {
+          stats.distribution_type = 'normal';
+        } else if (Math.abs(skewness) > 1) {
+          stats.distribution_type = skewness > 0 ? 'skewed_right' : 'skewed_left';
+        } else if (Math.abs(kurtosis) > 1) {
+          stats.distribution_type = 'multimodal';
+        } else {
+          stats.distribution_type = 'uniform';
+        }
+      }
+
+      // Data quality metrics
+      const uniqueness_ratio = uniqueValues.size / nonNullValues.length;
+      stats.uniqueness_ratio = uniqueness_ratio;
+
+      // Simple quality score (0-100)
+      let quality_score = 100;
+      quality_score -= (stats.missing_count / values.length) * 50; // Missing data penalty
+      quality_score -= (uniqueness_ratio < 0.1) ? 20 : 0; // Low uniqueness penalty
+      quality_score = Math.max(0, Math.min(100, quality_score));
+      stats.quality_score = Math.round(quality_score);
+
+      return {
+        name: col,
+        type: this.df.dtypes[col],
+        measurement_level,
+        statistics: stats,
+        recommendations: {
+          visualization_types: this.df.dtypes[col] === 'number' ? ['line', 'bar', 'histogram'] : ['bar', 'pie']
+        }
+      };
+    });
+  }
+
+  /**
+   * Implement pandas describe() function with enhanced variable properties
+   */
+  private describe(): any {
     const stats: any[] = [];
     const numericColumns = this.df.columns.filter(col => this.df.dtypes[col] === 'number');
-    
+
     const metrics = ['count', 'mean', 'std', 'min', '25%', '50%', '75%', 'max'];
-    
+
     metrics.forEach(metric => {
       const row: any = { statistic: metric };
-      
+
       numericColumns.forEach(col => {
         const values = this.df.data.map(row => row[col]).filter(v => v !== null && v !== undefined);
-        
+
         switch (metric) {
           case 'count':
             row[col] = values.length;
@@ -211,11 +295,17 @@ export class PandasExecutor {
             break;
         }
       });
-      
+
       stats.push(row);
     });
-    
-    return stats;
+
+    // Add comprehensive variable properties
+    const variable_properties = this.computeVariableProperties();
+
+    return {
+      statistics: stats,           // Keep existing pandas describe format
+      variable_properties: variable_properties  // Add enhanced statistical analysis
+    };
   }
 
   /**
