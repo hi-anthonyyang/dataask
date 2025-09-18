@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import OpenAI from 'openai';
+// import OpenAI from 'openai'; // Removed for security
 import { logger } from '../utils/logger';
 import { validateSQLQuery } from '../utils/validation';
 import { llmCache } from '../utils/cache';
@@ -23,30 +23,20 @@ import {
 
 const router = Router();
 
-// Initialize OpenAI client with better error handling
-let openai: OpenAI | null = null;
+// Initialize AI client with better error handling
+let openai: any = null;
 
-const initializeOpenAI = () => {
-  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'sk-placeholder-key-replace-with-real-key') {
-    logger.warn(LLM_MESSAGES.API_KEY_PLACEHOLDER);
-    return null;
-  }
-  
-  try {
-    return new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-  } catch (error) {
-    logger.error('Failed to initialize OpenAI client:', error);
-    return null;
-  }
+const initializeAI = () => {
+  // API key removed for security
+  logger.warn('AI API key not configured');
+  return null;
 };
 
 // Initialize on module load
-openai = initializeOpenAI();
+openai = initializeAI();
 
-// Helper function to ensure OpenAI is available
-const ensureOpenAI = (): OpenAI => {
+// Helper function to ensure AI client is available
+const ensureAI = (): any => {
   if (!openai) {
     throw new Error(LLM_MESSAGES.CLIENT_NOT_INITIALIZED);
   }
@@ -216,7 +206,7 @@ RESPONSE FORMAT:
       throw new Error('OpenAI client not initialized');
     }
 
-    const completion = await ensureOpenAI().chat.completions.create({
+    const completion = await ensureAI().chat.completions.create({
       model: LLM_MODEL_CONFIG.CLASSIFICATION,
       messages: [
         { role: 'system', content: classificationPrompt },
@@ -337,7 +327,7 @@ Examples:
 - "analyze trend in monthly revenue" -> stats.trend_analysis(df['revenue'])
 - "forecast next 6 months" -> stats.forecast(df['sales'], periods=6)`;
 
-    const completion = await ensureOpenAI().chat.completions.create({
+    const completion = await ensureAI().chat.completions.create({
       model: LLM_MODEL_CONFIG.NL_TO_SQL,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -448,7 +438,7 @@ router.post('/analyze', async (req, res) => {
     // Use safe prompt construction
     const safePrompt = createSafePrompt('analysis', sanitizedQuery, dataSanitization.sanitizedInput);
 
-    const completion = await ensureOpenAI().chat.completions.create({
+    const completion = await ensureAI().chat.completions.create({
       model: LLM_MODEL_CONFIG.ANALYSIS,
       messages: [
         { role: 'system', content: safePrompt.system },
@@ -522,7 +512,7 @@ router.post('/summarize', async (req, res) => {
     // Use safe prompt construction
     const safePrompt = createSafePrompt('summarization', sanitizedQuery);
 
-    const completion = await ensureOpenAI().chat.completions.create({
+    const completion = await ensureAI().chat.completions.create({
       model: LLM_MODEL_CONFIG.SUMMARIZATION,
       messages: [
         { role: 'system', content: safePrompt.system },

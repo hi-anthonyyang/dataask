@@ -18,7 +18,7 @@ AI-powered data analysis tool for CSV and Excel files
 ### Prerequisites
 
 - Node.js 18+ and npm 9+
-- **OpenAI API Key** (required for AI features)
+- **API Key** (required for AI features)
 
 ### Setup   
 
@@ -29,17 +29,17 @@ AI-powered data analysis tool for CSV and Excel files
    npm install
    ```
 
-2. **Configure OpenAI API Key:**
+2. **Configure API Key:**
    ```bash
    # Copy the environment template
    cp env.example apps/backend/.env
    
-   # Edit the .env file and set your OpenAI API key
+   # Edit the .env file and set your API key
    # Replace the placeholder with your actual API key:
-   OPENAI_API_KEY=sk-your-actual-openai-api-key-here
+   API_KEY=your-api-key-here
    ```
 
-   **Important:** You need a valid OpenAI API key for the AI features to work. Get one from [OpenAI's API platform](https://platform.openai.com/api-keys).
+   **Important:** You need a valid API key for the AI features to work.
 
 3. **Start the application:**
    ```bash
@@ -175,7 +175,7 @@ DataAsk uses an in-memory DataFrame approach with comprehensive statistical anal
 This usually means the OpenAI API key is not configured:
 
 1. Check your `.env` file exists in `apps/backend/`
-2. Ensure `OPENAI_API_KEY` is set to a valid key
+2. Ensure `API_KEY` is set to a valid key
 3. Restart the backend server
 
 ### Rate Limit Errors (429 Status)

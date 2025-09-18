@@ -289,9 +289,9 @@ describe('DataVisualizer', () => {
 
     test('should handle data with all text fields', () => {
       const textOnlyData = [
-        { name: 'John', department: 'Sales' },
-        { name: 'Jane', department: 'Marketing' },
-        { name: 'Bob', department: 'Engineering' }
+        { name: 'User 1', department: 'Sales' },
+        { name: 'User 2', department: 'Marketing' },
+        { name: 'User 3', department: 'Engineering' }
       ];
 
       const textOnlyFields = [

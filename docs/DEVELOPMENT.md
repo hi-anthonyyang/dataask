@@ -24,7 +24,7 @@ This guide covers development practices, architecture, and workflows for the Dat
 
 ### Prerequisites
 - Node.js 18+ and npm 9+
-- OpenAI API Key for AI features
+- API Key for AI features
 
 ### Installation
 ```bash
@@ -35,7 +35,7 @@ npm install
 
 # Configure environment
 cp env.example apps/backend/.env
-# Edit apps/backend/.env and set OPENAI_API_KEY
+# Edit apps/backend/.env and set API_KEY
 ```
 
 ### Running Development
@@ -59,7 +59,7 @@ npm run dev:electron   # Desktop app
 
 ### 2. Natural Language Query Process
 1. **Frontend**: User types question in `ChatPanel`
-2. **Backend**: Question sent to OpenAI via `llm.ts`
+2. **Backend**: Question sent to AI service via `llm.ts`
 3. **AI**: Generates pandas code from question
 4. **Execution**: Code executed by `PandasExecutor`
 5. **Results**: Data and visualizations returned
@@ -85,7 +85,7 @@ npm run dev:electron   # Desktop app
 
 ### AI Integration
 - **Purpose**: Natural language to pandas code conversion
-- **Models**: OpenAI GPT for code generation
+- **Models**: AI service for code generation
 - **Security**: Prompt injection protection
 
 ## Development Best Practices
@@ -171,7 +171,7 @@ npm start
 
 ### Common Issues
 1. **File Upload Fails**: Check file format and size
-2. **AI Queries Fail**: Verify OpenAI API key
+2. **AI Queries Fail**: Verify API key
 3. **Memory Issues**: Large files may cause problems
 4. **Performance**: Monitor DataFrame memory usage
 

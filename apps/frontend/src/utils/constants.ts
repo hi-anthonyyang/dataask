@@ -21,7 +21,7 @@ export const STORAGE_KEYS = {
   CURRENT_CONNECTION: 'dataask_current_connection',
   QUERY_HISTORY: 'dataask_query_history',
   USER_PREFERENCES: 'dataask_preferences',
-  ENCRYPTION_KEY: 'dataask-encryption-key',
+  ENCRYPTION_KEY: 'dataask-encryption-key-removed',
   APP_STATE: 'dataask_app_state',
 } as const;
 

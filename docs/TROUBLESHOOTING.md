@@ -33,9 +33,9 @@
 #### "Failed to generate pandas code" Error
 **Symptoms**: AI queries return error instead of results
 **Solutions**:
-- Check OpenAI API key is configured in `.env`
+- Check API key is configured in `.env`
 - Verify API key has sufficient credits
-- Check network connectivity to OpenAI
+- Check network connectivity to AI service
 - Review query complexity and clarity
 
 #### Generated Code Execution Fails
@@ -64,7 +64,7 @@
 
 #### Slow AI Response
 **Solutions**:
-- Check OpenAI API response times
+- Check AI service response times
 - Verify network connectivity
 - Review query complexity
 - Consider using simpler queries
@@ -97,7 +97,7 @@
 ### Environment Check
 ```bash
 # Verify environment variables
-cat apps/backend/.env | grep OPENAI_API_KEY
+cat apps/backend/.env | grep API_KEY
 
 # Check file permissions
 ls -la uploads/
@@ -110,7 +110,7 @@ curl -X GET http://localhost:3001/health
 - `"DataFrame not found"`: File upload or DataFrame ID issue
 - `"File parsing failed"`: Invalid file format or corruption
 - `"Rate limit exceeded"`: Too many requests, wait and retry
-- `"OpenAI API error"`: API key or network connectivity issue
+- `"AI API error"`: API key or network connectivity issue
 - `"Code execution failed"`: Generated pandas code has errors
 
 ### Debug Steps
@@ -133,7 +133,7 @@ curl -X GET http://localhost:3001/health
 
 3. **Test AI Integration**
    ```bash
-   # Test OpenAI connection
+   # Test AI service connection
    curl -X POST http://localhost:3001/api/llm/nl-to-pandas \
      -H "Content-Type: application/json" \
      -d '{"query":"show first 5 rows"}'

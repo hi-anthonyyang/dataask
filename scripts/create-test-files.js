@@ -15,20 +15,20 @@ if (!fs.existsSync(testDataDir)) {
 const testData = {
   // Small dataset for basic testing
   small: [
-    { id: 1, name: 'John Doe', email: 'john@example.com', age: 30, salary: 50000.50, active: true, created_at: '2024-01-15' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com', age: 25, salary: 60000.75, active: false, created_at: '2024-02-20' },
-    { id: 3, name: 'Bob Johnson', email: 'bob@example.com', age: 35, salary: 75000.00, active: true, created_at: '2024-03-10' },
-    { id: 4, name: 'Alice Brown', email: 'alice@example.com', age: 28, salary: 55000.25, active: true, created_at: '2024-04-05' },
-    { id: 5, name: 'Charlie Wilson', email: 'charlie@example.com', age: 42, salary: 90000.00, active: false, created_at: '2024-05-12' }
+    { id: 1, name: 'User 1', email: 'user1@test.com', age: 30, salary: 50000, active: true, created_at: '2024-01-01' },
+    { id: 2, name: 'User 2', email: 'user2@test.com', age: 25, salary: 60000, active: false, created_at: '2024-01-02' },
+    { id: 3, name: 'User 3', email: 'user3@test.com', age: 35, salary: 75000, active: true, created_at: '2024-01-03' },
+    { id: 4, name: 'User 4', email: 'user4@test.com', age: 28, salary: 55000, active: true, created_at: '2024-01-04' },
+    { id: 5, name: 'User 5', email: 'user5@test.com', age: 42, salary: 90000, active: false, created_at: '2024-01-05' }
   ],
   
   // Dataset with mixed types and null values
   mixed: [
-    { product_id: 'P001', product_name: 'Widget', price: 19.99, quantity: 100, in_stock: true, last_updated: '2024-08-01 10:30:00' },
-    { product_id: 'P002', product_name: 'Gadget', price: 29.99, quantity: null, in_stock: false, last_updated: '2024-08-02 14:15:00' },
-    { product_id: 'P003', product_name: 'Doohickey', price: null, quantity: 50, in_stock: true, last_updated: null },
-    { product_id: 'P004', product_name: 'Thingamajig', price: 39.99, quantity: 0, in_stock: false, last_updated: '2024-08-03 09:45:00' },
-    { product_id: 'P005', product_name: null, price: 49.99, quantity: 25, in_stock: true, last_updated: '2024-08-04 16:20:00' }
+    { product_id: 'P001', product_name: 'Product A', price: 19.99, quantity: 100, in_stock: true, last_updated: '2024-01-01 10:00:00' },
+    { product_id: 'P002', product_name: 'Product B', price: 29.99, quantity: null, in_stock: false, last_updated: '2024-01-02 14:00:00' },
+    { product_id: 'P003', product_name: 'Product C', price: null, quantity: 50, in_stock: true, last_updated: null },
+    { product_id: 'P004', product_name: 'Product D', price: 39.99, quantity: 0, in_stock: false, last_updated: '2024-01-03 09:00:00' },
+    { product_id: 'P005', product_name: null, price: 49.99, quantity: 25, in_stock: true, last_updated: '2024-01-04 16:00:00' }
   ],
   
   // Dataset with special characters and edge cases
@@ -44,22 +44,20 @@ const testData = {
 // Generate large dataset for performance testing
 function generateLargeDataset(rows) {
   const data = [];
-  const firstNames = ['John', 'Jane', 'Bob', 'Alice', 'Charlie', 'Emma', 'Oliver', 'Sophia', 'William', 'Ava'];
-  const lastNames = ['Smith', 'Johnson', 'Brown', 'Wilson', 'Davis', 'Miller', 'Garcia', 'Jones', 'Williams', 'Martinez'];
   const departments = ['Sales', 'Marketing', 'Engineering', 'HR', 'Finance', 'Operations', 'IT', 'Legal'];
   
   for (let i = 1; i <= rows; i++) {
     data.push({
       employee_id: `EMP${String(i).padStart(6, '0')}`,
-      first_name: firstNames[Math.floor(Math.random() * firstNames.length)],
-      last_name: lastNames[Math.floor(Math.random() * lastNames.length)],
-      email: `employee${i}@company.com`,
+      first_name: `User${i}`,
+      last_name: `Test${i}`,
+      email: `user${i}@test.com`,
       department: departments[Math.floor(Math.random() * departments.length)],
-      salary: Math.floor(Math.random() * 100000) + 40000,
+      salary: Math.floor(Math.random() * 50000) + 30000,
       hire_date: new Date(2020 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
       performance_score: (Math.random() * 5).toFixed(2),
       is_manager: Math.random() > 0.8,
-      office_location: ['New York', 'San Francisco', 'London', 'Tokyo', 'Sydney'][Math.floor(Math.random() * 5)],
+      office_location: ['Location A', 'Location B', 'Location C', 'Location D', 'Location E'][Math.floor(Math.random() * 5)],
       years_experience: Math.floor(Math.random() * 20) + 1
     });
   }

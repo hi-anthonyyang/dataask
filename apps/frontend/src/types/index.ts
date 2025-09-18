@@ -248,11 +248,11 @@ export interface ChartConfiguration {
 // User and Authentication Types
 export interface User {
   id: string;
-  email: string;
+  username: string;
   created_at: string;
   updated_at: string;
   last_login?: string;
-  email_verified: boolean;
+  verified: boolean;
 }
 
 export interface AuthTokens {
@@ -261,12 +261,12 @@ export interface AuthTokens {
 }
 
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface RegisterRequest {
-  email: string;
+  username: string;
   password: string;
 }
 

@@ -1,27 +1,6 @@
 // Local storage service for persisting app state (DBeaver-style)
-import CryptoJS from 'crypto-js'
 import { STORAGE_KEYS, DATABASE_TYPES } from '../utils/constants'
 import { logWarning } from './error'
-
-// Secure encryption key derivation
-const getEncryptionKey = (): string => {
-  // Use environment variable if available, otherwise derive from domain
-  const envKey = (window as Window & { __DATAASK_ENCRYPTION_KEY__?: string }).__DATAASK_ENCRYPTION_KEY__ || 
-                 localStorage.getItem(STORAGE_KEYS.ENCRYPTION_KEY);
-  
-  if (envKey) return envKey;
-  
-  // Derive key from domain and timestamp for better security than hardcoded
-  const domain = window.location.hostname || 'localhost';
-  const appVersion = 'v1.0.0';
-  const derivedKey = CryptoJS.SHA256(`dataask-${domain}-${appVersion}`).toString();
-  
-  // Cache the derived key
-  localStorage.setItem(STORAGE_KEYS.ENCRYPTION_KEY, derivedKey);
-  return derivedKey;
-};
-
-const ENCRYPTION_KEY = getEncryptionKey();
 
 // Type definitions
 type DatabaseType = typeof DATABASE_TYPES[keyof typeof DATABASE_TYPES];
@@ -58,48 +37,15 @@ class StorageService {
       
       const connections = JSON.parse(data) as SavedConnection[]
       
-      // Decrypt sensitive data (with migration from old base64)
+      // Return connections without sensitive data
       return connections.map(conn => ({
         ...conn,
         config: {
           ...conn.config,
-          host: conn.config.host ? (() => {
-            try {
-              return CryptoJS.AES.decrypt(conn.config.host, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
-            } catch {
-              return conn.config.host; // Return as-is if decryption fails (migration)
-            }
-          })() : undefined,
-          database: conn.config.database ? (() => {
-            try {
-              return CryptoJS.AES.decrypt(conn.config.database, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
-            } catch {
-              return conn.config.database; // Return as-is if decryption fails (migration)
-            }
-          })() : undefined,
-          username: conn.config.username ? (() => {
-            try {
-              return CryptoJS.AES.decrypt(conn.config.username, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
-            } catch {
-              return conn.config.username; // Return as-is if decryption fails (migration)
-            }
-          })() : undefined,
-          password: conn.config.password ? (() => {
-            try {
-              // Try AES decryption first
-              return CryptoJS.AES.decrypt(conn.config.password, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
-            } catch {
-              try {
-                // Fallback to old base64 for migration
-                const oldPassword = atob(conn.config.password);
-                // Re-save with new encryption
-                this.saveConnection({...conn, config: {...conn.config, password: oldPassword}});
-                return oldPassword;
-              } catch {
-                return undefined;
-              }
-            }
-          })() : undefined
+          host: undefined,     // Remove sensitive host data
+          database: undefined, // Remove sensitive database name
+          username: undefined, // Remove sensitive username
+          password: undefined  // Remove sensitive password
         },
         lastConnected: conn.lastConnected ? new Date(conn.lastConnected) : undefined
       }))
@@ -114,22 +60,22 @@ class StorageService {
       const connections = this.getConnections()
       const existingIndex = connections.findIndex(c => c.id === connection.id)
       
-      // Encrypt sensitive data (AES encryption)
-      const encryptedConnection = {
+      // Store connection without sensitive data
+      const sanitizedConnection = {
         ...connection,
         config: {
           ...connection.config,
-          host: connection.config.host ? CryptoJS.AES.encrypt(connection.config.host, ENCRYPTION_KEY).toString() : undefined,
-          database: connection.config.database ? CryptoJS.AES.encrypt(connection.config.database, ENCRYPTION_KEY).toString() : undefined,
-          username: connection.config.username ? CryptoJS.AES.encrypt(connection.config.username, ENCRYPTION_KEY).toString() : undefined,
-          password: connection.config.password ? CryptoJS.AES.encrypt(connection.config.password, ENCRYPTION_KEY).toString() : undefined
+          host: undefined,     // Don't store sensitive host data
+          database: undefined, // Don't store sensitive database name
+          username: undefined, // Don't store sensitive username
+          password: undefined  // Don't store sensitive password
         }
       }
       
       if (existingIndex >= 0) {
-        connections[existingIndex] = encryptedConnection
+        connections[existingIndex] = sanitizedConnection
       } else {
-        connections.push(encryptedConnection)
+        connections.push(sanitizedConnection)
       }
       
       localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections))
