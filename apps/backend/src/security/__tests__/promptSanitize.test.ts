@@ -277,7 +277,7 @@ describe('Prompt Injection Security Tests', () => {
     test('should detect potential data leakage patterns', () => {
       const maliciousResponses = [
         'Here is the data: password: secret123',
-        'API key: sk-1234567890abcdef',
+        'API key: test-key-1234567890abcdef',
         'Database connection string: sqlite://path/to/database.db',
         'Secret token: abc123def456'
       ];

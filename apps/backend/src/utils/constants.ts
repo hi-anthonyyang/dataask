@@ -72,9 +72,9 @@ export const LLM_MODEL_CONFIG = {
 
 // LLM API messages
 export const LLM_MESSAGES = {
-  API_KEY_NOT_CONFIGURED: 'OpenAI API key not configured or invalid. Please set a valid OPENAI_API_KEY in your environment variables.',
-  API_KEY_PLACEHOLDER: 'OpenAI API key not configured or using placeholder key',
-  API_READY: 'OpenAI API is ready',
-  CONFIGURE_API_KEY: 'Please configure a valid OPENAI_API_KEY environment variable',
-  CLIENT_NOT_INITIALIZED: 'OpenAI client not initialized',
+  API_KEY_NOT_CONFIGURED: 'API key not configured or invalid. Please set a valid API_KEY in your environment variables.',
+  API_KEY_PLACEHOLDER: 'API key not configured or using placeholder key',
+  API_READY: 'AI API is ready',
+  CONFIGURE_API_KEY: 'Please configure a valid API_KEY environment variable',
+  CLIENT_NOT_INITIALIZED: 'AI client not initialized',
 } as const;

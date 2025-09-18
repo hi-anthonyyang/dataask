@@ -41,7 +41,7 @@ fi
 # Check for required environment variables
 print_status "Checking environment configuration..."
 
-required_vars=("OPENAI_API_KEY")
+required_vars=("API_KEY")
 missing_vars=()
 
 for var in "${required_vars[@]}"; do

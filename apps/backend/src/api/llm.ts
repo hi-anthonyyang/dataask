@@ -47,7 +47,7 @@ const ensureAI = (): any => {
 const respondWithMissingApiKey = (res: Response) => {
   return res.status(500).json({ 
     error: LLM_MESSAGES.API_KEY_NOT_CONFIGURED,
-    details: 'The OPENAI_API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real OpenAI API key for AI features.'
+    details: 'The API_KEY environment variable is missing, empty, or set to a placeholder value. You need a real API key for AI features.'
   });
 };
 
@@ -580,7 +580,7 @@ router.post('/summarize', async (req, res) => {
 router.get('/health', async (req, res) => {
   try {
     const hasApiKey = !!openai;
-    const isPlaceholder = process.env.OPENAI_API_KEY === 'sk-placeholder-key-replace-with-real-key';
+    const isPlaceholder = process.env.API_KEY === 'your-api-key-here';
     
     return res.json({
       status: hasApiKey ? 'OK' : isPlaceholder ? 'Placeholder API key detected' : 'No API key configured',
